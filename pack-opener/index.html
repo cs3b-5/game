@@ -72,14 +72,23 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .card .front, .card .back { position: absolute; inset: 0; border-radius: .9em; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 1.2em 2.4em rgba(0,0,0,.5); }
 .card .back { transform: rotateY(180deg); background: radial-gradient(circle at 50% 50%, #233a6a, #0d1630 70%); border: .5em solid #0a1024; display: grid; place-items: center; }
 .card .back svg { width: 70%; }
-.card .front { display: grid; grid-template-rows: auto 1fr auto; border: .5em solid var(--rc); background: var(--rc); }
+.card .front { display: grid; grid-template-rows: auto auto 1fr; border: .5em solid var(--rc); background: var(--rc); }
 .card .head { display: flex; align-items: center; gap: .5em; padding: .35em .5em .45em; background: rgba(0,0,0,.25); }
 .card .nm { font-weight: 900; font-size: 1.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; letter-spacing: .01em; }
 .card .el { width: 1.6em; height: 1.6em; border-radius: 50%; display: grid; place-items: center; font-size: .85em; font-weight: 900; color: #fff; box-shadow: 0 0 0 .15em rgba(255,255,255,.6) inset; flex: none; }
-.card .art { position: relative; overflow: hidden; background: #000; margin: 0 .35em; border-radius: .25em; }
-.card .art svg { display: block; width: 100%; height: 100%; }
-.card .foot { display: grid; gap: .25em; padding: .5em .6em .55em; background: #f4efe2; color: #2a2620; }
-.card .txt { font-size: .82em; line-height: 1.45; min-height: 2.9em; }
+.card .art { aspect-ratio: 4 / 3; position: relative; overflow: hidden; background: #000; margin: 0 .35em; border-radius: .25em; }
+.card .art img { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s; }
+.card .art img.ok { opacity: 1; }
+.card .art::before { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, #1a1a22 30%, #2a2a36 50%, #1a1a22 70%); background-size: 300% 100%; animation: load 1.2s linear infinite; }
+@keyframes load { to { background-position: -150% 0; } }
+.card .tags { display: flex; justify-content: space-between; align-items: center; gap: .4em; font-size: .72em; font-weight: 700; color: #6a645a; }
+.card .stats { display: flex; justify-content: flex-end; gap: 1em; font-family: var(--num); font-size: 1.1em; letter-spacing: .05em; color: #4a443a; border-top: 1px solid rgba(0,0,0,.12); padding-top: .2em; }
+.card .stats b { font-weight: 400; color: #1a1610; font-size: 1.15em; }
+.card .stats.eff { font-family: var(--jp); font-size: .75em; font-weight: 700; letter-spacing: 0; justify-content: flex-start; color: #5a544a; }
+.card .ty { padding: .05em .55em; border-radius: .3em; color: #fff; background: #8a6a4a; }
+.card .ty-S { background: #2f8a7a; } .card .ty-F { background: #5a6a8a; } .card .ty-I { background: #a0682a; }
+.card .foot { display: grid; grid-template-rows: auto 1fr auto auto; gap: .35em; padding: .5em .6em .55em; background: #f4efe2; color: #2a2620; }
+.card .txt { font-size: .95em; line-height: 1.5; padding-top: .2em; border-top: 1px solid rgba(0,0,0,.12); }
 .card .meta { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--num); letter-spacing: .06em; font-size: 1.05em; color: #6a645a; }
 .card .rar { color: var(--rc); font-size: 1.25em; filter: brightness(.85); }
 .card .holo { position: absolute; inset: 0; border-radius: .9em; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0; background: linear-gradient(115deg, transparent 15%, rgba(255,80,160,.55) 30%, rgba(255,230,90,.55) 42%, rgba(90,255,180,.55) 54%, rgba(80,170,255,.55) 66%, transparent 82%); background-size: 260% 260%; background-position: var(--hx, 50%) var(--hy, 50%); transition: opacity .3s; }
@@ -171,6 +180,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 </section>
 <div class="inspect" id="inspect" hidden><div id="inspectCard"></div><div class="cap">マウスを動かすと傾く・クリックで閉じる</div></div>
 
+<script src="art.js"></script>
+<script src="cards.js"></script>
 <script>
 (() => {
 'use strict';
@@ -189,16 +200,6 @@ const ELEMENTS = [
   { id: 'dark',  nm: '闇', mark: '闇', pre: 'ヤミ', c: '#7a4aff', bg: ['#6a4aa0', '#1a1030'], body: ['#8a6ad0', '#5a4a8a', '#c07aff'] },
   { id: 'light', nm: '光', mark: '光', pre: 'キラ', c: '#ff9ad0', bg: ['#fff4fb', '#ffc6e6'], body: ['#fff', '#ffe0f0', '#ffd6a0'] },
 ];
-const ANIMALS = [
-  { id: 'neko', nm: 'ネコ', ear: 'tri', tail: 'long' },
-  { id: 'usa', nm: 'ウサギ', ear: 'long', tail: 'puff' },
-  { id: 'kuma', nm: 'クマ', ear: 'round', tail: 'puff' },
-  { id: 'kitsune', nm: 'キツネ', ear: 'big', tail: 'fluff' },
-  { id: 'fukurou', nm: 'フクロウ', ear: 'tuft', tail: 'none' },
-  { id: 'tokage', nm: 'トカゲ', ear: 'none', tail: 'long' },
-  { id: 'pen', nm: 'ペンギン', ear: 'none', tail: 'none' },
-  { id: 'hari', nm: 'ハリネズミ', ear: 'spike', tail: 'none' },
-];
 const RAR = {
   C:   { nm: 'コモン',        sell: 5,    c: '#9aa3ad' },
   U:   { nm: 'アンコモン',    sell: 10,   c: '#5fc27a' },
@@ -208,99 +209,46 @@ const RAR = {
   SEC: { nm: 'シークレット',  sell: 1200, c: '#ff4fa0' },
 };
 const RORDER = ['C', 'U', 'R', 'SR', 'UR', 'SEC'];
-const TITLES = { SR: ['烈火の', '深海の', '大樹の', '迅雷の', '影纏いの', '天光の'], UR: ['炎帝', '海王', '森主', '雷神', '冥王', '聖獣'] };
-const FLAVOR = {
-  C: ['日なたで丸くなるのが好き。', 'ごはんの時間だけは正確。', 'くしゃみをすると少し光る。', '友だちが多い。'],
-  U: ['仲間を見つけると跳ねる。', '夜になると少し強くなる。', '同じ場所を三回まわってから眠る。'],
-  R: ['見つけた人は運がいいと言われる。', '群れの見張り番をしている。'],
-  SR: ['その一声で天気が変わる。', '伝説の一歩手前にいる。'],
-  UR: ['この星の古い王。めったに姿を見せない。'],
-  SEC: ['星の始まりから生きている、名前のない存在。'],
-};
-const CARDS = [];
-(() => {
-  let no = 1, seed = 7;
-  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  ELEMENTS.forEach((el, ei) => {
-    const plan = ['C', 'C', 'C', 'C', 'U', 'U', 'U', 'R', 'R', 'SR', 'SR', 'UR'];
-    plan.forEach((r, k) => {
-      const an = ANIMALS[(ei * 3 + k) % ANIMALS.length];
-      let nm;
-      if (r === 'UR') nm = TITLES.UR[ei] + an.nm;
-      else if (r === 'SR') nm = TITLES.SR[ei] + el.pre + an.nm;
-      else nm = el.pre + an.nm + (r === 'R' ? 'ナイト' : r === 'U' ? ['ジュニア', 'マスター', 'ボス'][k % 3] : '');
-      const fl = FLAVOR[r];
-      CARDS.push({ no: no++, el: el.id, an: an.id, r, nm, txt: fl[Math.floor(rnd() * fl.length)], hue: Math.floor(rnd() * 3), seed: Math.floor(rnd() * 99999) });
-    });
-  });
-  CARDS.push({ no: no++, el: 'light', an: 'neko', r: 'SEC', nm: '星を抱く始祖ネコ', txt: FLAVOR.SEC[0], hue: 0, seed: 1 });
-  CARDS.push({ no: no++, el: 'dark', an: 'kitsune', r: 'SEC', nm: '夜を食む九尾', txt: '月が欠けるのは、この尾が触れたから。', hue: 2, seed: 2 });
-})();
+const CARDS = window.CARD_DEFS;
 const TOTAL = CARDS.length;
 const byRar = r => CARDS.filter(c => c.r === r);
 
 // =============================================================
-//  絵（SVGで描く）
+//  絵（art.js の CardArt で描いて、できたものから差しこむ）
 // =============================================================
 const EL = id => ELEMENTS.find(e => e.id === id);
-const AN = id => ANIMALS.find(a => a.id === id);
+const artQueue = [];
+let artBusy = false;
+function pumpArt() {
+  if (artBusy || !artQueue.length) return;
+  artBusy = true;
+  setTimeout(() => {
+    const no = artQueue.shift();
+    const c = CARDS[no - 1];
+    const url = CardArt.render(c);
+    document.querySelectorAll(`img.pic[data-no="${no}"]`).forEach(im => { im.src = url; im.classList.add('ok'); });
+    artBusy = false; pumpArt();
+  }, 0);
+}
+function needArt(no, urgent) {
+  const i = artQueue.indexOf(no);
+  if (i >= 0) { if (!urgent) return; artQueue.splice(i, 1); }
+  urgent ? artQueue.unshift(no) : artQueue.push(no);
+  pumpArt();
+}
 function art(c) {
-  const el = EL(c.el), an = AN(c.an), big = c.r === 'UR' || c.r === 'SEC';
-  const body = c.r === 'SEC' ? '#ffe9a8' : el.body[c.hue % el.body.length];
-  const dark = 'rgba(0,0,0,.25)';
-  const s = big ? 1.2 : c.r === 'SR' ? 1.08 : 1;
-  const id = 'a' + c.no;
-  let bg = `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.r === 'SEC' ? '#2a1640' : el.bg[0]}"/><stop offset="1" stop-color="${c.r === 'SEC' ? '#0a0418' : el.bg[1]}"/></linearGradient>
-    <radialGradient id="${id}r" cx=".5" cy=".55" r=".55"><stop offset="0" stop-color="#fff" stop-opacity="${big ? .55 : c.r === 'SR' ? .35 : .15}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
-    <rect width="200" height="150" fill="url(#${id}g)"/>`;
-  if (big || c.r === 'SR') { for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; bg += `<path d="M100 80 L${100 + Math.cos(a) * 180} ${80 + Math.sin(a) * 180} L${100 + Math.cos(a + .1) * 180} ${80 + Math.sin(a + .1) * 180}Z" fill="#fff" opacity="${big ? .12 : .07}"/>`; } }
-  bg += `<circle cx="100" cy="82" r="70" fill="url(#${id}r)"/>`;
-  // 地面
-  bg += `<ellipse cx="100" cy="138" rx="80" ry="14" fill="${dark}"/>`;
-  if (c.r === 'SEC') for (let i = 0; i < 40; i++) bg += `<circle cx="${(c.seed * 37 + i * 53) % 200}" cy="${(i * 29) % 110}" r="${(i % 3) * .5 + .6}" fill="#fff" opacity=".8"/>`;
-  if (c.r === 'R' || c.r === 'SR' || big) for (let i = 0; i < 6; i++) { const x = 20 + (i * 37 + c.seed) % 160, y = 15 + (i * 23 + c.seed) % 60; bg += `<path d="M${x} ${y - 5} L${x + 1.5} ${y - 1.5} L${x + 5} ${y} L${x + 1.5} ${y + 1.5} L${x} ${y + 5} L${x - 1.5} ${y + 1.5} L${x - 5} ${y} L${x - 1.5} ${y - 1.5}Z" fill="#fff" opacity=".85"/>`; }
-  // 体
-  let g = '';
-  const tail = { long: `<path d="M128 112 Q160 110 162 84 Q164 72 156 70" stroke="${body}" stroke-width="10" fill="none" stroke-linecap="round"/>`, puff: `<circle cx="134" cy="112" r="10" fill="${body}"/>`, fluff: `<path d="M126 114 Q170 120 168 78 Q150 92 140 96 Z" fill="${body}"/><path d="M160 84 Q166 78 168 78 Q167 88 160 92Z" fill="#fff"/>`, none: '' }[an.tail];
-  g += tail;
-  if (an.id === 'pen') g += `<ellipse cx="100" cy="104" rx="30" ry="34" fill="#2a2a3a"/><ellipse cx="100" cy="110" rx="20" ry="25" fill="${body}"/>`;
-  else if (an.id === 'tokage') g += `<ellipse cx="100" cy="110" rx="34" ry="20" fill="${body}"/>`;
-  else g += `<ellipse cx="100" cy="108" rx="30" ry="25" fill="${body}"/><ellipse cx="100" cy="114" rx="18" ry="13" fill="#fff" opacity=".45"/>`;
-  // 耳
-  const ear = {
-    tri: `<path d="M74 60 L80 38 L92 56Z" fill="${body}"/><path d="M126 60 L120 38 L108 56Z" fill="${body}"/><path d="M79 54 L81 45 L86 53Z" fill="#ffb3c6"/><path d="M121 54 L119 45 L114 53Z" fill="#ffb3c6"/>`,
-    long: `<ellipse cx="86" cy="36" rx="7" ry="22" fill="${body}" transform="rotate(-10 86 36)"/><ellipse cx="114" cy="36" rx="7" ry="22" fill="${body}" transform="rotate(10 114 36)"/><ellipse cx="86" cy="38" rx="3" ry="15" fill="#ffb3c6" transform="rotate(-10 86 38)"/><ellipse cx="114" cy="38" rx="3" ry="15" fill="#ffb3c6" transform="rotate(10 114 38)"/>`,
-    round: `<circle cx="78" cy="56" r="10" fill="${body}"/><circle cx="122" cy="56" r="10" fill="${body}"/><circle cx="78" cy="56" r="5" fill="${dark}"/><circle cx="122" cy="56" r="5" fill="${dark}"/>`,
-    big: `<path d="M70 66 L72 30 L94 58Z" fill="${body}"/><path d="M130 66 L128 30 L106 58Z" fill="${body}"/><path d="M75 58 L76 40 L87 56Z" fill="#2a2a3a" opacity=".5"/><path d="M125 58 L124 40 L113 56Z" fill="#2a2a3a" opacity=".5"/>`,
-    tuft: `<path d="M74 58 L76 42 L88 54Z" fill="${body}"/><path d="M126 58 L124 42 L112 54Z" fill="${body}"/>`,
-    spike: Array.from({ length: 9 }, (_, i) => { const a = -2.6 + i * .33; return `<path d="M${100 + Math.cos(a) * 30} ${74 + Math.sin(a) * 30} L${100 + Math.cos(a) * 46} ${74 + Math.sin(a) * 46} L${100 + Math.cos(a + .2) * 30} ${74 + Math.sin(a + .2) * 30}Z" fill="#7a5a3a"/>`; }).join(''),
-    none: '',
-  }[an.ear];
-  g += ear;
-  // 頭
-  if (an.id === 'tokage') g += `<ellipse cx="100" cy="76" rx="28" ry="20" fill="${body}"/>`;
-  else g += `<circle cx="100" cy="76" r="${an.id === 'fukurou' ? 30 : 27}" fill="${body}"/>`;
-  if (an.id === 'fukurou') g += `<circle cx="89" cy="74" r="11" fill="#fff" opacity=".7"/><circle cx="111" cy="74" r="11" fill="#fff" opacity=".7"/><path d="M96 84 L100 92 L104 84Z" fill="#e0a020"/>`;
-  if (an.id === 'pen') g += `<path d="M96 84 L104 84 L100 92Z" fill="#ffb020"/>`;
-  // 目
-  const ey = an.id === 'fukurou' ? 74 : 76, ex = an.id === 'fukurou' ? 11 : 10;
-  if (c.r === 'UR' || c.r === 'SEC') g += `<path d="M${100 - ex - 5} ${ey} q5 -6 10 0" stroke="#2a2320" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M${100 + ex - 5} ${ey} q5 -6 10 0" stroke="#2a2320" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-  else g += `<circle cx="${100 - ex}" cy="${ey}" r="4.5" fill="#2a2320"/><circle cx="${100 + ex}" cy="${ey}" r="4.5" fill="#2a2320"/><circle cx="${100 - ex + 1.5}" cy="${ey - 1.5}" r="1.5" fill="#fff"/><circle cx="${100 + ex + 1.5}" cy="${ey - 1.5}" r="1.5" fill="#fff"/>`;
-  if (an.id !== 'fukurou' && an.id !== 'pen') g += `<path d="M97 84 q3 3 6 0" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="${100 - 17}" cy="84" rx="5" ry="3" fill="#ff8aa0" opacity=".6"/><ellipse cx="${100 + 17}" cy="84" rx="5" ry="3" fill="#ff8aa0" opacity=".6"/>`;
-  // 属性の飾り
-  const acc = {
-    fire: `<path d="M100 40 Q92 30 98 18 Q102 28 108 22 Q112 34 104 42Z" fill="#ffd84a"/><path d="M100 40 Q96 34 99 27 Q102 33 105 30 Q106 37 102 42Z" fill="#ff5a2a"/>`,
-    water: `<path d="M100 22 Q92 36 100 44 Q108 36 100 22Z" fill="#9ff4ff" stroke="#fff" stroke-width="1.5"/>`,
-    leaf: `<path d="M100 48 Q100 30 116 26 Q114 44 100 48Z" fill="#4fb36a"/><path d="M100 48 L112 32" stroke="#2f7a3a" stroke-width="1.5"/>`,
-    bolt: `<path d="M104 18 L94 36 L102 36 L96 50 L110 30 L102 30 L108 18Z" fill="#fff3a0" stroke="#e0a000" stroke-width="1.5"/>`,
-    dark: `<path d="M84 54 Q80 40 70 36 Q82 36 90 50Z" fill="#3a2a5a"/><path d="M116 54 Q120 40 130 36 Q118 36 110 50Z" fill="#3a2a5a"/>`,
-    light: `<ellipse cx="100" cy="42" rx="20" ry="5" fill="none" stroke="#ffd84a" stroke-width="3"/>`,
-  }[c.el];
-  g += acc;
-  if (big) g += `<path d="M84 52 L88 40 L94 48 L100 36 L106 48 L112 40 L116 52Z" fill="#ffd84a" stroke="#b07a10" stroke-width="1.5"/><circle cx="100" cy="44" r="2.5" fill="#ff4f6a"/>`;
-  return `<svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${bg}<g transform="translate(100 140) scale(${s}) translate(-100 -140)">${g}</g></svg>`;
+  const url = CardArt.cached(c.no);
+  if (!url) needArt(c.no, false);
+  return `<img class="pic ${url ? 'ok' : ''}" data-no="${c.no}" alt="" ${url ? `src="${url}"` : ''}>`;
 }
 const BACK = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="#ffc94a" stroke-width="2"/><circle cx="50" cy="50" r="31" fill="none" stroke="#ffc94a" stroke-width="1" stroke-dasharray="2 3"/><path d="M50 18 L56 44 L82 50 L56 56 L50 82 L44 56 L18 50 L44 44Z" fill="#ffc94a"/><circle cx="50" cy="50" r="6" fill="#0d1630" stroke="#ffc94a" stroke-width="2"/></svg>`;
+const BASE = { C: 600, U: 1000, R: 1500, SR: 2100, UR: 2800, SEC: 3500 };
+const EFFECT = { S: '効果：場のモンスター全員に力をあたえる', F: '効果：同じ属性のモンスターが元気になる', I: '効果：持たせたモンスターが強くなる' };
+function stats(c) {
+  if (c.type !== 'M') return `<div class="stats eff">${EFFECT[c.type]}</div>`;
+  const b = BASE[c.r], a = b + (c.seed % 9) * 50, d = b - 200 + (Math.floor(c.seed / 9) % 9) * 50;
+  return `<div class="stats"><span>ATK <b>${a}</b></span><span>DEF <b>${d}</b></span></div>`;
+}
 function cardHTML(c, opts = {}) {
   const el = EL(c.el), r = RAR[c.r];
   const foil = ['SR', 'UR', 'SEC'].includes(c.r);
@@ -310,7 +258,7 @@ function cardHTML(c, opts = {}) {
       <div class="front" style="${c.r === 'SEC' ? 'border-image: linear-gradient(135deg,#ffe9a8,#ff9ad0,#9ff4ff) 1; background:#ffe9a8;' : ''}">
         <div class="head"><div class="nm">${esc(c.nm)}</div><div class="el" style="background:${el.c}">${el.mark}</div></div>
         <div class="art">${art(c)}</div>
-        <div class="foot"><div class="txt">${esc(c.txt)}</div><div class="meta"><span>NO.${String(c.no).padStart(3, '0')}/${TOTAL}</span><span class="rar" style="color:${r.c}">${c.r}</span></div></div>
+        <div class="foot"><div class="tags"><span class="ty ty-${c.type}">${c.typeNm}</span><span class="st">画風：${CardArt.STYLE_NAMES[c.style]}</span></div><div class="txt">${esc(c.txt)}</div>${stats(c)}<div class="meta"><span>NO.${String(c.no).padStart(3, '0')}/${TOTAL}</span><span class="rar" style="color:${r.c}">${c.r}</span></div></div>
         <div class="holo"></div><div class="glare"></div>
       </div>
       <div class="back">${BACK}</div>
