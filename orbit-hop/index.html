@@ -139,6 +139,23 @@ button:hover { box-shadow: 0 0 24px -4px var(--flare); }
 button:active { transform: scale(.96); }
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .hint { font-size: .8rem; color: var(--muted); }
+
+
+/* 横向きの小さい画面 */
+@media (max-height: 520px) {
+  .overlay { align-items: center; }
+  .card { gap: 8px !important; }
+  h1 { font-size: 2.2rem !important; line-height: 1 !important; }
+  h1 br { display: none; }
+  .rules { gap: 4px !important; font-size: .8rem !important; }
+  .eyebrow { font-size: .7rem !important; }
+  .big { font-size: 3rem !important; }
+  button { padding-block: 10px !important; }
+}
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -367,6 +384,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
     $('bestHud').textContent = `BEST ${best}`;
   }
 
+  window.__dbg = { get state() { return state; }, get score() { return score; }, aim() { if (!player || !player.planet) return 1e9; const vx = -Math.sin(player.angle) * player.dir, vy = Math.cos(player.angle) * player.dir; let best = 1e9; for (const q of planets) { if (q === player.planet || q.dead || q.y > player.y) continue; const dx = q.x - player.x, dy = q.y - player.y, t = dx * vx + dy * vy; if (t <= 0) continue; const miss = Math.abs(dx * vy - dy * vx); best = Math.min(best, miss - q.ring * .7); } return best; } };
   function startGame() {
     reset();
     state = 'play';

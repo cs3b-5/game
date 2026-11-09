@@ -138,6 +138,64 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .coins { font-family: var(--num); color: #b8860b; font-size: 1.6rem; letter-spacing: .04em; }
 .small { font-size: .8rem; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .ad, .ad.shake, .float { animation: none; } }
+
+
+/* ---------- スマホ ---------- */
+@media (max-width: 760px), (max-height: 560px) {
+  .win { inset: 0; border-radius: 0; padding-top: env(safe-area-inset-top, 0px); grid-template-rows: auto 1fr; }
+  .tabs { display: none; }
+  .bar { flex-wrap: wrap; gap: 6px 10px; padding: 6px 10px; }
+  .url { flex: 1 1 100%; padding: 4px 12px; font-size: .75rem; }
+  .hud { width: 100%; gap: 10px; }
+  .hud .score { font-size: 1.4rem; }
+  .hud .combo { min-width: 4.5em; font-size: .85rem; }
+  .hud .time { font-size: 1.1rem; }
+  .meter { margin-left: auto; font-size: .7rem; gap: 5px; }
+  .meter > span:first-child { display: none; }
+  .meter .track { width: 70px; }
+  .article { padding: 18px 14px; gap: 10px; }
+  .article h1 { font-size: 1.3rem; }
+  .catpic { height: 140px; }
+  .ad .sub { font-size: .68rem; }
+  .ad .cta { padding: 5px 12px; font-size: .78rem; }
+  .ad .in { padding: 10px !important; gap: 4px !important; }
+  .x { width: 30px; height: 30px; font-size: 18px; }
+  .x.tiny { width: 16px; height: 16px; font-size: 11px; }
+  .x::after { inset: calc(-6px - var(--pad)); }
+  .over { padding: 10px; padding-top: max(10px, env(safe-area-inset-top, 0px)); padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+  .card { padding: 18px; gap: 12px; }
+  .card h1 { font-size: 2.3rem; }
+  .rules { font-size: .82rem; gap: 4px 10px; }
+  .big-btn { font-size: 1rem; padding: 12px 22px; }
+  .stat b { font-size: 1.35rem; }
+  .stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .stat { padding: 6px 8px; }
+  .stat span { font-size: .66rem; }
+  .card h2 { font-size: 1.3rem; }
+  .up { padding: 9px 10px; gap: 2px 10px; }
+  .card > .btns:last-of-type { position: sticky; bottom: -18px; background: #fffdf8; padding: 8px 0; }
+  .up button { min-width: 78px; font-size: 1.1rem; padding: 8px 10px; }
+}
+@media (max-width: 760px) and (orientation: landscape), (max-height: 560px) {
+  .bar { flex-wrap: nowrap; }
+  .url { flex: 1 1 0; }
+  .hud { width: auto; }
+}
+
+/* 横向きの小さい画面 */
+@media (max-height: 520px) {
+  .card { padding: 12px 18px; gap: 7px; }
+  .card h1 { font-size: 1.9rem; }
+  .card h1 br { display: none; }
+  .card .en { font-size: .85rem; margin-top: -2px; }
+  .card p { font-size: .8rem; line-height: 1.5; margin: 0; }
+  .rules { grid-template-columns: auto 1fr auto 1fr; font-size: .72rem; gap: 2px 8px; }
+  .big-btn { padding: 9px 20px; font-size: .95rem; }
+}
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -181,7 +239,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       <b>コイン</b><span>終わったあと、ショップで強化を買える</span>
     </div>
     <div class="btns"><button class="big-btn" id="startBtn">はじめる</button><button class="big-btn alt" id="shopBtn1">ショップ</button><span class="coins" id="tCoins"></span></div>
-    <div class="small">PCのマウス操作向け。ウザい広告は時間とともに種類が増える。</div>
+    <div class="small" id="devNote">PCでもスマホでも遊べる。ウザい広告は時間とともに種類が増える。</div>
   </div>
 </div>
 
@@ -298,6 +356,7 @@ const TYPES = [
 // =============================================================
 //  ゲームの状態
 // =============================================================
+const TOUCH = matchMedia('(pointer: coarse)').matches;
 let G = null;
 const ads = new Map();
 let nextId = 1;
@@ -328,10 +387,11 @@ function spawnAd(forceType, near) {
   const R = pageRect();
   const [kick, hl, sub] = pick(COPY), skin = pick(SKINS);
   let w, h;
+  const k = Math.max(.5, Math.min(1, R.width / 820, R.height / 560));
   if (T.id === 'giant') { w = R.width * rand(.72, .9); h = R.height * rand(.7, .88); }
-  else if (T.id === 'cookie') { w = R.width; h = 96; }
-  else if (T.id === 'video') { w = rand(300, 380); h = w * .62 + 30; }
-  else { const shape = pick(['sq', 'wide', 'tall', 'sq']); w = shape === 'wide' ? rand(320, 460) : shape === 'tall' ? rand(170, 220) : rand(220, 300); h = shape === 'wide' ? rand(110, 150) : shape === 'tall' ? rand(280, 360) : rand(180, 250); }
+  else if (T.id === 'cookie') { w = R.width; h = R.width < 520 ? 132 : 96; }
+  else if (T.id === 'video') { w = rand(300, 380) * k; h = w * .62 + 30; }
+  else { const shape = pick(['sq', 'wide', 'tall', 'sq']); w = (shape === 'wide' ? rand(320, 460) : shape === 'tall' ? rand(170, 220) : rand(220, 300)) * k; h = (shape === 'wide' ? rand(110, 150) : shape === 'tall' ? rand(280, 360) : rand(180, 250)) * k; if (T.id === 'tiny' || T.id === 'fake' || T.id === 'flee' || T.id === 'confirm') { w = Math.max(w, 170); h = Math.max(h, 110); } }
   w = Math.min(w, R.width - 10); h = Math.min(h, R.height - 10);
   let x = rand(5, R.width - w - 5), y = rand(5, R.height - h - 5);
   if (T.id === 'cookie') { x = 0; y = R.height - h; }
@@ -339,8 +399,8 @@ function spawnAd(forceType, near) {
   const el = document.createElement('div');
   el.className = 'ad' + (T.id === 'cookie' ? ' cookie' : '') + (T.id === 'video' ? ' video' : '') + (T.id === 'shake' && !reduce ? ' shake' : '');
   Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', background: T.id === 'cookie' ? '#fff' : T.id === 'video' ? '#000' : skin.bg, color: T.id === 'cookie' ? '#23212b' : skin.fg, zIndex: nextId });
-  const fs = Math.max(14, Math.min(34, Math.min(w, h * 1.4) / 9));
-  const body = `<div class="in"><div class="sub" style="font-weight:800">${esc(kick)}</div><div class="hl" style="font-size:${fs}px">${esc(hl)}</div><div class="sub">${esc(sub)}</div>${h > 150 ? `<div class="cta" style="background:${skin.cta[0]};color:${skin.cta[1]}">${pick(CTAS)}</div>` : ''}</div><div class="tag">広告</div>`;
+  const fs = Math.max(k < 1 ? 12 : 14, Math.min(34, Math.min(w, h * 1.4) / 9));
+  const body = `<div class="in"><div class="sub" style="font-weight:800">${esc(kick)}</div><div class="hl" style="font-size:${fs}px">${esc(hl)}</div><div class="sub">${esc(sub)}</div>${h > 150 * k ? `<div class="cta" style="background:${skin.cta[0]};color:${skin.cta[1]}">${pick(CTAS)}</div>` : ''}</div><div class="tag">広告</div>`;
   const id = nextId++;
   const ad = { id, el, type: T.id, pts: T.pts, x, y, w, h, born: G.t, dodges: 0 };
   if (T.id === 'cookie') {
@@ -383,7 +443,7 @@ function spawnAd(forceType, near) {
       ad.countEl = c; ad.xAt = G.t + 3;
       break;
     }
-    case 'flee': ad.fleeX = addX('real', 'close', { right: '6px', top: '6px' }); ad.fx = w - 32; ad.fy = 6; break;
+    case 'flee': ad.fleeX = addX('real', 'close', { right: '6px', top: '6px' }); ad.fx = w - (TOUCH ? 36 : 32); ad.fy = 6; break;
     case 'confirm': addX('real', 'ask', corners[0]); break;
   }
   layer.appendChild(el);
@@ -445,6 +505,7 @@ layer.addEventListener('pointerdown', e => {
   e.preventDefault();
   const btn = e.target.closest('[data-role]');
   const role = btn ? btn.dataset.role : null;
+  if (role === 'close' && ad.fleeX && e.pointerType !== 'mouse' && ad.dodges < 2) { fleeFrom(ad, e.clientX, e.clientY); floatAbs({ x: e.clientX, y: e.clientY }, ad, 'にげた！', 'bad'); beep(500, .05, 'triangle', .03); return; }
   if (role === 'close') { closeAd(ad, 'player', e); return; }
   if (role === 'fake') { G.fakes++; misclick(ad, e, '偽物！'); return; }
   if (role === 'ask') { openConfirm(ad); return; }
@@ -475,21 +536,25 @@ page.addEventListener('pointermove', e => {
     if (!ad.fleeX || ad.dodges >= 4) continue;
     const cx = R.left + ad.x + ad.fx + 13, cy = R.top + ad.y + ad.fy + 13;
     const d = Math.hypot(e.clientX - cx, e.clientY - cy);
-    if (d < 46) {
-      ad.dodges++;
-      let nx, ny, tries = 0;
-      do { nx = rand(6, ad.w - 32); ny = rand(6, ad.h - 32); tries++; } while (Math.hypot(R.left + ad.x + nx + 13 - e.clientX, R.top + ad.y + ny + 13 - e.clientY) < 90 && tries < 20);
-      ad.fx = nx; ad.fy = ny;
-      Object.assign(ad.fleeX.style, { left: nx + 'px', top: ny + 'px', right: 'auto', bottom: 'auto' });
-      if (ad.dodges >= 4) ad.fleeX.style.background = 'rgba(0,0,0,.8)';
-    }
+    if (d < 46) fleeFrom(ad, e.clientX, e.clientY);
   }
 });
+function fleeFrom(ad, px, py) {
+  const R = pageRect();
+  ad.dodges++;
+  let nx, ny, tries = 0;
+  do { nx = rand(6, ad.w - 36); ny = rand(6, ad.h - 36); tries++; } while (Math.hypot(R.left + ad.x + nx + 15 - px, R.top + ad.y + ny + 15 - py) < 90 && tries < 20);
+  ad.fx = nx; ad.fy = ny;
+  Object.assign(ad.fleeX.style, { left: nx + 'px', top: ny + 'px', right: 'auto', bottom: 'auto' });
+  if (ad.dodges >= (TOUCH ? 2 : 4)) ad.fleeX.style.background = 'rgba(0,0,0,.8)';
+}
 
 // =============================================================
 //  ループ
 // =============================================================
 const fmtT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+// テスト用の窓口
+window.__dbg = { get G() { return G; }, ads, coverage: () => coverage() };
 function coverage() {
   const R = pageRect();
   let s = 0;

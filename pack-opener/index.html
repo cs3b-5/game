@@ -47,7 +47,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .pack { position: relative; width: 240px; height: 350px; transform-style: preserve-3d; animation: packIn .45s cubic-bezier(.2,1.4,.4,1); }
 @keyframes packIn { from { transform: translateY(80px) rotate(-6deg) scale(.8); opacity: 0; } }
 .pack .body { position: absolute; inset: 44px 0 0; border-radius: 0 0 14px 14px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.55); }
-.pack .strip { position: absolute; left: 0; right: 0; top: 0; height: 46px; border-radius: 14px 14px 0 0; cursor: grab; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.pack .strip { touch-action: none; position: absolute; left: 0; right: 0; top: 0; height: 46px; border-radius: 14px 14px 0 0; cursor: grab; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 .pack .strip:active { cursor: grabbing; }
 .pack .crimp { position: absolute; left: 0; right: 0; top: 0; height: 12px; background: repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 3px, transparent 3px 6px); }
 .pack .tearline { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.6) 0 6px, transparent 6px 11px); }
@@ -131,8 +131,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .result { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -62%); z-index: 6; display: grid; gap: 14px; justify-items: center; text-align: center; }
 .result h2 { margin: 0; font-weight: 900; font-size: 1.8rem; }
 .result .gain { font-family: var(--num); font-size: 1.6rem; letter-spacing: .05em; color: var(--gold); }
-.bigbtn { padding: 12px 28px; border: 0; border-radius: 999px; background: var(--gold); color: #1a1408; font-weight: 900; font-size: 1.05rem; cursor: pointer; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
-.ghost { padding: 10px 20px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 700; cursor: pointer; }
+.bigbtn { white-space: nowrap; padding: 12px 28px; border: 0; border-radius: 999px; background: var(--gold); color: #1a1408; font-weight: 900; font-size: 1.05rem; cursor: pointer; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
+.ghost { white-space: nowrap; padding: 10px 20px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 700; cursor: pointer; }
 
 /* ---------- 図鑑・詳しく見る ---------- */
 .over { position: fixed; inset: 0; z-index: 20; background: rgba(5,10,9,.86); backdrop-filter: blur(4px); display: grid; grid-template-rows: auto 1fr; }
@@ -147,11 +147,54 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .slot.empty { border-radius: 10px; border: 2px dashed rgba(255,255,255,.14); display: grid; place-items: center; color: rgba(255,255,255,.25); font-family: var(--num); font-size: 1.4rem; letter-spacing: .06em; }
 .slot .cnt { position: absolute; right: -6px; bottom: -6px; z-index: 3; font-family: var(--num); font-size: 1rem; background: #000; border: 1px solid var(--line); padding: 0 6px; border-radius: 6px; }
 .inspect { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0,0,0,.7); perspective: 1200px; }
-.inspect .card { --w: min(380px, 70vh / 1.4); }
+.inspect { touch-action: none; }
+.inspect .card { --w: min(380px, 70vh / 1.4, 86vw); }
 .inspect .cap { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .9rem; }
 .toast { position: fixed; left: 50%; top: 76px; transform: translateX(-50%); z-index: 50; background: #000; border: 1px solid var(--line); padding: 10px 18px; border-radius: 10px; font-weight: 700; animation: toast 2.6s ease forwards; }
 @keyframes toast { 0% { opacity: 0; transform: translate(-50%, -8px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .pack, .row .card, .rlabel, .flash.go, .card .inner, .shine { animation: none !important; transition: none !important; } }
+
+
+/* ---------- スマホ ---------- */
+.stage > .pack, .stage > .deck { scale: var(--ps, 1); }
+body.mob .top { padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px; gap: 8px; }
+body.mob .logo { font-size: 1.05rem; white-space: nowrap; }
+body.mob .logo small { display: none; }
+body.mob .comp { font-size: 1rem; white-space: nowrap; }
+body.mob .coins { font-size: 1.35rem; gap: 5px; }
+body.mob .coin { width: 15px; height: 15px; }
+body.mob .tbtn { padding: 7px 11px; font-size: .85rem; white-space: nowrap; }
+body.mob .stage { inset: var(--topH) 0 var(--stageB); }
+body.mob .hint { font-size: .8rem; padding: 0 12px; }
+body.mob .row { bottom: var(--rowB); gap: 8px; }
+body.mob .row .card { --w: var(--rowW); }
+body.mob .row .card .new { font-size: 1.6em; }
+body.mob .shop { height: var(--shopH); justify-content: flex-start; overflow-x: auto; overflow-y: hidden; gap: 10px; padding: 0 12px calc(env(safe-area-inset-bottom, 0px)); scroll-snap-type: x mandatory; scrollbar-width: none; background: rgba(0,0,0,.35); }
+body.mob .shop::-webkit-scrollbar { display: none; }
+body.mob .buy { min-width: 158px; padding: 8px 12px 8px 8px; grid-template-columns: 38px auto; gap: 1px 9px; scroll-snap-align: start; flex: none; }
+body.mob .buy .mini { width: 38px; height: 54px; }
+body.mob .buy b { font-size: .9rem; white-space: nowrap; }
+body.mob .buy span { font-size: 1.15rem; }
+body.mob .buy small { font-size: .65rem; }
+body.mob.busy .shop { display: none; }
+body.mob .result { top: var(--resY); transform: translate(-50%, -50%); gap: 8px; width: calc(100vw - 24px); }
+body.mob .result h2 { font-size: 1.25rem; }
+body.mob .result .gain { font-size: 1.2rem; }
+body.mob .result > div:last-child { flex-wrap: wrap; justify-content: center; }
+body.mob .bigbtn { padding: 10px 18px; font-size: .9rem; }
+body.mob .ghost { padding: 9px 16px; font-size: .9rem; }
+body.mob .rlabel { font-size: 2.4rem; }
+body.mob .over .bar { padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; gap: 8px; }
+body.mob .over h2 { font-size: 1.2rem; }
+body.mob .filters button { padding: 6px 10px; }
+body.mob .binder { grid-template-columns: repeat(auto-fill, 100px); gap: 14px 10px; padding: 6px 10px calc(30px + env(safe-area-inset-bottom, 0px)); }
+body.mob .slot { width: 100px; height: 140px; }
+body.mob .slot .card { --w: 100px; }
+body.mob .toast { top: 60px; max-width: calc(100vw - 24px); text-align: center; }
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -348,6 +391,31 @@ function stepFx() {
 }
 requestAnimationFrame(stepFx);
 
+
+// =============================================================
+//  画面の大きさに合わせる（スマホ）
+// =============================================================
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+const T = (pc, sp) => TOUCH ? sp : pc;
+function layout() {
+  const W = innerWidth, H = innerHeight, mob = W < 760 || H < 600;
+  document.body.classList.toggle('mob', mob);
+  const busy = state !== 'idle';
+  document.body.classList.toggle('busy', busy);
+  const st = document.documentElement.style;
+  if (!mob) { $('stage').style.removeProperty('--ps'); return; }
+  const topH = 50, shopH = busy ? 0 : 92;
+  const avail = H - topH - shopH;
+  const rowW = Math.max(52, Math.min(104, Math.floor((W - 24 - 4 * 8) / 5), Math.floor(avail * .3 / 1.4)));
+  const rowH = (state === 'deck' || state === 'done' || state === 'tearing') ? rowW * 1.4 + 14 : 0;
+  const stageH = avail - rowH;
+  st.setProperty('--topH', topH + 'px'); st.setProperty('--shopH', shopH + 'px');
+  st.setProperty('--rowW', rowW + 'px'); st.setProperty('--rowB', (shopH + 6) + 'px');
+  st.setProperty('--stageB', (shopH + rowH) + 'px');
+  st.setProperty('--resY', (topH + stageH / 2) + 'px');
+  $('stage').style.setProperty('--ps', Math.min(1, (stageH - 34) / 356, (W - 24) / 250).toFixed(3));
+}
+addEventListener('resize', layout);
 // =============================================================
 //  ショップ
 // =============================================================
@@ -357,7 +425,7 @@ function packFace(p, big) {
     <div class="ttl">けものの星</div><div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
 }
 function renderShop() {
-  tickFree();
+  tickFree(); layout();
   const busy = state !== 'idle' && state !== 'done';
   let h = '';
   if (S.free > 0) h += `<button class="buy" data-pack="normal" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${PACKS[0].colors[0]},${PACKS[0].colors[1]})"></div><b>無料パック ×${S.free}</b><span class="free">FREE<small>スタンダード1パック</small></span></button>`;
@@ -391,7 +459,7 @@ function showPack(p) {
   el.innerHTML = `<div class="body" style="background:${bg}">${packFace(p)}</div><div class="strip" id="strip" style="background:${bg}"><div class="crimp"></div><div class="tearline"></div><div class="rip" id="rip"></div></div>`;
   $('stage').prepend(el);
   current = el;
-  hint('<b>上のギザギザを左から右へドラッグ</b>して封を破る');
+  hint(T('<b>上のギザギザを左から右へドラッグ</b>して封を破る', '<b>上のギザギザを指で左から右へなぞって</b>封を破る'));
   tone(300, .12, 'sine', .04, 200);
   // 封を破るドラッグ
   const strip = el.querySelector('.strip'), rip = el.querySelector('.rip');
@@ -418,7 +486,7 @@ function showPack(p) {
 }
 function tear() {
   if (state !== 'pack') return;
-  state = 'tearing';
+  state = 'tearing'; layout();
   const el = current, r = el.getBoundingClientRect();
   el.querySelector('.strip').classList.add('off');
   el.querySelector('.body').classList.add('off');
@@ -443,8 +511,9 @@ function showDeck() {
     deck.appendChild(card);
   });
   $('stage').prepend(deck);
+  layout();
   armTop(deck);
-  hint('<b>クリック</b>でめくる（スペースキーでも可）');
+  hint(T('<b>クリック</b>でめくる（スペースキーでも可）', '<b>タップ</b>でめくる'));
   deck.addEventListener('click', () => flipNext(deck));
   deck.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flipNext(deck); } });
   deck.focus({ preventScroll: true });
@@ -513,7 +582,7 @@ function finishPack(deck) {
     $('againBtn').disabled = lastPack.price > S.coins;
     $('againBtn').textContent = `${lastPack.nm}をもう1つ（${lastPack.price.toLocaleString('ja-JP')}）`;
     $('result').hidden = false;
-    hint('下のカードをクリックすると大きく見られる');
+    hint(T('下のカードをクリックすると大きく見られる', '下のカードをタップすると大きく見られる'));
     msgs.forEach((m, i) => setTimeout(() => toast(m), 400 + i * 2700));
     if (ownedKinds() === TOTAL && !S.bonus.all) { S.bonus.all = 1; save(); setTimeout(() => toast('全74種コンプリート！ おめでとう！'), 600); sparkle(innerWidth / 2, innerHeight / 3, ['#ffc94a', '#ff4fa0', '#4aa3ff', '#fff'], 200, 14); }
     hud(); renderShop();
@@ -577,6 +646,7 @@ function hud() {
 }
 hud(); renderShop();
 hint(S.opened ? '下からパックを選ぶ' : 'まずは<b>無料パック</b>を開けてみよう');
+if (TOUCH) document.querySelector('#inspect .cap').textContent = '指でなぞると傾く・タップで閉じる';
 setInterval(() => { if (state === 'idle' || state === 'done') renderShop(); }, 1000);
 addEventListener('pagehide', save);
 })();

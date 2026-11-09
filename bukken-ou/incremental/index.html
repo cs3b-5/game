@@ -103,6 +103,14 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 .modal h3 { margin: 0; font-weight: 400; font-size: 1.7rem; color: var(--gold); }
 @media (max-width: 520px) { .money { font-size: 1.35rem; } .dock button { width: 62px; } .tier { grid-template-columns: 40px 1fr; } .tier .btns { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { .float, .sheet { animation: none; } .goal .bar i { transition: none; } }
+
+
+/* 閉じるボタンと中身が重ならないように */
+@media (max-width: 720px) { .sheet-in { padding-top: 40px; } }
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>

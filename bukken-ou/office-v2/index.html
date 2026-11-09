@@ -159,6 +159,14 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
   .dock button { width: 62px; }
 }
 @media (prefers-reduced-motion: reduce) { .float, .sheet { animation: none; } .goal .bar i { transition: none; } }
+
+
+/* 閉じるボタンと中身が重ならないように */
+@media (max-width: 720px) { .sheet-in { padding-top: 40px; } }
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>

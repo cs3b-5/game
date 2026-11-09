@@ -83,6 +83,23 @@ body { margin: 0; background: #0b0907; color: var(--ink); font-family: var(--pix
 .fade div { font-size: 2.2rem; color: var(--gold); text-align: center; line-height: 1.5; }
 @media (max-width: 560px) { .money { font-size: 1.5rem; } .item { grid-template-columns: 44px 1fr; } .item .buy { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .float { animation-duration: .01s; } .fade { transition: none; } }
+
+
+@media (pointer: coarse) { kbd { display: none; } }
+
+.keys .sp { display: none; }
+@media (pointer: coarse) { .keys .pc { display: none; } .keys .sp { display: block; } }
+@media (max-height: 520px) {
+  .panel { padding: 12px 16px; gap: 8px; }
+  .title h1 { font-size: 2rem; }
+  .title p { line-height: 1.5; font-size: .9rem; }
+  .keys { font-size: .85rem; gap: 2px 12px !important; }
+  #startBtn { padding: 8px 22px !important; }
+}
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -106,11 +123,13 @@ body { margin: 0; background: #0b0907; color: var(--ink); font-family: var(--pix
     <h1>コア・ディガー</h1>
     <p>地下の洞窟でつるはしを振るい、稼いだお金で道具とドローンを強化する。もっと深く掘り進んで、地球の中心のコアを目指そう。</p>
     <div class="keys">
-      <b>WASD</b><span>歩く</span>
-      <b>マウス</b><span>見回す</span>
-      <b>長押し</b><span>掘る（左クリック）</span>
-      <b>E</b><span>ショップ</span>
-      <b>スマホ</b><span>左下で歩く・右側をなぞって見回す・「掘る」を長押し</span>
+      <b class="pc">WASD</b><span class="pc">歩く</span>
+      <b class="pc">マウス</b><span class="pc">見回す</span>
+      <b class="pc">長押し</b><span class="pc">掘る（左クリック）</span>
+      <b class="pc">E</b><span class="pc">ショップ</span>
+      <b class="sp">左下</b><span class="sp">指で動かして歩く</span>
+      <b class="sp">右側</b><span class="sp">指でなぞって見回す</span>
+      <b class="sp">掘る</b><span class="sp">ボタンを長押しで掘る</span>
     </div>
     <button class="buy" id="startBtn" style="justify-self:start;font-size:1.2rem;padding:12px 28px">はじめる</button>
     <div class="small" id="saveNote"></div>
@@ -217,6 +236,8 @@ function load() {
 }
 function save() { if (!S) return; S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 function earn(v) { S.money += v; S.total += v; }
+// テスト用の窓口
+window.__dbg = { get S() { return S; }, get look() { return [yaw, pitch, pos.x, pos.z]; }, get aim() { return [aim, mining]; } };
 
 // =============================================================
 //  音
@@ -244,7 +265,7 @@ function noise(d = .06, v = .08, f = 1800) {
 // =============================================================
 const $ = id => document.getElementById(id);
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, matchMedia('(pointer: coarse)').matches ? 1.5 : 2)); // スマホは軽くする
 $('view').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 80);
@@ -614,6 +635,9 @@ view.addEventListener('touchend', endTouch); view.addEventListener('touchcancel'
 const mineBtn = $('mineBtn');
 mineBtn.addEventListener('touchstart', e => { e.preventDefault(); audio(); mining = true; mineBtn.classList.add('on'); }, { passive: false });
 mineBtn.addEventListener('touchend', e => { e.preventDefault(); mining = false; mineBtn.classList.remove('on'); }, { passive: false });
+mineBtn.addEventListener('touchcancel', () => { mining = false; mineBtn.classList.remove('on'); });
+addEventListener('blur', () => { mining = false; joyX = joyY = 0; mineBtn.classList.remove('on'); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { mining = false; joyX = joyY = 0; mineBtn.classList.remove('on'); } });
 mineBtn.addEventListener('mousedown', () => { mining = true; });
 
 // =============================================================

@@ -22,6 +22,21 @@ a.app::after { content: attr(data-name); position: absolute; left: 50%; top: cal
 a.app::before { content: ""; position: absolute; left: 50%; top: calc(100% + 4px); transform: translate(-50%, -4px); border: 6px solid transparent; border-bottom-color: var(--tip); opacity: 0; transition: opacity .15s, transform .15s; z-index: 5; }
 a.app:hover::after, a.app:focus-visible::after, a.app:hover::before, a.app:focus-visible::before { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { a.app, a.app::after, a.app::before { transition: none; } }
+
+
+/* スマホ：アイコンを小さく、名前は常に下に出す */
+@media (hover: none), (max-width: 520px) {
+  main { padding: calc(32px + env(safe-area-inset-top, 0px)) 14px 60px; gap: 28px; }
+  .grid { grid-template-columns: repeat(auto-fill, 84px); gap: 40px 22px; }
+  a.app, a.app svg { width: 84px; height: 84px; border-radius: 20px; }
+  a.app::before { display: none; }
+  a.app::after { opacity: 1; transform: translate(-50%, 0); top: calc(100% + 6px); background: none; color: var(--ink, #fff); font-size: .72rem; font-weight: 700; padding: 0; white-space: normal; width: 104px; text-align: center; line-height: 1.3; }
+  a.app:hover, a.app:focus-visible { transform: none; }
+}
+/* スマホ共通 */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
