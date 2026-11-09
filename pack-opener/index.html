@@ -237,10 +237,11 @@ function needArt(no, urgent) {
   pumpArt();
 }
 function art(c) {
-  const url = CardArt.cached(c.no);
-  if (!url) needArt(c.no, false);
-  return `<img class="pic ${url ? 'ok' : ''}" data-no="${c.no}" alt="" ${url ? `src="${url}"` : ''}>`;
+  // Stable Diffusionで描いた絵（images/NNN.jpg）を使う。読めなかったらプログラムの絵に切り替える
+  const n = String(c.no).padStart(3, '0');
+  return `<img class="pic" data-no="${c.no}" alt="" src="images/${n}.jpg" onload="this.classList.add('ok')" onerror="window.__artFallback(this)">`;
 }
+window.__artFallback = im => { im.onerror = null; const no = +im.dataset.no; const url = CardArt.cached(no); if (url) { im.src = url; im.classList.add('ok'); } else needArt(no, true); };
 const BACK = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="#ffc94a" stroke-width="2"/><circle cx="50" cy="50" r="31" fill="none" stroke="#ffc94a" stroke-width="1" stroke-dasharray="2 3"/><path d="M50 18 L56 44 L82 50 L56 56 L50 82 L44 56 L18 50 L44 44Z" fill="#ffc94a"/><circle cx="50" cy="50" r="6" fill="#0d1630" stroke="#ffc94a" stroke-width="2"/></svg>`;
 const BASE = { C: 600, U: 1000, R: 1500, SR: 2100, UR: 2800, SEC: 3500 };
 const EFFECT = { S: '効果：場のモンスター全員に力をあたえる', F: '効果：同じ属性のモンスターが元気になる', I: '効果：持たせたモンスターが強くなる' };
