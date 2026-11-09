@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>開封の儀</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Bebas+Neue&display=swap">
+<style>
+/* Layout: a dark card table. HUD on top, the pack (then the card stack) centered, revealed cards line up underneath, pack shop along the bottom. Binder and card inspect are full-screen overlays. */
+:root {
+  --felt: #12201c;
+  --felt-2: #1b2e28;
+  --ink: #f2efe8;
+  --muted: #9aa8a2;
+  --gold: #ffc94a;
+  --line: rgba(255,255,255,.12);
+  --jp: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --num: "Bebas Neue", "Noto Sans JP", sans-serif;
+  --C: #9aa3ad; --U: #5fc27a; --R: #4aa3ff; --SR: #c77dff; --UR: #ffb020; --SEC: #ff4fa0;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; color: var(--ink); font-family: var(--jp); background: radial-gradient(1200px 700px at 50% 35%, var(--felt-2), var(--felt) 70%); background-color: var(--felt); overflow: hidden; user-select: none; -webkit-user-select: none; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- HUD ---------- */
+.top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 18px; padding: 14px 22px; z-index: 5; }
+.logo { font-family: var(--jp); font-weight: 900; font-size: 1.35rem; letter-spacing: .04em; }
+.logo small { font-family: var(--num); font-weight: 400; color: var(--muted); letter-spacing: .3em; font-size: .9rem; margin-left: 10px; }
+.sp { flex: 1; }
+.coins { font-family: var(--num); font-size: 1.9rem; letter-spacing: .04em; color: var(--gold); display: flex; align-items: center; gap: 8px; }
+.coin { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff2b0, #ffc94a 45%, #b07a10); box-shadow: 0 0 0 2px #7a5208 inset; }
+.comp { font-family: var(--num); font-size: 1.3rem; letter-spacing: .05em; color: var(--muted); }
+.tbtn { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 700; cursor: pointer; }
+.tbtn:hover { background: rgba(255,255,255,.12); }
+
+/* ---------- 台 ---------- */
+.stage { position: fixed; inset: 70px 0 150px; display: grid; place-items: center; perspective: 1400px; }
+.hint { position: absolute; top: 0; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .95rem; pointer-events: none; }
+.hint b { color: var(--ink); }
+
+/* ---------- パック ---------- */
+.pack { position: relative; width: 240px; height: 350px; transform-style: preserve-3d; animation: packIn .45s cubic-bezier(.2,1.4,.4,1); }
+@keyframes packIn { from { transform: translateY(80px) rotate(-6deg) scale(.8); opacity: 0; } }
+.pack .body { position: absolute; inset: 44px 0 0; border-radius: 0 0 14px 14px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.55); }
+.pack .strip { position: absolute; left: 0; right: 0; top: 0; height: 46px; border-radius: 14px 14px 0 0; cursor: grab; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.pack .strip:active { cursor: grabbing; }
+.pack .crimp { position: absolute; left: 0; right: 0; top: 0; height: 12px; background: repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 3px, transparent 3px 6px); }
+.pack .tearline { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.6) 0 6px, transparent 6px 11px); }
+.pack .rip { position: absolute; left: 0; bottom: -1px; height: 5px; width: 0; background: #fff; box-shadow: 0 0 12px #fff, 0 0 26px var(--gold); }
+.pack .shine { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,.35) 45%, transparent 60%); mix-blend-mode: overlay; background-size: 250% 100%; animation: sheen 3.2s linear infinite; }
+@keyframes sheen { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+.pack .face { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; padding: 20px; }
+.pack .set { font-family: var(--num); font-size: 1rem; letter-spacing: .35em; opacity: .85; }
+.pack .ttl { font-weight: 900; font-size: 1.9rem; line-height: 1.1; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
+.pack .kind { font-family: var(--num); font-size: 1.5rem; letter-spacing: .12em; padding: 2px 14px; border: 2px solid currentColor; border-radius: 6px; }
+.pack .emb { width: 110px; height: 110px; }
+.pack.tearing .strip { animation: none; }
+.pack .strip.off { animation: stripOff .6s ease-in forwards; }
+@keyframes stripOff { to { transform: translate(140px, -160px) rotate(38deg); opacity: 0; } }
+.pack .body.off { animation: bodyOff .5s .15s ease-in forwards; }
+@keyframes bodyOff { to { transform: translateY(260px) rotate(4deg); opacity: 0; } }
+
+/* ---------- カード ---------- */
+.card { --w: 240px; position: relative; width: var(--w); height: calc(var(--w) * 1.4); font-size: calc(var(--w) / 24); transform-style: preserve-3d; }
+.card .inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.3,1.3,.5,1); }
+.card.face-down .inner { transform: rotateY(180deg); }
+.card .front, .card .back { position: absolute; inset: 0; border-radius: .9em; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 1.2em 2.4em rgba(0,0,0,.5); }
+.card .back { transform: rotateY(180deg); background: radial-gradient(circle at 50% 50%, #233a6a, #0d1630 70%); border: .5em solid #0a1024; display: grid; place-items: center; }
+.card .back svg { width: 70%; }
+.card .front { display: grid; grid-template-rows: auto 1fr auto; border: .5em solid var(--rc); background: var(--rc); }
+.card .head { display: flex; align-items: center; gap: .5em; padding: .35em .5em .45em; background: rgba(0,0,0,.25); }
+.card .nm { font-weight: 900; font-size: 1.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; letter-spacing: .01em; }
+.card .el { width: 1.6em; height: 1.6em; border-radius: 50%; display: grid; place-items: center; font-size: .85em; font-weight: 900; color: #fff; box-shadow: 0 0 0 .15em rgba(255,255,255,.6) inset; flex: none; }
+.card .art { position: relative; overflow: hidden; background: #000; margin: 0 .35em; border-radius: .25em; }
+.card .art svg { display: block; width: 100%; height: 100%; }
+.card .foot { display: grid; gap: .25em; padding: .5em .6em .55em; background: #f4efe2; color: #2a2620; }
+.card .txt { font-size: .82em; line-height: 1.45; min-height: 2.9em; }
+.card .meta { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--num); letter-spacing: .06em; font-size: 1.05em; color: #6a645a; }
+.card .rar { color: var(--rc); font-size: 1.25em; filter: brightness(.85); }
+.card .holo { position: absolute; inset: 0; border-radius: .9em; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0; background: linear-gradient(115deg, transparent 15%, rgba(255,80,160,.55) 30%, rgba(255,230,90,.55) 42%, rgba(90,255,180,.55) 54%, rgba(80,170,255,.55) 66%, transparent 82%); background-size: 260% 260%; background-position: var(--hx, 50%) var(--hy, 50%); transition: opacity .3s; }
+.card.foil .holo { opacity: .55; }
+.card.foil.SEC .holo { background-image: linear-gradient(115deg, transparent 15%, rgba(255,215,120,.8) 35%, rgba(255,255,255,.7) 48%, rgba(255,190,60,.8) 60%, transparent 80%); opacity: .7; }
+.card .glare { position: absolute; inset: 0; border-radius: .9em; pointer-events: none; background: radial-gradient(circle at var(--gx, 50%) var(--gy, 30%), rgba(255,255,255,.35), transparent 45%); opacity: 0; transition: opacity .3s; mix-blend-mode: overlay; }
+.card.tilt .glare { opacity: 1; }
+.card .new { position: absolute; top: -.7em; right: -.7em; z-index: 3; font-family: var(--num); letter-spacing: .08em; font-size: 1.3em; background: #ff3b5c; color: #fff; padding: .1em .55em; border-radius: .4em; transform: rotate(8deg); box-shadow: 0 .3em .8em rgba(0,0,0,.4); }
+.card.glow-SR.face-down .back { box-shadow: 0 0 2em .4em var(--SR), 0 1.2em 2.4em rgba(0,0,0,.5); animation: pulse .7s ease-in-out infinite alternate; }
+.card.glow-UR.face-down .back { box-shadow: 0 0 2.6em .7em var(--UR), 0 1.2em 2.4em rgba(0,0,0,.5); animation: pulse .5s ease-in-out infinite alternate, quake .12s linear infinite; }
+.card.glow-SEC.face-down .back { box-shadow: 0 0 3em 1em var(--SEC), 0 0 6em 1em #fff, 0 1.2em 2.4em rgba(0,0,0,.5); animation: pulse .35s ease-in-out infinite alternate, quake .08s linear infinite; }
+@keyframes pulse { to { filter: brightness(1.35); } }
+@keyframes quake { 25% { translate: -2px 1px; } 75% { translate: 2px -1px; } }
+
+/* ---------- 山札とめくった列 ---------- */
+.deck { position: relative; width: 240px; height: 336px; cursor: pointer; }
+.deck .card { position: absolute; left: 0; top: 0; transition: transform .45s cubic-bezier(.3,1.2,.5,1), opacity .3s; }
+.row { position: fixed; left: 0; right: 0; bottom: 150px; display: flex; justify-content: center; gap: 12px; pointer-events: none; }
+.row .card { --w: 104px; pointer-events: auto; cursor: zoom-in; animation: drop .35s ease-out; }
+@keyframes drop { from { transform: translateY(-60px) scale(1.4); opacity: 0; } }
+.flash { position: fixed; inset: 0; z-index: 30; pointer-events: none; background: #fff; opacity: 0; }
+.flash.go { animation: flash .6s ease-out; }
+@keyframes flash { 0% { opacity: .85; } 100% { opacity: 0; } }
+#fx { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
+.rlabel { position: fixed; left: 50%; top: 24%; z-index: 26; transform: translateX(-50%); font-family: var(--num); font-size: 4.2rem; letter-spacing: .12em; pointer-events: none; text-shadow: 0 0 24px currentColor; animation: rl 1.2s ease-out forwards; }
+@keyframes rl { 0% { transform: translate(-50%, 20px) scale(.6); opacity: 0; } 20% { transform: translate(-50%, 0) scale(1.08); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -30px); opacity: 0; } }
+
+/* ---------- ショップ ---------- */
+.shop { position: fixed; left: 0; right: 0; bottom: 0; height: 140px; display: flex; justify-content: center; align-items: center; gap: 16px; padding: 0 16px; background: linear-gradient(transparent, rgba(0,0,0,.45)); }
+.buy { display: grid; grid-template-columns: 54px auto; gap: 2px 12px; align-items: center; padding: 10px 18px 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.06); cursor: pointer; text-align: left; min-width: 210px; }
+.buy:hover:not(:disabled) { background: rgba(255,255,255,.12); transform: translateY(-2px); }
+.buy:disabled { opacity: .4; cursor: not-allowed; }
+.buy .mini { grid-row: 1 / span 2; width: 54px; height: 76px; border-radius: 6px; box-shadow: 0 6px 14px rgba(0,0,0,.4); }
+.buy b { font-weight: 900; font-size: 1.05rem; }
+.buy span { font-family: var(--num); font-size: 1.35rem; letter-spacing: .05em; color: var(--gold); }
+.buy span.free { color: #7be39a; }
+.buy small { display: block; font-family: var(--jp); font-size: .75rem; color: var(--muted); letter-spacing: 0; }
+
+/* ---------- 結果 ---------- */
+.result { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -62%); z-index: 6; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.result h2 { margin: 0; font-weight: 900; font-size: 1.8rem; }
+.result .gain { font-family: var(--num); font-size: 1.6rem; letter-spacing: .05em; color: var(--gold); }
+.bigbtn { padding: 12px 28px; border: 0; border-radius: 999px; background: var(--gold); color: #1a1408; font-weight: 900; font-size: 1.05rem; cursor: pointer; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
+.ghost { padding: 10px 20px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 700; cursor: pointer; }
+
+/* ---------- 図鑑・詳しく見る ---------- */
+.over { position: fixed; inset: 0; z-index: 20; background: rgba(5,10,9,.86); backdrop-filter: blur(4px); display: grid; grid-template-rows: auto 1fr; }
+.over .bar { display: flex; align-items: center; gap: 14px; padding: 16px 22px; flex-wrap: wrap; }
+.over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-weight: 700; font-size: .85rem; }
+.filters button.on { background: var(--ink); color: #111; }
+.binder { overflow-y: auto; padding: 8px 22px 40px; display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 18px 14px; justify-content: center; align-content: start; }
+.slot { position: relative; width: 120px; height: 168px; }
+.slot .card { --w: 120px; cursor: zoom-in; }
+.slot.empty { border-radius: 10px; border: 2px dashed rgba(255,255,255,.14); display: grid; place-items: center; color: rgba(255,255,255,.25); font-family: var(--num); font-size: 1.4rem; letter-spacing: .06em; }
+.slot .cnt { position: absolute; right: -6px; bottom: -6px; z-index: 3; font-family: var(--num); font-size: 1rem; background: #000; border: 1px solid var(--line); padding: 0 6px; border-radius: 6px; }
+.inspect { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0,0,0,.7); perspective: 1200px; }
+.inspect .card { --w: min(380px, 70vh / 1.4); }
+.inspect .cap { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .9rem; }
+.toast { position: fixed; left: 50%; top: 76px; transform: translateX(-50%); z-index: 50; background: #000; border: 1px solid var(--line); padding: 10px 18px; border-radius: 10px; font-weight: 700; animation: toast 2.6s ease forwards; }
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, -8px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .pack, .row .card, .rlabel, .flash.go, .card .inner, .shine { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo">開封の儀<small>OPEN THE PACK</small></div>
+  <div class="sp"></div>
+  <div class="comp" id="comp">0 / 74</div>
+  <button class="tbtn" id="binderBtn">図鑑</button>
+  <div class="coins"><i class="coin"></i><span id="coins">0</span></div>
+</header>
+
+<main class="stage" id="stage"><div class="hint" id="hint"></div></main>
+<div class="row" id="row"></div>
+<div class="result" id="result" hidden>
+  <h2 id="resTitle">開封完了</h2>
+  <div class="gain" id="resGain"></div>
+  <div style="display:flex;gap:10px"><button class="bigbtn" id="againBtn">同じパックをもう1つ</button><button class="ghost" id="doneBtn">片付ける</button></div>
+</div>
+<nav class="shop" id="shop"></nav>
+<div class="flash" id="flash"></div>
+<canvas id="fx"></canvas>
+
+<section class="over" id="binderOv" hidden>
+  <div class="bar"><h2>図鑑</h2><span class="comp" id="comp2"></span><div class="filters" id="filters"></div><span class="sp" style="flex:1"></span><button class="ghost" id="closeBinder">閉じる</button></div>
+  <div class="binder" id="binder"></div>
+</section>
+<div class="inspect" id="inspect" hidden><div id="inspectCard"></div><div class="cap">マウスを動かすと傾く・クリックで閉じる</div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// =============================================================
+//  カードの一覧（すべてオリジナル）
+// =============================================================
+const ELEMENTS = [
+  { id: 'fire',  nm: '炎', mark: '炎', pre: 'ヒノ', c: '#ff5a2a', bg: ['#ffb36b', '#d9361a'], body: ['#ff8a4a', '#f2c14e', '#e8553a'] },
+  { id: 'water', nm: '水', mark: '水', pre: 'ミズ', c: '#2a8cff', bg: ['#9fdcff', '#1f6fd6'], body: ['#6ec3ff', '#9ff4ff', '#4a8cff'] },
+  { id: 'leaf',  nm: '森', mark: '森', pre: 'コケ', c: '#2fb35a', bg: ['#c9f2a0', '#2f8a4a'], body: ['#7bd36a', '#c9e86a', '#4fb36a'] },
+  { id: 'bolt',  nm: '雷', mark: '雷', pre: 'ビリ', c: '#f2b800', bg: ['#fff3a0', '#e0a000'], body: ['#ffd84a', '#fff07a', '#f2a020'] },
+  { id: 'dark',  nm: '闇', mark: '闇', pre: 'ヤミ', c: '#7a4aff', bg: ['#6a4aa0', '#1a1030'], body: ['#8a6ad0', '#5a4a8a', '#c07aff'] },
+  { id: 'light', nm: '光', mark: '光', pre: 'キラ', c: '#ff9ad0', bg: ['#fff4fb', '#ffc6e6'], body: ['#fff', '#ffe0f0', '#ffd6a0'] },
+];
+const ANIMALS = [
+  { id: 'neko', nm: 'ネコ', ear: 'tri', tail: 'long' },
+  { id: 'usa', nm: 'ウサギ', ear: 'long', tail: 'puff' },
+  { id: 'kuma', nm: 'クマ', ear: 'round', tail: 'puff' },
+  { id: 'kitsune', nm: 'キツネ', ear: 'big', tail: 'fluff' },
+  { id: 'fukurou', nm: 'フクロウ', ear: 'tuft', tail: 'none' },
+  { id: 'tokage', nm: 'トカゲ', ear: 'none', tail: 'long' },
+  { id: 'pen', nm: 'ペンギン', ear: 'none', tail: 'none' },
+  { id: 'hari', nm: 'ハリネズミ', ear: 'spike', tail: 'none' },
+];
+const RAR = {
+  C:   { nm: 'コモン',        sell: 5,    c: '#9aa3ad' },
+  U:   { nm: 'アンコモン',    sell: 10,   c: '#5fc27a' },
+  R:   { nm: 'レア',          sell: 30,   c: '#4aa3ff' },
+  SR:  { nm: 'スーパーレア',  sell: 90,   c: '#c77dff' },
+  UR:  { nm: 'ウルトラレア',  sell: 350,  c: '#ffb020' },
+  SEC: { nm: 'シークレット',  sell: 1200, c: '#ff4fa0' },
+};
+const RORDER = ['C', 'U', 'R', 'SR', 'UR', 'SEC'];
+const TITLES = { SR: ['烈火の', '深海の', '大樹の', '迅雷の', '影纏いの', '天光の'], UR: ['炎帝', '海王', '森主', '雷神', '冥王', '聖獣'] };
+const FLAVOR = {
+  C: ['日なたで丸くなるのが好き。', 'ごはんの時間だけは正確。', 'くしゃみをすると少し光る。', '友だちが多い。'],
+  U: ['仲間を見つけると跳ねる。', '夜になると少し強くなる。', '同じ場所を三回まわってから眠る。'],
+  R: ['見つけた人は運がいいと言われる。', '群れの見張り番をしている。'],
+  SR: ['その一声で天気が変わる。', '伝説の一歩手前にいる。'],
+  UR: ['この星の古い王。めったに姿を見せない。'],
+  SEC: ['星の始まりから生きている、名前のない存在。'],
+};
+const CARDS = [];
+(() => {
+  let no = 1, seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  ELEMENTS.forEach((el, ei) => {
+    const plan = ['C', 'C', 'C', 'C', 'U', 'U', 'U', 'R', 'R', 'SR', 'SR', 'UR'];
+    plan.forEach((r, k) => {
+      const an = ANIMALS[(ei * 3 + k) % ANIMALS.length];
+      let nm;
+      if (r === 'UR') nm = TITLES.UR[ei] + an.nm;
+      else if (r === 'SR') nm = TITLES.SR[ei] + el.pre + an.nm;
+      else nm = el.pre + an.nm + (r === 'R' ? 'ナイト' : r === 'U' ? ['ジュニア', 'マスター', 'ボス'][k % 3] : '');
+      const fl = FLAVOR[r];
+      CARDS.push({ no: no++, el: el.id, an: an.id, r, nm, txt: fl[Math.floor(rnd() * fl.length)], hue: Math.floor(rnd() * 3), seed: Math.floor(rnd() * 99999) });
+    });
+  });
+  CARDS.push({ no: no++, el: 'light', an: 'neko', r: 'SEC', nm: '星を抱く始祖ネコ', txt: FLAVOR.SEC[0], hue: 0, seed: 1 });
+  CARDS.push({ no: no++, el: 'dark', an: 'kitsune', r: 'SEC', nm: '夜を食む九尾', txt: '月が欠けるのは、この尾が触れたから。', hue: 2, seed: 2 });
+})();
+const TOTAL = CARDS.length;
+const byRar = r => CARDS.filter(c => c.r === r);
+
+// =============================================================
+//  絵（SVGで描く）
+// =============================================================
+const EL = id => ELEMENTS.find(e => e.id === id);
+const AN = id => ANIMALS.find(a => a.id === id);
+function art(c) {
+  const el = EL(c.el), an = AN(c.an), big = c.r === 'UR' || c.r === 'SEC';
+  const body = c.r === 'SEC' ? '#ffe9a8' : el.body[c.hue % el.body.length];
+  const dark = 'rgba(0,0,0,.25)';
+  const s = big ? 1.2 : c.r === 'SR' ? 1.08 : 1;
+  const id = 'a' + c.no;
+  let bg = `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.r === 'SEC' ? '#2a1640' : el.bg[0]}"/><stop offset="1" stop-color="${c.r === 'SEC' ? '#0a0418' : el.bg[1]}"/></linearGradient>
+    <radialGradient id="${id}r" cx=".5" cy=".55" r=".55"><stop offset="0" stop-color="#fff" stop-opacity="${big ? .55 : c.r === 'SR' ? .35 : .15}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+    <rect width="200" height="150" fill="url(#${id}g)"/>`;
+  if (big || c.r === 'SR') { for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; bg += `<path d="M100 80 L${100 + Math.cos(a) * 180} ${80 + Math.sin(a) * 180} L${100 + Math.cos(a + .1) * 180} ${80 + Math.sin(a + .1) * 180}Z" fill="#fff" opacity="${big ? .12 : .07}"/>`; } }
+  bg += `<circle cx="100" cy="82" r="70" fill="url(#${id}r)"/>`;
+  // 地面
+  bg += `<ellipse cx="100" cy="138" rx="80" ry="14" fill="${dark}"/>`;
+  if (c.r === 'SEC') for (let i = 0; i < 40; i++) bg += `<circle cx="${(c.seed * 37 + i * 53) % 200}" cy="${(i * 29) % 110}" r="${(i % 3) * .5 + .6}" fill="#fff" opacity=".8"/>`;
+  if (c.r === 'R' || c.r === 'SR' || big) for (let i = 0; i < 6; i++) { const x = 20 + (i * 37 + c.seed) % 160, y = 15 + (i * 23 + c.seed) % 60; bg += `<path d="M${x} ${y - 5} L${x + 1.5} ${y - 1.5} L${x + 5} ${y} L${x + 1.5} ${y + 1.5} L${x} ${y + 5} L${x - 1.5} ${y + 1.5} L${x - 5} ${y} L${x - 1.5} ${y - 1.5}Z" fill="#fff" opacity=".85"/>`; }
+  // 体
+  let g = '';
+  const tail = { long: `<path d="M128 112 Q160 110 162 84 Q164 72 156 70" stroke="${body}" stroke-width="10" fill="none" stroke-linecap="round"/>`, puff: `<circle cx="134" cy="112" r="10" fill="${body}"/>`, fluff: `<path d="M126 114 Q170 120 168 78 Q150 92 140 96 Z" fill="${body}"/><path d="M160 84 Q166 78 168 78 Q167 88 160 92Z" fill="#fff"/>`, none: '' }[an.tail];
+  g += tail;
+  if (an.id === 'pen') g += `<ellipse cx="100" cy="104" rx="30" ry="34" fill="#2a2a3a"/><ellipse cx="100" cy="110" rx="20" ry="25" fill="${body}"/>`;
+  else if (an.id === 'tokage') g += `<ellipse cx="100" cy="110" rx="34" ry="20" fill="${body}"/>`;
+  else g += `<ellipse cx="100" cy="108" rx="30" ry="25" fill="${body}"/><ellipse cx="100" cy="114" rx="18" ry="13" fill="#fff" opacity=".45"/>`;
+  // 耳
+  const ear = {
+    tri: `<path d="M74 60 L80 38 L92 56Z" fill="${body}"/><path d="M126 60 L120 38 L108 56Z" fill="${body}"/><path d="M79 54 L81 45 L86 53Z" fill="#ffb3c6"/><path d="M121 54 L119 45 L114 53Z" fill="#ffb3c6"/>`,
+    long: `<ellipse cx="86" cy="36" rx="7" ry="22" fill="${body}" transform="rotate(-10 86 36)"/><ellipse cx="114" cy="36" rx="7" ry="22" fill="${body}" transform="rotate(10 114 36)"/><ellipse cx="86" cy="38" rx="3" ry="15" fill="#ffb3c6" transform="rotate(-10 86 38)"/><ellipse cx="114" cy="38" rx="3" ry="15" fill="#ffb3c6" transform="rotate(10 114 38)"/>`,
+    round: `<circle cx="78" cy="56" r="10" fill="${body}"/><circle cx="122" cy="56" r="10" fill="${body}"/><circle cx="78" cy="56" r="5" fill="${dark}"/><circle cx="122" cy="56" r="5" fill="${dark}"/>`,
+    big: `<path d="M70 66 L72 30 L94 58Z" fill="${body}"/><path d="M130 66 L128 30 L106 58Z" fill="${body}"/><path d="M75 58 L76 40 L87 56Z" fill="#2a2a3a" opacity=".5"/><path d="M125 58 L124 40 L113 56Z" fill="#2a2a3a" opacity=".5"/>`,
+    tuft: `<path d="M74 58 L76 42 L88 54Z" fill="${body}"/><path d="M126 58 L124 42 L112 54Z" fill="${body}"/>`,
+    spike: Array.from({ length: 9 }, (_, i) => { const a = -2.6 + i * .33; return `<path d="M${100 + Math.cos(a) * 30} ${74 + Math.sin(a) * 30} L${100 + Math.cos(a) * 46} ${74 + Math.sin(a) * 46} L${100 + Math.cos(a + .2) * 30} ${74 + Math.sin(a + .2) * 30}Z" fill="#7a5a3a"/>`; }).join(''),
+    none: '',
+  }[an.ear];
+  g += ear;
+  // 頭
+  if (an.id === 'tokage') g += `<ellipse cx="100" cy="76" rx="28" ry="20" fill="${body}"/>`;
+  else g += `<circle cx="100" cy="76" r="${an.id === 'fukurou' ? 30 : 27}" fill="${body}"/>`;
+  if (an.id === 'fukurou') g += `<circle cx="89" cy="74" r="11" fill="#fff" opacity=".7"/><circle cx="111" cy="74" r="11" fill="#fff" opacity=".7"/><path d="M96 84 L100 92 L104 84Z" fill="#e0a020"/>`;
+  if (an.id === 'pen') g += `<path d="M96 84 L104 84 L100 92Z" fill="#ffb020"/>`;
+  // 目
+  const ey = an.id === 'fukurou' ? 74 : 76, ex = an.id === 'fukurou' ? 11 : 10;
+  if (c.r === 'UR' || c.r === 'SEC') g += `<path d="M${100 - ex - 5} ${ey} q5 -6 10 0" stroke="#2a2320" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M${100 + ex - 5} ${ey} q5 -6 10 0" stroke="#2a2320" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  else g += `<circle cx="${100 - ex}" cy="${ey}" r="4.5" fill="#2a2320"/><circle cx="${100 + ex}" cy="${ey}" r="4.5" fill="#2a2320"/><circle cx="${100 - ex + 1.5}" cy="${ey - 1.5}" r="1.5" fill="#fff"/><circle cx="${100 + ex + 1.5}" cy="${ey - 1.5}" r="1.5" fill="#fff"/>`;
+  if (an.id !== 'fukurou' && an.id !== 'pen') g += `<path d="M97 84 q3 3 6 0" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="${100 - 17}" cy="84" rx="5" ry="3" fill="#ff8aa0" opacity=".6"/><ellipse cx="${100 + 17}" cy="84" rx="5" ry="3" fill="#ff8aa0" opacity=".6"/>`;
+  // 属性の飾り
+  const acc = {
+    fire: `<path d="M100 40 Q92 30 98 18 Q102 28 108 22 Q112 34 104 42Z" fill="#ffd84a"/><path d="M100 40 Q96 34 99 27 Q102 33 105 30 Q106 37 102 42Z" fill="#ff5a2a"/>`,
+    water: `<path d="M100 22 Q92 36 100 44 Q108 36 100 22Z" fill="#9ff4ff" stroke="#fff" stroke-width="1.5"/>`,
+    leaf: `<path d="M100 48 Q100 30 116 26 Q114 44 100 48Z" fill="#4fb36a"/><path d="M100 48 L112 32" stroke="#2f7a3a" stroke-width="1.5"/>`,
+    bolt: `<path d="M104 18 L94 36 L102 36 L96 50 L110 30 L102 30 L108 18Z" fill="#fff3a0" stroke="#e0a000" stroke-width="1.5"/>`,
+    dark: `<path d="M84 54 Q80 40 70 36 Q82 36 90 50Z" fill="#3a2a5a"/><path d="M116 54 Q120 40 130 36 Q118 36 110 50Z" fill="#3a2a5a"/>`,
+    light: `<ellipse cx="100" cy="42" rx="20" ry="5" fill="none" stroke="#ffd84a" stroke-width="3"/>`,
+  }[c.el];
+  g += acc;
+  if (big) g += `<path d="M84 52 L88 40 L94 48 L100 36 L106 48 L112 40 L116 52Z" fill="#ffd84a" stroke="#b07a10" stroke-width="1.5"/><circle cx="100" cy="44" r="2.5" fill="#ff4f6a"/>`;
+  return `<svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${bg}<g transform="translate(100 140) scale(${s}) translate(-100 -140)">${g}</g></svg>`;
+}
+const BACK = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="#ffc94a" stroke-width="2"/><circle cx="50" cy="50" r="31" fill="none" stroke="#ffc94a" stroke-width="1" stroke-dasharray="2 3"/><path d="M50 18 L56 44 L82 50 L56 56 L50 82 L44 56 L18 50 L44 44Z" fill="#ffc94a"/><circle cx="50" cy="50" r="6" fill="#0d1630" stroke="#ffc94a" stroke-width="2"/></svg>`;
+function cardHTML(c, opts = {}) {
+  const el = EL(c.el), r = RAR[c.r];
+  const foil = ['SR', 'UR', 'SEC'].includes(c.r);
+  return `<div class="card ${opts.down ? 'face-down' : ''} ${foil ? 'foil' : ''} ${c.r} ${opts.glow ? 'glow-' + c.r : ''}" data-no="${c.no}" style="--rc:${c.r === 'SEC' ? 'linear-gradient(135deg,#ffe9a8,#ff9ad0,#9ff4ff)' : r.c}">
+    ${opts.isNew ? '<div class="new">NEW</div>' : ''}
+    <div class="inner">
+      <div class="front" style="${c.r === 'SEC' ? 'border-image: linear-gradient(135deg,#ffe9a8,#ff9ad0,#9ff4ff) 1; background:#ffe9a8;' : ''}">
+        <div class="head"><div class="nm">${esc(c.nm)}</div><div class="el" style="background:${el.c}">${el.mark}</div></div>
+        <div class="art">${art(c)}</div>
+        <div class="foot"><div class="txt">${esc(c.txt)}</div><div class="meta"><span>NO.${String(c.no).padStart(3, '0')}/${TOTAL}</span><span class="rar" style="color:${r.c}">${c.r}</span></div></div>
+        <div class="holo"></div><div class="glare"></div>
+      </div>
+      <div class="back">${BACK}</div>
+    </div>
+  </div>`;
+}
+
+// =============================================================
+//  パックの種類と排出率
+// =============================================================
+const PACKS = [
+  { id: 'normal',  nm: 'スタンダード', price: 100,  colors: ['#2a8cff', '#1a3a8a'], rates: { C: 60, U: 27, R: 10, SR: 2.5, UR: .45, SEC: .05 }, last: { R: 80, SR: 16, UR: 3.5, SEC: .5 }, sub: '5枚・最後の1枚はレア以上' },
+  { id: 'premium', nm: 'プレミアム',   price: 400,  colors: ['#c77dff', '#4a1a8a'], rates: { C: 40, U: 32, R: 18, SR: 8, UR: 1.8, SEC: .2 }, last: { SR: 82, UR: 15, SEC: 3 }, sub: '5枚・最後の1枚はSR以上' },
+  { id: 'legend',  nm: 'レジェンド',   price: 1500, colors: ['#ffb020', '#8a3a00'], rates: { U: 30, R: 40, SR: 24, UR: 5.5, SEC: .5 }, last: { UR: 90, SEC: 10 }, sub: '5枚・最後の1枚はUR以上' },
+];
+const FREE_EVERY = 180;  // 無料パックは3分ごとに1つ（最大3つ）
+function roll(rates) {
+  let t = Object.values(rates).reduce((a, b) => a + b, 0) * Math.random();
+  for (const [k, v] of Object.entries(rates)) { t -= v; if (t <= 0) return k; }
+  return Object.keys(rates)[0];
+}
+function makePack(p) {
+  const out = [];
+  for (let i = 0; i < 5; i++) { const r = roll(i === 4 ? p.last : p.rates); const pool = byRar(r); out.push(pool[Math.floor(Math.random() * pool.length)]); }
+  return out;
+}
+
+// =============================================================
+//  セーブ
+// =============================================================
+const KEY = 'pack-opener-v1';
+let S = { coins: 1000, owned: {}, opened: 0, free: 1, freeAt: Date.now(), bonus: {} };
+try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) S = Object.assign(S, d); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+const ownedKinds = () => Object.keys(S.owned).filter(k => S.owned[k] > 0).length;
+function tickFree() {
+  const now = Date.now();
+  while (S.free < 3 && now - S.freeAt >= FREE_EVERY * 1000) { S.free++; S.freeAt += FREE_EVERY * 1000; }
+  if (S.free >= 3) S.freeAt = now;
+}
+
+// =============================================================
+//  音
+// =============================================================
+let AC = null;
+function audio() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) {} }
+function tone(f, d = .1, type = 'triangle', v = .05, slide = 0, delay = 0) {
+  if (!AC) return;
+  const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .02);
+}
+function crinkle(v = .05) {
+  if (!AC) return;
+  const len = AC.sampleRate * .05, b = AC.createBuffer(1, len, AC.sampleRate), a = b.getChannelData(0);
+  for (let i = 0; i < len; i++) a[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = b; f.type = 'highpass'; f.frequency.value = 2500 + Math.random() * 3000; g.gain.value = v;
+  s.connect(f).connect(g).connect(AC.destination); s.start();
+}
+const CHIME = { C: [660], U: [660, 880], R: [660, 880, 1100], SR: [523, 659, 784, 1047], UR: [523, 659, 784, 1047, 1319], SEC: [392, 523, 659, 784, 1047, 1319, 1568] };
+function chime(r) { CHIME[r].forEach((f, i) => tone(f, .25, r === 'SEC' || r === 'UR' ? 'sine' : 'triangle', .05, 0, i * .07)); }
+
+// =============================================================
+//  紙ふぶき・きらきら
+// =============================================================
+const fx = $('fx'), gx = fx.getContext('2d');
+let P = [];
+function fit() { fx.width = innerWidth; fx.height = innerHeight; }
+addEventListener('resize', fit); fit();
+function sparkle(x, y, color, n = 40, power = 8) {
+  if (reduce) return;
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = Math.random() * power + 2; P.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 3, t: 0, life: 50 + Math.random() * 40, c: Array.isArray(color) ? color[i % color.length] : color, r: Math.random() * 3 + 2, rot: Math.random() * 6 }); }
+}
+function stepFx() {
+  gx.clearRect(0, 0, fx.width, fx.height);
+  P = P.filter(p => p.t < p.life);
+  for (const p of P) {
+    p.t++; p.vy += .18; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.rot += .2;
+    gx.globalAlpha = 1 - p.t / p.life; gx.fillStyle = p.c;
+    gx.save(); gx.translate(p.x, p.y); gx.rotate(p.rot); gx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); gx.restore();
+  }
+  gx.globalAlpha = 1;
+  requestAnimationFrame(stepFx);
+}
+requestAnimationFrame(stepFx);
+
+// =============================================================
+//  ショップ
+// =============================================================
+function packFace(p, big) {
+  return `<div class="face" style="color:#fff"><div class="set">けものの星・第1弾</div>
+    <svg class="emb" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.6)" stroke-width="2"/><path d="M50 14 L57 43 L86 50 L57 57 L50 86 L43 57 L14 50 L43 43Z" fill="#fff" opacity=".9"/></svg>
+    <div class="ttl">けものの星</div><div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
+}
+function renderShop() {
+  tickFree();
+  const busy = state !== 'idle' && state !== 'done';
+  let h = '';
+  if (S.free > 0) h += `<button class="buy" data-pack="normal" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${PACKS[0].colors[0]},${PACKS[0].colors[1]})"></div><b>無料パック ×${S.free}</b><span class="free">FREE<small>スタンダード1パック</small></span></button>`;
+  else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="buy" disabled><div class="mini" style="background:#333"></div><b>無料パック</b><span class="free">${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}<small>3分ごとにもらえる</small></span></button>`; }
+  for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
+  $('shop').innerHTML = h;
+}
+$('shop').addEventListener('click', e => {
+  const b = e.target.closest('button[data-pack]'); if (!b || b.disabled) return;
+  audio();
+  const p = PACKS.find(x => x.id === b.dataset.pack);
+  if (b.dataset.free) { if (S.free <= 0) return; if (S.free >= 3) S.freeAt = Date.now(); S.free--; }
+  else { if (S.coins < p.price) return; S.coins -= p.price; }
+  save(); hud();
+  showPack(p);
+});
+
+// =============================================================
+//  開封の流れ
+// =============================================================
+let state = 'idle', current = null, pulls = [], revealed = 0, lastPack = null, newOnes = new Set(), gain = 0;
+function hint(html) { $('hint').innerHTML = html; }
+function clearStage() { $('stage').querySelectorAll('.pack,.deck').forEach(n => n.remove()); }
+function showPack(p) {
+  lastPack = p;
+  clearStage(); $('row').innerHTML = ''; $('result').hidden = true;
+  state = 'pack'; renderShop();
+  const el = document.createElement('div');
+  el.className = 'pack';
+  const bg = `linear-gradient(160deg,${p.colors[0]},${p.colors[1]})`;
+  el.innerHTML = `<div class="body" style="background:${bg}">${packFace(p)}</div><div class="strip" id="strip" style="background:${bg}"><div class="crimp"></div><div class="tearline"></div><div class="rip" id="rip"></div></div>`;
+  $('stage').prepend(el);
+  current = el;
+  hint('<b>上のギザギザを左から右へドラッグ</b>して封を破る');
+  tone(300, .12, 'sine', .04, 200);
+  // 封を破るドラッグ
+  const strip = el.querySelector('.strip'), rip = el.querySelector('.rip');
+  let dragging = false, startX = 0, prog = 0, lastSnd = 0;
+  const down = e => { dragging = true; startX = e.clientX - prog * strip.offsetWidth; strip.setPointerCapture(e.pointerId); audio(); };
+  const move = e => {
+    if (!dragging || state !== 'pack') return;
+    const r = strip.getBoundingClientRect();
+    const np = Math.max(prog, Math.min(1, (e.clientX - r.left) / r.width));
+    if (np > prog + .01 && performance.now() - lastSnd > 35) { crinkle(.06); lastSnd = performance.now(); sparkle(e.clientX, r.bottom, ['#fff', '#ffc94a'], 3, 3); }
+    prog = np; rip.style.width = prog * 100 + '%';
+    el.style.transform = `rotate(${(prog - .5) * 3}deg)`;
+    if (prog >= .97) tear();
+  };
+  const up = () => { dragging = false; };
+  strip.addEventListener('pointerdown', down);
+  strip.addEventListener('pointermove', move);
+  strip.addEventListener('pointerup', up);
+  strip.addEventListener('pointercancel', up);
+  // キーボードでも開けるように
+  strip.tabIndex = 0; strip.setAttribute('role', 'button'); strip.setAttribute('aria-label', '封を破る');
+  strip.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); audio(); tear(); } });
+  strip.focus({ preventScroll: true });
+}
+function tear() {
+  if (state !== 'pack') return;
+  state = 'tearing';
+  const el = current, r = el.getBoundingClientRect();
+  el.querySelector('.strip').classList.add('off');
+  el.querySelector('.body').classList.add('off');
+  for (let i = 0; i < 6; i++) setTimeout(() => crinkle(.09), i * 25);
+  tone(200, .25, 'sawtooth', .03, 400);
+  sparkle(r.left + r.width / 2, r.top + 40, ['#fff', '#ffc94a', lastPack.colors[0]], 50, 9);
+  pulls = makePack(lastPack);
+  // 並べ方：最後がいちばんレアなので、めくる順もそのまま
+  setTimeout(() => { el.remove(); showDeck(); }, 650);
+}
+function showDeck() {
+  state = 'deck'; revealed = 0; gain = 0; newOnes = new Set();
+  const deck = document.createElement('div');
+  deck.className = 'deck';
+  deck.setAttribute('role', 'button'); deck.tabIndex = 0; deck.setAttribute('aria-label', 'カードをめくる');
+  pulls.forEach((c, i) => {
+    const w = document.createElement('div');
+    w.innerHTML = cardHTML(c, { down: true });
+    const card = w.firstElementChild;
+    card.style.transform = `translate(${(pulls.length - 1 - i) * 3}px, ${(pulls.length - 1 - i) * -3}px)`;
+    card.style.zIndex = pulls.length - i;
+    deck.appendChild(card);
+  });
+  $('stage').prepend(deck);
+  armTop(deck);
+  hint('<b>クリック</b>でめくる（スペースキーでも可）');
+  deck.addEventListener('click', () => flipNext(deck));
+  deck.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flipNext(deck); } });
+  deck.focus({ preventScroll: true });
+}
+function armTop(deck) {
+  const c = deck.querySelector('.card.face-down'); if (!c) return;
+  const r = pulls[revealed].r;
+  if (['SR', 'UR', 'SEC'].includes(r)) { c.classList.add('glow-' + r); tone(r === 'SEC' ? 90 : 120, .5, 'sine', .05, 40); }
+}
+let flipping = false;
+function flipNext(deck) {
+  if (state !== 'deck' || flipping) return;
+  audio();
+  const card = deck.querySelector('.card.face-down'), c = pulls[revealed];
+  if (!card || !c) return;
+  flipping = true;
+  const isNew = !S.owned[c.no];
+  if (isNew) newOnes.add(c.no);
+  S.owned[c.no] = (S.owned[c.no] || 0) + 1;
+  if (!isNew) gain += RAR[c.r].sell;
+  card.classList.remove('face-down');
+  tone(520, .08, 'triangle', .04, 300);
+  const rect = deck.getBoundingClientRect(), cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  setTimeout(() => {
+    const ri = RORDER.indexOf(c.r);
+    if (ri >= 2) chime(c.r); else tone(660, .1, 'triangle', .04);
+    if (ri >= 3) {
+      sparkle(cx, cy, [RAR[c.r].c, '#fff', '#ffc94a'], 60 + ri * 30, 8 + ri * 2);
+      const lab = document.createElement('div'); lab.className = 'rlabel'; lab.style.color = RAR[c.r].c;
+      lab.textContent = { SR: 'SUPER RARE', UR: 'ULTRA RARE', SEC: 'SECRET' }[c.r];
+      document.body.appendChild(lab); setTimeout(() => lab.remove(), 1300);
+      if (ri >= 4 && !reduce) { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+    } else if (ri === 2) sparkle(cx, cy, [RAR.R.c, '#fff'], 24, 6);
+    if (isNew) tone(1320, .15, 'sine', .035, 0, .15);
+  }, 260);
+  // 少し見せてから下の列へ
+  setTimeout(() => {
+    card.style.transition = 'transform .35s ease-in, opacity .3s';
+    card.style.transform = 'translateY(140px) scale(.45)'; card.style.opacity = '0';
+    const w = document.createElement('div'); w.innerHTML = cardHTML(c, { isNew }); const mini = w.firstElementChild;
+    mini.addEventListener('click', () => inspect(c));
+    $('row').appendChild(mini);
+    setTimeout(() => card.remove(), 350);
+    revealed++;
+    flipping = false;
+    if (revealed >= pulls.length) finishPack(deck);
+    else armTop(deck);
+  }, ['SR', 'UR', 'SEC'].includes(c.r) ? 1500 : 650);
+  hud();
+}
+function finishPack(deck) {
+  state = 'done';
+  S.opened++;
+  S.coins += gain;
+  // 属性コンプのボーナス
+  const msgs = [];
+  for (const el of ELEMENTS) {
+    if (S.bonus[el.id]) continue;
+    if (CARDS.filter(c => c.el === el.id && c.r !== 'SEC').every(c => S.owned[c.no])) { S.bonus[el.id] = 1; S.coins += 2000; msgs.push(`${el.nm}のカードをコンプリート！ +2,000`); }
+  }
+  save();
+  setTimeout(() => {
+    deck.remove();
+    $('resTitle').textContent = newOnes.size ? `新しいカード ${newOnes.size}枚！` : '開封完了';
+    $('resGain').textContent = gain ? `ダブりを売って +${gain.toLocaleString('ja-JP')}` : 'ダブりなし';
+    $('againBtn').disabled = lastPack.price > S.coins;
+    $('againBtn').textContent = `${lastPack.nm}をもう1つ（${lastPack.price.toLocaleString('ja-JP')}）`;
+    $('result').hidden = false;
+    hint('下のカードをクリックすると大きく見られる');
+    msgs.forEach((m, i) => setTimeout(() => toast(m), 400 + i * 2700));
+    if (ownedKinds() === TOTAL && !S.bonus.all) { S.bonus.all = 1; save(); setTimeout(() => toast('全74種コンプリート！ おめでとう！'), 600); sparkle(innerWidth / 2, innerHeight / 3, ['#ffc94a', '#ff4fa0', '#4aa3ff', '#fff'], 200, 14); }
+    hud(); renderShop();
+  }, 250);
+}
+$('againBtn').addEventListener('click', () => { if (S.coins < lastPack.price) return; S.coins -= lastPack.price; save(); hud(); showPack(lastPack); });
+$('doneBtn').addEventListener('click', () => { $('result').hidden = true; $('row').innerHTML = ''; state = 'idle'; hint('下からパックを選ぶ'); renderShop(); });
+addEventListener('keydown', e => {
+  if (e.key === ' ' && state === 'deck') { e.preventDefault(); const d = document.querySelector('.deck'); if (d) flipNext(d); }
+  if (e.key === 'Escape') { $('inspect').hidden = true; $('binderOv').hidden = true; }
+});
+function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2700); }
+
+// =============================================================
+//  傾き・ホロ
+// =============================================================
+function tiltable(card, strength = 18) {
+  card.classList.add('tilt');
+  const onMove = e => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    const cx = Math.max(-.6, Math.min(1.6, x)), cy = Math.max(-.6, Math.min(1.6, y));
+    card.style.transform = `rotateY(${(cx - .5) * strength}deg) rotateX(${(.5 - cy) * strength}deg)`;
+    card.style.setProperty('--hx', `${cx * 100}%`); card.style.setProperty('--hy', `${cy * 100}%`);
+    card.style.setProperty('--gx', `${cx * 100}%`); card.style.setProperty('--gy', `${cy * 100}%`);
+  };
+  return onMove;
+}
+let inspectMove = null;
+function inspect(c) {
+  $('inspectCard').innerHTML = cardHTML(c);
+  const card = $('inspectCard').firstElementChild;
+  inspectMove = tiltable(card, 26);
+  $('inspect').hidden = false;
+  tone(700, .08, 'sine', .03);
+}
+$('inspect').addEventListener('pointermove', e => { if (inspectMove) inspectMove(e); });
+$('inspect').addEventListener('click', () => { $('inspect').hidden = true; inspectMove = null; });
+
+// =============================================================
+//  図鑑
+// =============================================================
+let filter = 'all';
+function renderBinder() {
+  $('filters').innerHTML = [['all', 'すべて'], ...ELEMENTS.map(e => [e.id, e.nm]), ['SEC', '？']].map(([k, n]) => `<button data-f="${k}" class="${filter === k ? 'on' : ''}">${n}</button>`).join('');
+  const list = CARDS.filter(c => filter === 'all' || (filter === 'SEC' ? c.r === 'SEC' : c.el === filter && c.r !== 'SEC'));
+  $('binder').innerHTML = list.map(c => S.owned[c.no] ? `<div class="slot" data-no="${c.no}">${cardHTML(c)}${S.owned[c.no] > 1 ? `<span class="cnt">×${S.owned[c.no]}</span>` : ''}</div>` : `<div class="slot empty">${String(c.no).padStart(3, '0')}</div>`).join('');
+  $('comp2').textContent = `${ownedKinds()} / ${TOTAL}（${Math.floor(ownedKinds() / TOTAL * 100)}%）`;
+}
+$('binderBtn').addEventListener('click', () => { filter = 'all'; renderBinder(); $('binderOv').hidden = false; });
+$('closeBinder').addEventListener('click', () => { $('binderOv').hidden = true; });
+$('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filter = b.dataset.f; renderBinder(); });
+$('binder').addEventListener('click', e => { const s = e.target.closest('.slot[data-no]'); if (s) inspect(CARDS.find(c => c.no === +s.dataset.no)); });
+
+// =============================================================
+//  HUD
+// =============================================================
+function hud() {
+  $('coins').textContent = S.coins.toLocaleString('ja-JP');
+  $('comp').textContent = `図鑑 ${ownedKinds()} / ${TOTAL}`;
+}
+hud(); renderShop();
+hint(S.opened ? '下からパックを選ぶ' : 'まずは<b>無料パック</b>を開けてみよう');
+setInterval(() => { if (state === 'idle' || state === 'done') renderShop(); }, 1000);
+addEventListener('pagehide', save);
+})();
+</script>
+</body>
+</html>
