@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>閉じろ！広告地獄</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap">
+<style>
+/* Layout: a fake desktop browser fills the screen. A calm article sits underneath; ads pile up on a layer above it. HUD strip at the top of the window, overlays for title / result / shop. */
+:root {
+  --desk: #2b2d42;
+  --chrome: #e9e6df;
+  --chrome-2: #d6d2c8;
+  --page: #fbf8f1;
+  --ink: #23212b;
+  --muted: #6d6a75;
+  --hot: #ff3b5c;
+  --gold: #ffcc33;
+  --ok: #2fbf71;
+  --pop: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --body: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  --pad: 0px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--desk); color: var(--ink); font-family: var(--body); overflow: hidden; user-select: none; -webkit-user-select: none; }
+[hidden] { display: none !important; }
+button { font: inherit; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- ブラウザの枠 ---------- */
+.win { position: fixed; inset: 14px; display: grid; grid-template-rows: auto auto 1fr; background: var(--chrome); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+.tabs { display: flex; align-items: flex-end; gap: 6px; padding: 8px 12px 0; background: var(--chrome-2); }
+.dots { display: flex; gap: 7px; margin-right: 10px; align-self: center; }
+.dots i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+.dots i:nth-child(2) { background: #febc2e; } .dots i:nth-child(3) { background: #28c840; }
+.tab { padding: 7px 16px; border-radius: 8px 8px 0 0; font-size: .82rem; background: var(--chrome); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab.dim { background: transparent; color: var(--muted); }
+.bar { display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-bottom: 1px solid #cfcabd; }
+.url { flex: 1; min-width: 0; background: #fff; border-radius: 999px; padding: 6px 14px; font-size: .85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.url b { color: var(--ink); font-weight: 400; }
+.hud { display: flex; align-items: center; gap: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hud .score { font-family: var(--pop); font-size: 1.25rem; }
+.hud .combo { color: var(--hot); font-family: var(--pop); min-width: 4.5em; }
+.hud .time { color: var(--muted); font-size: .9rem; }
+.meter { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+.meter .track { width: 160px; height: 12px; border-radius: 6px; background: #d9d4c8; overflow: hidden; }
+.meter .fill { height: 100%; width: 0; background: var(--ok); transition: width .15s, background .3s; }
+.meter.warn .fill { background: var(--gold); }
+.meter.danger .fill { background: var(--hot); }
+.meter.danger { color: var(--hot); }
+
+/* ---------- 下の記事 ---------- */
+.page { position: relative; overflow: hidden; background: var(--page); }
+.article { max-width: 680px; margin: 0 auto; padding: 36px 24px; display: grid; gap: 16px; color: #3a3742; }
+.article h1 { margin: 0; font-family: var(--pop); font-weight: 400; font-size: 2rem; line-height: 1.3; }
+.article .by { font-size: .85rem; color: var(--muted); }
+.article p { margin: 0; line-height: 1.9; }
+.catpic { height: 220px; border-radius: 14px; background: linear-gradient(#ffe9c9, #ffd9a6); position: relative; overflow: hidden; }
+.catpic .cat { position: absolute; left: 50%; bottom: -10px; width: 180px; height: 150px; transform: translateX(-50%); background: #f2a65a; border-radius: 90px 90px 30px 30px; }
+.catpic .cat::before, .catpic .cat::after { content: ""; position: absolute; top: -22px; width: 0; height: 0; border-left: 26px solid transparent; border-right: 26px solid transparent; border-bottom: 44px solid #f2a65a; }
+.catpic .cat::before { left: 18px; transform: rotate(-12deg); } .catpic .cat::after { right: 18px; transform: rotate(12deg); }
+.catpic .eye { position: absolute; top: 52px; width: 14px; height: 18px; border-radius: 50%; background: #2a2320; }
+.catpic .eye.l { left: 52px; } .catpic .eye.r { right: 52px; }
+#ads { position: absolute; inset: 0; }
+
+/* ---------- 広告 ---------- */
+.ad { position: absolute; border-radius: 6px; overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,.35), 0 0 0 2px rgba(0,0,0,.15); cursor: pointer; animation: popin .18s ease-out; display: grid; }
+@keyframes popin { from { transform: scale(.6); opacity: 0; } }
+.ad.shake { animation: popin .18s ease-out, shake .25s 0s infinite; }
+@keyframes shake { 25% { translate: -3px 1px; } 75% { translate: 3px -1px; } }
+.ad.closing { animation: closeout .16s ease-in forwards; pointer-events: none; }
+@keyframes closeout { to { transform: scale(.4); opacity: 0; } }
+.ad .in { padding: 14px 16px; display: grid; gap: 6px; align-content: center; justify-items: center; text-align: center; }
+.ad .tag { position: absolute; left: 6px; top: 4px; font-size: .62rem; opacity: .7; letter-spacing: .05em; }
+.ad .hl { font-family: var(--pop); line-height: 1.15; }
+.ad .sub { font-size: .8rem; line-height: 1.4; }
+.ad .cta { font-family: var(--pop); padding: 8px 18px; border-radius: 999px; font-size: .95rem; box-shadow: inset 0 -3px 0 rgba(0,0,0,.2); }
+.ad .tbar { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: .75rem; background: #1f6feb; color: #fff; }
+.x { position: absolute; z-index: 3; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font: 700 16px/1 var(--body); cursor: pointer; border: 0; padding: 0; }
+.x::after { content: ""; position: absolute; inset: calc(-1 * var(--pad)); border-radius: 50%; }
+.x.tiny { width: 11px; height: 11px; font-size: 9px; background: rgba(255,255,255,.35); color: rgba(0,0,0,.5); }
+.x.square { border-radius: 3px; background: #ddd; color: #555; }
+.x.faint { opacity: .28; }
+.x.fakeEye { box-shadow: 0 0 0 3px var(--hot); }
+.x.real.trueEye { box-shadow: 0 0 0 3px var(--ok); }
+.skip { position: absolute; right: 0; bottom: 18px; z-index: 3; background: rgba(0,0,0,.75); color: #fff; padding: 8px 14px; font-size: .85rem; border: 0; cursor: pointer; }
+.skip[disabled] { cursor: default; color: #bbb; }
+.count { position: absolute; right: 8px; top: 8px; z-index: 3; background: rgba(0,0,0,.6); color: #fff; font-size: .75rem; padding: 3px 8px; border-radius: 999px; }
+.confirm { position: absolute; inset: 0; z-index: 4; background: rgba(255,255,255,.96); display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; padding: 10px; }
+.confirm .q { font-family: var(--pop); font-size: 1rem; }
+.confirm .row { display: flex; gap: 10px; align-items: center; justify-content: center; }
+.confirm .yes { font-size: .7rem; padding: 3px 8px; background: #eee; border: 1px solid #ccc; color: #777; cursor: pointer; }
+.confirm .no { font-family: var(--pop); font-size: 1rem; padding: 10px 22px; background: var(--hot); color: #fff; border: 0; border-radius: 999px; cursor: pointer; }
+.cookie { border-radius: 0; }
+.cookie .in { grid-template-columns: 1fr auto; justify-items: start; text-align: left; gap: 14px; }
+.cookie .accept { font-family: var(--pop); padding: 12px 26px; background: var(--ok); color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+.cookie .reject { font-size: .66rem; color: #999; background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 2px; }
+.cookie .reject.big { font-size: .9rem; color: #333; }
+.video { background: #000; color: #fff; }
+.video .screen { position: relative; display: grid; place-items: center; background: radial-gradient(circle at 30% 30%, #ff6fb1, #6a2cff 60%, #120a2a); }
+.video .prog { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--gold); }
+
+/* ---------- 浮かぶ数字 ---------- */
+.float { position: fixed; z-index: 30; pointer-events: none; font-family: var(--pop); font-size: 1.15rem; color: var(--ok); text-shadow: 0 2px 0 #fff, 0 0 8px #fff; animation: rise .8s ease-out forwards; transform: translate(-50%, -50%); white-space: nowrap; }
+.float.bad { color: var(--hot); }
+.float.big { font-size: 1.6rem; color: #ff8a00; }
+@keyframes rise { to { transform: translate(-50%, -60px); opacity: 0; } }
+
+/* ---------- オーバーレイ ---------- */
+.over { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(20, 20, 32, .62); padding: 24px 16px; }
+.card { width: min(100%, 640px); max-height: 100%; overflow-y: auto; background: #fffdf8; border-radius: 16px; padding: 28px; display: grid; gap: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.4); }
+.card h1 { margin: 0; font-family: var(--pop); font-weight: 400; font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; }
+.card h1 em { font-style: normal; color: var(--hot); }
+.card h2 { margin: 0; font-family: var(--pop); font-weight: 400; font-size: 1.6rem; }
+.card p { margin: 0; line-height: 1.8; }
+.rules { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: .92rem; color: #4a4752; }
+.rules b { font-family: var(--pop); font-weight: 400; color: var(--ink); }
+.big-btn { font-family: var(--pop); font-size: 1.2rem; padding: 14px 30px; border: 0; border-radius: 999px; background: var(--hot); color: #fff; cursor: pointer; box-shadow: inset 0 -5px 0 rgba(0,0,0,.2); }
+.big-btn.alt { background: var(--ink); }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stat { background: #f3efe6; border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.stat span { font-size: .78rem; color: var(--muted); }
+.stat b { font-family: var(--pop); font-weight: 400; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.stat.hi b { color: var(--hot); }
+.shop { display: grid; gap: 10px; }
+.up { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; align-items: center; background: #f3efe6; border-radius: 10px; padding: 12px 14px; }
+.up .nm { font-weight: 800; }
+.up .lv { color: var(--hot); font-size: .8rem; margin-left: 6px; }
+.up .ds { font-size: .82rem; color: var(--muted); grid-column: 1; }
+.up button { grid-row: 1 / span 2; grid-column: 2; font-family: var(--pop); padding: 10px 16px; border-radius: 10px; border: 0; background: var(--gold); cursor: pointer; font-variant-numeric: tabular-nums; min-width: 92px; }
+.up button:disabled { background: #ddd8cc; color: #9a958a; cursor: not-allowed; }
+.coins { font-family: var(--pop); color: #b8860b; font-size: 1.2rem; }
+.small { font-size: .8rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .ad, .ad.shake, .float { animation: none; } }
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="tabs">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="tab">今日のねこ｜ほのぼの通信</div>
+    <div class="tab dim">新しいタブ</div>
+  </div>
+  <div class="bar">
+    <div class="url">https://<b>honobono-neko.example</b>/today</div>
+    <div class="hud">
+      <span class="score" id="hScore">0</span>
+      <span class="combo" id="hCombo"></span>
+      <span class="time" id="hTime">0:00</span>
+      <span class="meter" id="hMeter"><span>画面の埋まり</span><span class="track"><span class="fill" id="hFill"></span></span><span id="hPct">0%</span></span>
+    </div>
+  </div>
+  <div class="page" id="page">
+    <article class="article">
+      <h1>今日のねこ：日なたで丸くなる「もち」さん</h1>
+      <div class="by">ほのぼの通信 編集部・3分で読めます</div>
+      <div class="catpic" aria-hidden="true"><div class="cat"><i class="eye l"></i><i class="eye r"></i></div></div>
+      <p>朝いちばんの日なたは、もちさんの指定席です。窓ぎわのクッションに前足をそろえて座り、ゆっくりと目を細めます。</p>
+      <p>飼い主さんによると、日なたが窓の反対側へ移ると、もちさんもそっと移動するのだそう。一日かけて部屋をひとまわりするのが日課です。</p>
+      <p>この記事を最後まで静かに読めた人は、まだいません。</p>
+    </article>
+    <div id="ads"></div>
+  </div>
+</div>
+
+<div class="over" id="title">
+  <div class="card">
+    <h1>閉じろ！<br><em>広告地獄</em></h1>
+    <p>ねこの記事を読みたいだけなのに、広告が次々に湧いてくる。×を押して閉じまくって、画面が広告で埋まる前にできるだけ長く耐えよう。</p>
+    <div class="rules">
+      <b>×を押す</b><span>広告を閉じる。続けて閉じるとコンボで点数アップ</span>
+      <b>本体を押す</b><span>広告を踏んでしまい、新しい広告が開く</span>
+      <b>画面の埋まり</b><span>100%になったらゲームオーバー</span>
+      <b>コイン</b><span>終わったあと、ショップで強化を買える</span>
+    </div>
+    <div class="btns"><button class="big-btn" id="startBtn">はじめる</button><button class="big-btn alt" id="shopBtn1">ショップ</button><span class="coins" id="tCoins"></span></div>
+    <div class="small">PCのマウス操作向け。ウザい広告は時間とともに種類が増える。</div>
+  </div>
+</div>
+
+<div class="over" id="result" hidden>
+  <div class="card">
+    <h2 id="rTitle">画面が広告で埋まった</h2>
+    <div class="stats" id="rStats"></div>
+    <div class="btns"><button class="big-btn" id="retryBtn">もう一回</button><button class="big-btn alt" id="shopBtn2">ショップ</button><span class="coins" id="rCoins"></span></div>
+  </div>
+</div>
+
+<div class="over" id="shopOv" hidden>
+  <div class="card">
+    <div class="btns" style="justify-content:space-between"><h2>ショップ</h2><span class="coins" id="sCoins"></span></div>
+    <div class="shop" id="shopList"></div>
+    <div class="btns"><button class="big-btn" id="shopStart">この強化で挑む</button><button class="big-btn alt" id="shopBack">もどる</button></div>
+    <details class="small"><summary>記録とセーブ</summary>
+      <div style="display:grid;gap:8px;margin-top:8px">
+        <div id="records"></div>
+        <button class="big-btn alt" id="resetBtn" style="font-size:.9rem;padding:8px 16px;justify-self:start">記録と強化を消す</button>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// =============================================================
+//  セーブ（コインと強化と記録）
+// =============================================================
+const KEY = 'ad-hell-v1';
+const UPS = [
+  { k: 'blocker', nm: '広告ブロッカー', max: 6, base: 40,  r: 1.9, ds: lv => lv ? `${blockerEvery(lv)}秒ごとに広告を1つ自動で閉じる` : '一定時間ごとに広告を自動で閉じる' },
+  { k: 'finger',  nm: 'でかい指',       max: 4, base: 30,  r: 1.8, ds: lv => `×の当たり判定 +${lv * 6}px` },
+  { k: 'calm',    nm: '深呼吸',         max: 5, base: 35,  r: 1.75, ds: lv => `広告が湧くペースが遅くなる（-${lv * 8}%）` },
+  { k: 'eye',     nm: '見抜く目',       max: 2, base: 120, r: 3,   ds: lv => ['偽物の×に赤い印がつく', '本物の×にも緑の印がつく'][Math.min(lv, 1)] },
+  { k: 'screen',  nm: '大きいモニター', max: 3, base: 80,  r: 2.2, ds: lv => `埋まりの上限 ${100 + lv * 25}%` },
+  { k: 'coin',    nm: 'ポイ活',         max: 5, base: 50,  r: 2,   ds: lv => `もらえるコイン +${lv * 25}%` },
+];
+const blockerEvery = lv => Math.max(2, 9 - lv * 1.2).toFixed(1);
+let SAVE = { coins: 0, lv: {}, best: { score: 0, time: 0, closes: 0 }, runs: 0 };
+try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) SAVE = Object.assign(SAVE, d, { best: Object.assign(SAVE.best, d.best || {}) }); } catch (e) {}
+const lv = k => SAVE.lv[k] || 0;
+const upCost = (u, l) => Math.round(u.base * Math.pow(u.r, l));
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(SAVE)); } catch (e) {} }
+
+// =============================================================
+//  音
+// =============================================================
+let AC = null;
+function audio() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) {} }
+function beep(f, d = .07, type = 'square', v = .04, slide = 0) {
+  if (!AC) return;
+  const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .02);
+}
+
+// =============================================================
+//  広告の中身（ぜんぶ架空）
+// =============================================================
+const COPY = [
+  ['たった3日で', '指がつるほど痩せる靴下', '今だけ実質0円（ただし靴下は片方）'],
+  ['おめでとう！', 'あなたは100万人目の読者です', '※全員100万人目です'],
+  ['医者も驚いた', 'ねこが3倍かわいく見えるメガネ', 'もともとかわいいのでは？'],
+  ['限定セール', '宇宙旅行 9,800円', '片道'],
+  ['この広告を', '閉じないでください', 'お願いします'],
+  ['近所の主婦が', '1日3分で年収が10倍に', 'ただし3分×365日×10年'],
+  ['衝撃', 'まだ×を探してるの？', 'ここにはないよ'],
+  ['今すぐ', '無料で！無料で！無料で！', '何が無料かは秘密'],
+  ['あなたのPCが', 'ちょっと眠そうです', '休ませてあげよう'],
+  ['話題沸騰', '押すと鳴るボタン', '押しても何も起きません'],
+  ['期間限定', 'ポイント100倍デー', '元のポイントは0です'],
+  ['新発売', '空気が入ったペットボトル', 'すごく軽い'],
+  ['開運', 'あなたの運勢は「広告」', '明日も広告'],
+  ['人生を変える', '読むだけで読める本', '文字が書いてあります'],
+];
+const SKINS = [
+  { bg: 'linear-gradient(135deg,#ff3b5c,#ff9f1c)', fg: '#fff', cta: ['#ffe14d', '#23212b'] },
+  { bg: 'linear-gradient(135deg,#00c2ff,#7a5cff)', fg: '#fff', cta: ['#fff', '#3b2bd6'] },
+  { bg: '#ffe14d', fg: '#23212b', cta: ['#ff3b5c', '#fff'] },
+  { bg: 'linear-gradient(160deg,#16a34a,#a3e635)', fg: '#fff', cta: ['#fff', '#166534'] },
+  { bg: '#111', fg: '#ffe14d', cta: ['#ffe14d', '#111'] },
+  { bg: 'repeating-linear-gradient(45deg,#ff6fb1 0 18px,#ff8fc4 18px 36px)', fg: '#fff', cta: ['#fff', '#d6247a'] },
+  { bg: '#fff', fg: '#d61f3c', cta: ['#d61f3c', '#fff'] },
+];
+const CTAS = ['今すぐチェック', 'くわしく見る', '無料ではじめる', 'クリック！', '受け取る', 'もっと見る'];
+
+// =============================================================
+//  広告の種類（時間とともに増える）
+// =============================================================
+const TYPES = [
+  { id: 'basic',   at: 0,   w: 10, pts: 10 },
+  { id: 'tiny',    at: 12,  w: 6,  pts: 15 },
+  { id: 'corner',  at: 22,  w: 6,  pts: 12 },
+  { id: 'fake',    at: 32,  w: 6,  pts: 20 },
+  { id: 'delay',   at: 42,  w: 5,  pts: 15 },
+  { id: 'cookie',  at: 52,  w: 3,  pts: 20, once: true },
+  { id: 'flee',    at: 64,  w: 5,  pts: 25 },
+  { id: 'confirm', at: 78,  w: 4,  pts: 25 },
+  { id: 'video',   at: 92,  w: 4,  pts: 20 },
+  { id: 'giant',   at: 110, w: 3,  pts: 30 },
+  { id: 'shake',   at: 125, w: 4,  pts: 18 },
+];
+
+// =============================================================
+//  ゲームの状態
+// =============================================================
+let G = null;
+const ads = new Map();
+let nextId = 1;
+const page = $('page'), layer = $('ads');
+function pageRect() { return page.getBoundingClientRect(); }
+
+function newRun() {
+  for (const a of ads.values()) a.el.remove();
+  ads.clear();
+  G = { t: 0, score: 0, closes: 0, combo: 0, comboT: 0, maxCombo: 0, misclicks: 0, fakes: 0, spawnT: 1.2, blockT: 0, over: false, cover: 0, overT: 0 };
+  document.documentElement.style.setProperty('--pad', lv('finger') * 6 + 'px');
+}
+function spawnInterval() {
+  const base = Math.max(0.42, 1.7 * Math.pow(0.987, G.t));      // だんだん速く
+  return base * (1 + lv('calm') * 0.08) * rand(0.75, 1.25);
+}
+function chooseType() {
+  const ok = TYPES.filter(t => G.t >= t.at && !(t.once && [...ads.values()].some(a => a.type === t.id)));
+  let s = ok.reduce((a, t) => a + t.w, 0) * Math.random();
+  for (const t of ok) { s -= t.w; if (s <= 0) return t; }
+  return ok[0];
+}
+
+// 広告を1枚つくる
+function spawnAd(forceType, near) {
+  if (!G || G.over) return;
+  const T = forceType ? TYPES.find(t => t.id === forceType) : chooseType();
+  const R = pageRect();
+  const [kick, hl, sub] = pick(COPY), skin = pick(SKINS);
+  let w, h;
+  if (T.id === 'giant') { w = R.width * rand(.72, .9); h = R.height * rand(.7, .88); }
+  else if (T.id === 'cookie') { w = R.width; h = 96; }
+  else if (T.id === 'video') { w = rand(300, 380); h = w * .62 + 30; }
+  else { const shape = pick(['sq', 'wide', 'tall', 'sq']); w = shape === 'wide' ? rand(320, 460) : shape === 'tall' ? rand(170, 220) : rand(220, 300); h = shape === 'wide' ? rand(110, 150) : shape === 'tall' ? rand(280, 360) : rand(180, 250); }
+  w = Math.min(w, R.width - 10); h = Math.min(h, R.height - 10);
+  let x = rand(5, R.width - w - 5), y = rand(5, R.height - h - 5);
+  if (T.id === 'cookie') { x = 0; y = R.height - h; }
+  if (near) { x = Math.max(5, Math.min(R.width - w - 5, near.x + rand(-80, 80))); y = Math.max(5, Math.min(R.height - h - 5, near.y + rand(-60, 60))); }
+  const el = document.createElement('div');
+  el.className = 'ad' + (T.id === 'cookie' ? ' cookie' : '') + (T.id === 'video' ? ' video' : '') + (T.id === 'shake' && !reduce ? ' shake' : '');
+  Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', background: T.id === 'cookie' ? '#fff' : T.id === 'video' ? '#000' : skin.bg, color: T.id === 'cookie' ? '#23212b' : skin.fg, zIndex: nextId });
+  const fs = Math.max(14, Math.min(34, Math.min(w, h * 1.4) / 9));
+  const body = `<div class="in"><div class="sub" style="font-weight:800">${esc(kick)}</div><div class="hl" style="font-size:${fs}px">${esc(hl)}</div><div class="sub">${esc(sub)}</div>${h > 150 ? `<div class="cta" style="background:${skin.cta[0]};color:${skin.cta[1]}">${pick(CTAS)}</div>` : ''}</div><div class="tag">広告</div>`;
+  const id = nextId++;
+  const ad = { id, el, type: T.id, pts: T.pts, x, y, w, h, born: G.t, dodges: 0 };
+  if (T.id === 'cookie') {
+    el.innerHTML = `<div class="in"><div><div style="font-weight:800;margin-bottom:4px">クッキーを食べてもいいですか？</div><div class="sub" style="color:#666">当サイトは体験向上のため、あなたのおやつを含む全てのクッキーを使用します。</div></div>
+      <div style="display:grid;gap:6px;justify-items:end"><button class="accept" data-role="fake">すべて同意して続ける</button><button class="reject ${lv('eye') >= 2 ? 'big' : ''}" data-role="close">必要なものだけ（拒否）</button></div></div>`;
+  } else if (T.id === 'video') {
+    el.innerHTML = `<div class="tbar" style="background:#222">動画広告</div><div class="screen" style="height:${h - 30}px"><div class="hl" style="font-size:22px;color:#fff;text-align:center;padding:0 14px">${esc(hl)}</div><div class="prog" id="vp${id}"></div></div>
+      <button class="skip" data-role="wait" disabled>あと5秒で広告をスキップ</button>`;
+    ad.skipAt = G.t + 5;
+  } else if (T.id === 'giant') {
+    el.innerHTML = body;
+    ad.xAt = G.t + 1.5;
+  } else {
+    el.innerHTML = body;
+  }
+  // ×ボタンを置く
+  const addX = (cls, role, pos) => {
+    const b = document.createElement('button');
+    b.className = 'x ' + cls; b.dataset.role = role; b.textContent = '×'; b.setAttribute('aria-label', '閉じる');
+    Object.assign(b.style, pos);
+    el.appendChild(b); return b;
+  };
+  const corners = [{ right: '6px', top: '6px' }, { left: '6px', top: '6px' }, { right: '6px', bottom: '6px' }, { left: '6px', bottom: '6px' }];
+  switch (T.id) {
+    case 'basic': case 'shake': addX('real', 'close', corners[0]); break;
+    case 'tiny': addX('tiny real', 'close', { right: '4px', top: '4px' }); break;
+    case 'corner': addX('square real', 'close', pick(corners.slice(1))); break;
+    case 'fake': {
+      const spots = [corners[0], { right: '34px', top: '6px' }, { left: '6px', top: '6px' }].sort(() => Math.random() - .5);
+      spots.forEach((p, i) => {
+        const real = i === 0;
+        const b = addX(real ? 'real' : 'fake', real ? 'close' : 'fake', p);
+        if (!real && lv('eye') >= 1) b.classList.add('fakeEye');
+        if (real && lv('eye') >= 2) b.classList.add('trueEye');
+      });
+      break;
+    }
+    case 'delay': {
+      const c = document.createElement('div'); c.className = 'count'; c.textContent = 'あと3秒で閉じられます'; el.appendChild(c);
+      ad.countEl = c; ad.xAt = G.t + 3;
+      break;
+    }
+    case 'flee': ad.fleeX = addX('real', 'close', { right: '6px', top: '6px' }); ad.fx = w - 32; ad.fy = 6; break;
+    case 'confirm': addX('real', 'ask', corners[0]); break;
+  }
+  layer.appendChild(el);
+  ads.set(id, ad);
+  beep(rand(300, 520), .05, 'triangle', .03);
+}
+
+// 閉じる
+function closeAd(ad, by, ev) {
+  if (!ads.has(ad.id)) return;
+  ads.delete(ad.id);
+  ad.el.classList.add('closing');
+  setTimeout(() => ad.el.remove(), 170);
+  if (by === 'blocker') { floatAt(ad.x + ad.w / 2, ad.y + ad.h / 2, 'ブロック', ''); beep(700, .05, 'sine', .03); return; }
+  G.closes++;
+  G.combo = G.comboT > 0 ? G.combo + 1 : 1;
+  G.comboT = 1.4;
+  G.maxCombo = Math.max(G.maxCombo, G.combo);
+  const mult = Math.min(3, 1 + (G.combo - 1) * 0.1);
+  const pts = Math.round(ad.pts * mult);
+  G.score += pts;
+  const p = ev ? { x: ev.clientX, y: ev.clientY } : null;
+  floatAbs(p, ad, `+${pts}`, G.combo >= 10 && G.combo % 10 === 0 ? 'big' : '');
+  if (G.combo >= 10 && G.combo % 10 === 0) floatAbs(p, ad, `${G.combo}コンボ！`, 'big', -34);
+  beep(880 + Math.min(G.combo, 20) * 25, .05, 'square', .035);
+}
+// 踏んでしまった
+function misclick(ad, ev, why) {
+  G.misclicks++;
+  G.combo = 0; G.comboT = 0;
+  floatAbs({ x: ev.clientX, y: ev.clientY }, ad, why || '踏んだ！', 'bad');
+  beep(160, .18, 'sawtooth', .05, -60);
+  const R = pageRect();
+  const n = why === '偽物！' ? 2 : 1;
+  for (let i = 0; i < n; i++) spawnAd(null, { x: ev.clientX - R.left, y: ev.clientY - R.top });
+}
+function floatAt(x, y, text, cls) {
+  const R = pageRect();
+  floatAbs({ x: R.left + x, y: R.top + y }, null, text, cls);
+}
+function floatAbs(p, ad, text, cls, dy = 0) {
+  if (!p) { const R = pageRect(); p = { x: R.left + ad.x + ad.w / 2, y: R.top + ad.y + ad.h / 2 }; }
+  const el = document.createElement('div');
+  el.className = 'float ' + (cls || ''); el.textContent = text;
+  el.style.left = p.x + 'px'; el.style.top = (p.y + dy) + 'px';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 900);
+}
+
+// =============================================================
+//  クリック
+// =============================================================
+layer.addEventListener('pointerdown', e => {
+  if (!G || G.over || e.button !== 0) return;
+  audio();
+  const adEl = e.target.closest('.ad');
+  if (!adEl) return;
+  const ad = [...ads.values()].find(a => a.el === adEl);
+  if (!ad) return;
+  e.preventDefault();
+  const btn = e.target.closest('[data-role]');
+  const role = btn ? btn.dataset.role : null;
+  if (role === 'close') { closeAd(ad, 'player', e); return; }
+  if (role === 'fake') { G.fakes++; misclick(ad, e, '偽物！'); return; }
+  if (role === 'ask') { openConfirm(ad); return; }
+  if (role === 'no-close') { closeAd(ad, 'player', e); return; }
+  if (role === 'yes-stay') { ad.el.querySelector('.confirm').remove(); misclick(ad, e, 'だまされた！'); return; }
+  if (role === 'skip' && ad.skipReady) { closeAd(ad, 'player', e); return; }
+  if (role === 'wait') return;
+  if (e.target.closest('.confirm')) return;
+  misclick(ad, e);
+});
+// 「本当に閉じますか？」：大きいボタンは「閉じない」
+function openConfirm(ad) {
+  if (ad.el.querySelector('.confirm')) return;
+  const c = document.createElement('div');
+  c.className = 'confirm';
+  const swap = Math.random() < .5;
+  const yes = `<button class="yes" data-role="no-close">はい、閉じる</button>`;
+  const no = `<button class="no" data-role="yes-stay">いいえ、もっと見たい！</button>`;
+  c.innerHTML = `<div class="q">本当に閉じますか？</div><div class="row">${swap ? yes + no : no + yes}</div>`;
+  ad.el.appendChild(c);
+  beep(420, .06, 'triangle', .03);
+}
+// 逃げる×
+page.addEventListener('pointermove', e => {
+  if (!G || G.over) return;
+  const R = pageRect();
+  for (const ad of ads.values()) {
+    if (!ad.fleeX || ad.dodges >= 4) continue;
+    const cx = R.left + ad.x + ad.fx + 13, cy = R.top + ad.y + ad.fy + 13;
+    const d = Math.hypot(e.clientX - cx, e.clientY - cy);
+    if (d < 46) {
+      ad.dodges++;
+      let nx, ny, tries = 0;
+      do { nx = rand(6, ad.w - 32); ny = rand(6, ad.h - 32); tries++; } while (Math.hypot(R.left + ad.x + nx + 13 - e.clientX, R.top + ad.y + ny + 13 - e.clientY) < 90 && tries < 20);
+      ad.fx = nx; ad.fy = ny;
+      Object.assign(ad.fleeX.style, { left: nx + 'px', top: ny + 'px', right: 'auto', bottom: 'auto' });
+      if (ad.dodges >= 4) ad.fleeX.style.background = 'rgba(0,0,0,.8)';
+    }
+  }
+});
+
+// =============================================================
+//  ループ
+// =============================================================
+const fmtT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+function coverage() {
+  const R = pageRect();
+  let s = 0;
+  for (const a of ads.values()) s += a.w * a.h;
+  return s / (R.width * R.height) * 100;
+}
+function tick(dt) {
+  G.t += dt;
+  G.spawnT -= dt;
+  if (G.spawnT <= 0) { spawnAd(); G.spawnT = spawnInterval(); if (G.t > 60 && Math.random() < Math.min(.35, (G.t - 60) / 300)) spawnAd(); }
+  if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
+  // 広告ブロッカー
+  if (lv('blocker')) {
+    G.blockT += dt;
+    if (G.blockT >= +blockerEvery(lv('blocker')) && ads.size) {
+      G.blockT = 0;
+      const list = [...ads.values()].sort((a, b) => b.w * b.h - a.w * a.h);
+      closeAd(list[0], 'blocker');
+    }
+  }
+  for (const ad of ads.values()) {
+    if (ad.countEl) {
+      const left = Math.ceil(ad.xAt - G.t);
+      if (left > 0) ad.countEl.textContent = `あと${left}秒で閉じられます`;
+      else { ad.countEl.remove(); ad.countEl = null; const b = document.createElement('button'); b.className = 'x real'; b.dataset.role = 'close'; b.textContent = '×'; b.setAttribute('aria-label', '閉じる'); Object.assign(b.style, { right: '6px', top: '6px' }); ad.el.appendChild(b); }
+    }
+    if (ad.type === 'giant' && ad.xAt && G.t >= ad.xAt) {
+      ad.xAt = 0;
+      const b = document.createElement('button'); b.className = 'x faint real'; b.dataset.role = 'close'; b.textContent = '×'; b.setAttribute('aria-label', '閉じる');
+      Object.assign(b.style, pick([{ right: '8px', top: '8px' }, { left: '8px', top: '8px' }, { right: '8px', bottom: '8px' }, { left: '8px', bottom: '8px' }]));
+      ad.el.appendChild(b);
+    }
+    if (ad.type === 'video') {
+      const left = ad.skipAt - G.t, bar = document.getElementById('vp' + ad.id), sk = ad.el.querySelector('.skip');
+      if (bar) bar.style.width = Math.min(100, (1 - Math.max(0, left) / 5) * 100) + '%';
+      if (left > 0) sk.textContent = `あと${Math.ceil(left)}秒で広告をスキップ`;
+      else if (!ad.skipReady) { ad.skipReady = true; sk.disabled = false; sk.dataset.role = 'skip'; sk.textContent = '広告をスキップ ▶'; }
+    }
+  }
+  // 画面の埋まり
+  const limit = 100 + lv('screen') * 25;
+  G.cover = coverage();
+  const pct = G.cover / limit * 100;
+  $('hFill').style.width = Math.min(100, pct) + '%';
+  $('hPct').textContent = Math.round(G.cover) + '%';
+  $('hMeter').classList.toggle('warn', pct >= 60 && pct < 85);
+  $('hMeter').classList.toggle('danger', pct >= 85);
+  if (G.cover >= limit) { G.overT += dt; if (G.overT > .6) gameOver(); } else G.overT = 0;
+  $('hScore').textContent = G.score.toLocaleString('ja-JP');
+  $('hCombo').textContent = G.combo >= 2 ? `${G.combo}コンボ` : '';
+  $('hTime').textContent = fmtT(G.t);
+}
+let last = performance.now(), running = false;
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (running && G && !G.over) tick(dt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// =============================================================
+//  始める・終わる
+// =============================================================
+function start() {
+  audio();
+  ['title', 'result', 'shopOv'].forEach(id => { $(id).hidden = true; });
+  newRun();
+  running = true;
+  last = performance.now();
+  beep(523, .08, 'square', .04); setTimeout(() => beep(784, .1, 'square', .04), 90);
+}
+function gameOver() {
+  G.over = true; running = false;
+  beep(220, .5, 'sawtooth', .06, -150);
+  const coinMult = 1 + lv('coin') * .25;
+  const coins = Math.round((G.score / 8 + G.t * 0.6) * coinMult);
+  SAVE.coins += coins; SAVE.runs++;
+  const newBest = G.score > SAVE.best.score;
+  SAVE.best.score = Math.max(SAVE.best.score, G.score);
+  SAVE.best.time = Math.max(SAVE.best.time, G.t);
+  SAVE.best.closes = Math.max(SAVE.best.closes, G.closes);
+  persist();
+  const stat = (k, v, hi) => `<div class="stat ${hi ? 'hi' : ''}"><span>${k}</span><b>${v}</b></div>`;
+  $('rTitle').textContent = newBest ? 'ベスト更新！ でも画面は広告で埋まった' : '画面が広告で埋まった';
+  $('rStats').innerHTML = stat('スコア', G.score.toLocaleString('ja-JP'), newBest) + stat('耐えた時間', fmtT(G.t)) + stat('閉じた広告', G.closes) + stat('最大コンボ', G.maxCombo) + stat('踏んだ回数', G.misclicks) + stat('もらったコイン', '+' + coins);
+  $('rCoins').textContent = `コイン ${SAVE.coins.toLocaleString('ja-JP')}`;
+  setTimeout(() => { $('result').hidden = false; }, 700);
+}
+function openShop() {
+  ['title', 'result'].forEach(id => { $(id).hidden = true; });
+  $('shopOv').hidden = false;
+  renderShop();
+}
+function renderShop() {
+  $('sCoins').textContent = `コイン ${SAVE.coins.toLocaleString('ja-JP')}`;
+  $('shopList').innerHTML = UPS.map(u => {
+    const l = lv(u.k), max = l >= u.max, c = upCost(u, l);
+    return `<div class="up"><div class="nm">${esc(u.nm)}<span class="lv">Lv ${l}/${u.max}</span></div><div class="ds">${esc(u.ds(max ? l : l + 1))}${max ? '' : '（次のレベル）'}</div>
+      <button data-up="${u.k}" ${max || SAVE.coins < c ? 'disabled' : ''}>${max ? '最大' : c.toLocaleString('ja-JP')}</button></div>`;
+  }).join('');
+  $('records').innerHTML = `ベストスコア ${SAVE.best.score.toLocaleString('ja-JP')}・最長 ${fmtT(SAVE.best.time)}・最多 ${SAVE.best.closes}枚・挑戦 ${SAVE.runs}回`;
+}
+$('shopList').addEventListener('click', e => {
+  const b = e.target.closest('button[data-up]'); if (!b || b.disabled) return;
+  const u = UPS.find(x => x.k === b.dataset.up), c = upCost(u, lv(u.k));
+  if (SAVE.coins < c) return;
+  SAVE.coins -= c; SAVE.lv[u.k] = lv(u.k) + 1; persist();
+  audio(); beep(660, .07, 'square', .04); setTimeout(() => beep(990, .09, 'square', .04), 70);
+  renderShop();
+});
+let resetArm = false;
+$('resetBtn').addEventListener('click', e => {
+  if (!resetArm) { resetArm = true; e.target.textContent = 'もう一度押すと消える'; setTimeout(() => { resetArm = false; e.target.textContent = '記録と強化を消す'; }, 3000); return; }
+  SAVE = { coins: 0, lv: {}, best: { score: 0, time: 0, closes: 0 }, runs: 0 }; persist(); renderShop(); resetArm = false; e.target.textContent = '記録と強化を消す';
+});
+$('startBtn').addEventListener('click', start);
+$('retryBtn').addEventListener('click', start);
+$('shopStart').addEventListener('click', start);
+$('shopBtn1').addEventListener('click', openShop);
+$('shopBtn2').addEventListener('click', openShop);
+$('shopBack').addEventListener('click', () => { $('shopOv').hidden = true; (G && G.over ? $('result') : $('title')).hidden = false; });
+$('tCoins').textContent = SAVE.coins ? `コイン ${SAVE.coins.toLocaleString('ja-JP')}` : '';
+addEventListener('keydown', e => { if (e.key === 'Enter' && !running && !$('title').hidden) start(); });
+})();
+</script>
+</body>
+</html>
