@@ -4,52 +4,119 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ゲーム置き場</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&family=Bebas+Neue&display=swap">
 <style>
-:root { --bg: #14110f; --card: #201b17; --line: #3a3029; --ink: #f4efe4; --muted: #b3ab9c; --gold: #ffc94a; color-scheme: dark; }
+/* Layout: a home-screen grid of app icons. Name appears in a tooltip on hover or keyboard focus. */
+:root { --bg: #111318; --bg2: #1b1f27; --ink: #f4f1ea; --muted: #8b90a0; --tip: #f4f1ea; --tipink: #111318; color-scheme: dark; }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font-family: "DotGothic16", "Hiragino Sans", "Yu Gothic", monospace; line-height: 1.6; }
-main { max-width: 760px; margin: 0 auto; padding: 40px 16px 60px; display: grid; gap: 28px; }
-h1 { margin: 0; font-weight: 400; font-size: 2.4rem; color: var(--gold); }
-h2 { margin: 0 0 10px; font-weight: 400; font-size: 1.3rem; }
-.list { display: grid; gap: 10px; }
-a.game { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 14px 16px; background: var(--card); border: 2px solid var(--line); color: var(--ink); text-decoration: none; }
-a.game:hover, a.game:focus-visible { border-color: var(--gold); outline: none; }
-a.game b { font-weight: 400; font-size: 1.15rem; }
-a.game span { color: var(--muted); font-size: .9rem; grid-column: 1; }
-a.game em { font-style: normal; color: var(--gold); grid-row: 1 / span 2; grid-column: 2; font-size: .85rem; }
+html, body { min-height: 100%; }
+body { margin: 0; background: radial-gradient(1200px 600px at 50% -10%, #2a2f3d, var(--bg) 60%); background-color: var(--bg); color: var(--ink); font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 56px 16px 80px; display: grid; gap: 40px; justify-items: center; }
+h1 { margin: 0; font-family: "Bebas Neue", "Noto Sans JP", sans-serif; font-weight: 400; font-size: 2.6rem; letter-spacing: .3em; color: var(--muted); padding-left: .3em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, 112px); gap: 36px 32px; justify-content: center; width: 100%; }
+a.app { position: relative; display: block; width: 112px; height: 112px; border-radius: 26px; outline: none; transition: transform .15s ease; }
+a.app svg { display: block; width: 100%; height: 100%; border-radius: 26px; box-shadow: 0 10px 26px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08); }
+a.app:hover, a.app:focus-visible { transform: translateY(-4px) scale(1.04); }
+a.app:focus-visible svg { box-shadow: 0 0 0 3px var(--ink), 0 10px 26px rgba(0,0,0,.45); }
+a.app::after { content: attr(data-name); position: absolute; left: 50%; top: calc(100% + 12px); transform: translate(-50%, -4px); background: var(--tip); color: var(--tipink); font-weight: 900; font-size: .9rem; padding: 6px 12px; border-radius: 8px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; z-index: 5; }
+a.app::before { content: ""; position: absolute; left: 50%; top: calc(100% + 4px); transform: translate(-50%, -4px); border: 6px solid transparent; border-bottom-color: var(--tip); opacity: 0; transition: opacity .15s, transform .15s; z-index: 5; }
+a.app:hover::after, a.app:focus-visible::after, a.app:hover::before, a.app:focus-visible::before { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { a.app, a.app::after, a.app::before { transition: none; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>ゲーム置き場</h1>
-  <section>
-    <h2>コア・ディガー</h2>
-    <div class="list">
-      <a class="game" href="core-digger/index.html"><b>コア・ディガー</b><span>一人称で洞窟を掘り進むインクリメンタル。地球の中心を目指す</span><em>PC</em></a>
-    </div>
-  </section>
-  <section>
-    <h2>閉じろ！広告地獄</h2>
-    <div class="list">
-      <a class="game" href="ad-closer/index.html"><b>閉じろ！広告地獄</b><span>湧いてくる広告を×で閉じまくる。逃げる×・偽物の×・「本当に閉じますか？」</span><em>PC</em></a>
-    </div>
-  </section>
-  <section>
-    <h2>物件王（試作の記録）</h2>
-    <div class="list">
-      <a class="game" href="bukken-ou/incremental/index.html"><b>インクリメンタル版</b><span>デスク10台＝物件10段階。社員で自動化して会社売却で周回</span><em>最新</em></a>
-      <a class="game" href="bukken-ou/office-v2/index.html"><b>オフィス1画面版</b><span>ドット絵のオフィスで売主・応募者をタップ。社員がチームで作業</span><em>経営シム</em></a>
-      <a class="game" href="bukken-ou/office-v1/index.html"><b>カード＋オフィス版</b><span>物件カードと業務の流れ、家具の配置で動線を作る</span><em>経営シム</em></a>
-      <a class="game" href="bukken-ou/3d-mockups/images/era_compare.png"><b>3Dの街のイメージ図</b><span>円状に広がって時代が進む街（明治〜近未来）</span><em>画像</em></a>
-    </div>
-  </section>
-  <section>
-    <h2>そのほか</h2>
-    <div class="list">
-      <a class="game" href="orbit-hop/index.html"><b>オービットホップ</b><span>惑星の軌道からタップで飛び移るワンボタンゲーム</span><em>PC・スマホ</em></a>
-    </div>
-  </section>
+  <h1>GAMES</h1>
+  <nav class="grid" aria-label="ゲーム一覧">
+
+    <a class="app" href="core-digger/index.html" data-name="コア・ディガー" aria-label="コア・ディガー">
+      <svg viewBox="0 0 112 112" aria-hidden="true">
+        <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3424"/><stop offset="1" stop-color="#1c120b"/></linearGradient>
+          <radialGradient id="g1b" cx=".3" cy=".75" r=".4"><stop offset="0" stop-color="#7fe6ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fe6ff" stop-opacity="0"/></radialGradient></defs>
+        <rect width="112" height="112" fill="url(#g1)"/>
+        <rect x="0" y="78" width="112" height="34" fill="#2a1b10"/>
+        <circle cx="34" cy="82" r="40" fill="url(#g1b)"/>
+        <polygon points="34,66 44,78 34,94 24,78" fill="#7fe6ff"/><polygon points="34,66 44,78 34,78" fill="#c9f6ff"/>
+        <line x1="40" y1="88" x2="80" y2="30" stroke="#8a5a34" stroke-width="7" stroke-linecap="round"/>
+        <path d="M54 18 Q78 14 98 36" stroke="#c9ced6" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <path d="M54 18 Q78 14 98 36" stroke="#eef1f5" stroke-width="3" fill="none" stroke-linecap="round" transform="translate(0,-2)"/>
+      </svg>
+    </a>
+
+    <a class="app" href="ad-closer/index.html" data-name="閉じろ！広告地獄" aria-label="閉じろ！広告地獄">
+      <svg viewBox="0 0 112 112" aria-hidden="true">
+        <defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff3b5c"/><stop offset="1" stop-color="#ff9f1c"/></linearGradient></defs>
+        <rect width="112" height="112" fill="url(#g2)"/>
+        <rect x="14" y="30" width="62" height="48" rx="6" fill="#fff" opacity=".55" transform="rotate(-8 45 54)"/>
+        <rect x="26" y="26" width="66" height="54" rx="7" fill="#fff"/>
+        <rect x="26" y="26" width="66" height="12" rx="7" fill="#1f6feb"/><rect x="26" y="32" width="66" height="6" fill="#1f6feb"/>
+        <rect x="34" y="48" width="40" height="6" rx="3" fill="#ffcc33"/><rect x="34" y="60" width="28" height="5" rx="2.5" fill="#d6d2c8"/>
+        <circle cx="86" cy="30" r="15" fill="#111318"/>
+        <path d="M80 24 L92 36 M92 24 L80 36" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    </a>
+
+    <a class="app" href="bukken-ou/incremental/index.html" data-name="物件王 インクリメンタル版" aria-label="物件王 インクリメンタル版">
+      <svg viewBox="0 0 112 112" aria-hidden="true">
+        <defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a4a"/><stop offset="1" stop-color="#2c4a7a"/></linearGradient></defs>
+        <rect width="112" height="112" fill="url(#g3)"/>
+        <rect x="16" y="70" width="14" height="26" fill="#9fb3c8"/><rect x="34" y="58" width="14" height="38" fill="#b9cbe0"/><rect x="52" y="44" width="14" height="52" fill="#d2e0ef"/><rect x="70" y="28" width="16" height="68" fill="#eef4fa"/>
+        <g fill="#f2d46b"><rect x="73" y="34" width="3" height="4"/><rect x="80" y="34" width="3" height="4"/><rect x="73" y="44" width="3" height="4"/><rect x="80" y="44" width="3" height="4"/><rect x="55" y="50" width="3" height="4"/><rect x="61" y="50" width="3" height="4"/></g>
+        <rect x="10" y="96" width="92" height="4" fill="#0e1628"/>
+        <circle cx="88" cy="22" r="11" fill="#f2c14e" stroke="#9a6a08" stroke-width="2.5"/>
+        <text x="88" y="27" text-anchor="middle" font-family="Bebas Neue, sans-serif" font-size="15" fill="#8a5a00">¥</text>
+      </svg>
+    </a>
+
+    <a class="app" href="bukken-ou/office-v2/index.html" data-name="物件王 オフィス1画面版" aria-label="物件王 オフィス1画面版">
+      <svg viewBox="0 0 112 112" aria-hidden="true" shape-rendering="crispEdges">
+        <rect width="112" height="112" fill="#c99a64"/>
+        <g fill="#b3824f"><rect x="0" y="20" width="112" height="2"/><rect x="0" y="48" width="112" height="2"/><rect x="0" y="76" width="112" height="2"/><rect x="30" y="0" width="2" height="112"/><rect x="74" y="0" width="2" height="112"/></g>
+        <rect x="0" y="0" width="112" height="16" fill="#e6e0d2"/><rect x="18" y="4" width="22" height="8" fill="#9ac4d8"/><rect x="72" y="4" width="22" height="8" fill="#9ac4d8"/>
+        <rect x="28" y="54" width="56" height="20" fill="#7a4e2c"/><rect x="28" y="50" width="56" height="6" fill="#8f5d35"/>
+        <rect x="46" y="34" width="20" height="16" fill="#2a2f38"/><rect x="49" y="37" width="14" height="10" fill="#7fc1e0"/>
+        <rect x="46" y="76" width="20" height="8" fill="#2b1d16"/><rect x="44" y="84" width="24" height="18" fill="#3d6fb6"/><rect x="48" y="102" width="6" height="6" fill="#2a3348"/><rect x="58" y="102" width="6" height="6" fill="#2a3348"/>
+        <rect x="80" y="30" width="14" height="10" fill="#e5533d"/><rect x="85" y="32" width="4" height="5" fill="#fff"/>
+      </svg>
+    </a>
+
+    <a class="app" href="bukken-ou/office-v1/index.html" data-name="物件王 カード＋オフィス版" aria-label="物件王 カード＋オフィス版">
+      <svg viewBox="0 0 112 112" aria-hidden="true">
+        <rect width="112" height="112" fill="#2f7d4b"/>
+        <rect x="18" y="30" width="52" height="66" rx="6" fill="#fff" opacity=".5" transform="rotate(-12 44 63)"/>
+        <rect x="30" y="20" width="56" height="72" rx="7" fill="#fff"/>
+        <polygon points="58,32 76,46 40,46" fill="#cf3b26"/><rect x="44" y="46" width="28" height="20" fill="#f0e2c0"/><rect x="54" y="54" width="8" height="12" fill="#7a4e2c"/>
+        <rect x="40" y="72" width="36" height="5" rx="2.5" fill="#d6d2c8"/>
+        <text x="58" y="88" text-anchor="middle" font-family="Bebas Neue, sans-serif" font-size="12" fill="#cf3b26">SOLD</text>
+      </svg>
+    </a>
+
+    <a class="app" href="bukken-ou/3d-mockups/images/era_compare.png" data-name="3Dの街のイメージ図" aria-label="3Dの街のイメージ図">
+      <svg viewBox="0 0 112 112" aria-hidden="true">
+        <defs><linearGradient id="g6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#e9f7ff"/></linearGradient></defs>
+        <rect width="112" height="112" fill="url(#g6)"/>
+        <polygon points="56,58 102,80 56,102 10,80" fill="#a9d98a"/>
+        <ellipse cx="56" cy="80" rx="30" ry="14" fill="none" stroke="#5d6372" stroke-width="3"/>
+        <g><polygon points="56,34 64,38 64,80 56,84" fill="#86b3d6"/><polygon points="48,38 56,34 56,84 48,80" fill="#5d88b0"/><polygon points="48,38 56,34 64,38 56,42" fill="#d6ecfa"/></g>
+        <g><polygon points="72,58 78,61 78,86 72,89" fill="#e8dcc4"/><polygon points="66,61 72,58 72,89 66,86" fill="#c9b99a"/></g>
+        <g><polygon points="38,62 44,65 44,88 38,91" fill="#e8dcc4"/><polygon points="32,65 38,62 38,91 32,88" fill="#c9b99a"/></g>
+        <circle cx="86" cy="22" r="9" fill="#fff6c0"/>
+      </svg>
+    </a>
+
+    <a class="app" href="orbit-hop/index.html" data-name="オービットホップ" aria-label="オービットホップ">
+      <svg viewBox="0 0 112 112" aria-hidden="true">
+        <defs><radialGradient id="g7" cx=".5" cy=".4" r=".8"><stop offset="0" stop-color="#232a5a"/><stop offset="1" stop-color="#0d0f24"/></radialGradient></defs>
+        <rect width="112" height="112" fill="url(#g7)"/>
+        <g fill="#f3ecdf"><circle cx="18" cy="20" r="1.2"/><circle cx="94" cy="16" r="1"/><circle cx="84" cy="94" r="1.2"/><circle cx="12" cy="86" r="1"/><circle cx="60" cy="10" r=".9"/></g>
+        <circle cx="56" cy="60" r="30" fill="none" stroke="#7fe0c8" stroke-width="2" stroke-dasharray="4 6" opacity=".7"/>
+        <circle cx="56" cy="60" r="16" fill="#7fe0c8"/><circle cx="51" cy="55" r="5" fill="#c9f5ea"/>
+        <circle cx="82" cy="45" r="7" fill="#ff8a5c"/><circle cx="80" cy="43" r="2.5" fill="#f3ecdf"/>
+        <path d="M90 38 L102 26" stroke="#ff8a5c" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 5"/>
+      </svg>
+    </a>
+
+  </nav>
 </main>
 </body>
 </html>
