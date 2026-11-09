@@ -1,0 +1,1686 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>物件王 プロトタイプ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<style>
+/* Layout: one screen. Thin HUD on top, the pixel office fills the middle, an icon dock at the bottom, bottom sheets for decisions. Single dark "game frame" look by choice. */
+:root {
+  --frame: #1c2029;
+  --panel: #283040;
+  --panel-2: #353f53;
+  --edge: #0e1118;
+  --ink: #f4efe4;
+  --muted: #a9b0c0;
+  --gold: #f2c14e;
+  --red: #e5533d;
+  --green: #5cc27a;
+  --blue: #5b9be0;
+  --pix: "DotGothic16", "Hiragino Sans", "Yu Gothic", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--frame);
+  color: var(--ink);
+  font-family: var(--pix);
+  font-size: 15px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+[hidden] { display: none !important; }
+img.ic { image-rendering: pixelated; image-rendering: crisp-edges; display: block; flex: none; }
+#app {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* HUD */
+.hud { display: flex; align-items: center; gap: 14px; padding-block: 10px 6px; flex-wrap: wrap; }
+.money { display: flex; align-items: center; gap: 8px; font-size: 1.6rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.money.neg { color: var(--red); }
+.goal { flex: 1; min-width: 120px; display: flex; align-items: center; gap: 8px; }
+.goal .bar { flex: 1; height: 10px; background: var(--edge); border: 2px solid var(--panel-2); }
+.goal .bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .4s; }
+.goal span { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mini { display: flex; gap: 12px; font-size: .95rem; }
+.mini span { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.mini { align-items: center; }
+.skip { font: inherit; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 10px; color: var(--ink); background: var(--panel-2); border: 2px solid var(--edge); box-shadow: inset 0 -3px 0 rgba(0,0,0,.3); cursor: pointer; }
+.skip:active { transform: translateY(2px); }
+#skipBar { display: block; width: 28px; height: 6px; background: var(--edge); }
+#skipBar i { display: block; height: 100%; width: 0; background: var(--gold); }
+.profit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 1.6rem; background: var(--edge); padding: 8px 12px; font-variant-numeric: tabular-nums; }
+.profit small { font-size: .8rem; color: var(--muted); }
+
+/* Stage */
+.stage { position: relative; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+#office { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: manipulation; cursor: pointer; border: 3px solid var(--edge); box-shadow: 0 0 0 2px var(--panel-2); }
+.fx { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
+.float { position: absolute; font-size: 1rem; color: var(--ink); text-shadow: 0 2px 0 var(--edge), 2px 0 0 var(--edge), -2px 0 0 var(--edge), 0 -2px 0 var(--edge); animation: up .8s ease-out forwards; white-space: nowrap; transform: translateX(-50%); }
+.float.big { font-size: 1.4rem; color: var(--gold); animation-duration: 1.4s; }
+.float.loss { color: var(--red); }
+@keyframes up { to { transform: translate(-50%, -48px); opacity: 0; } }
+.float.down { animation-name: dn; animation-duration: 1.4s; }
+@keyframes dn { to { transform: translate(-50%, 28px); opacity: 0; } }
+.news {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  max-width: min(92%, 420px);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 2px solid var(--edge); box-shadow: inset 0 0 0 2px var(--panel-2);
+  padding: 6px 12px; font-size: .9rem; z-index: 5;
+}
+
+/* Dock */
+.dock { display: flex; justify-content: center; gap: 10px; padding-block: 8px 12px; }
+.dock button {
+  position: relative;
+  font: inherit; font-size: .75rem; color: var(--ink);
+  width: 68px; height: 62px;
+  display: grid; place-items: center; align-content: center; gap: 2px;
+  background: var(--panel); border: 2px solid var(--edge); box-shadow: inset 0 0 0 2px var(--panel-2), inset 0 -4px 0 rgba(0,0,0,.3);
+  cursor: pointer;
+}
+.dock button[aria-pressed="true"] { background: var(--gold); color: var(--edge); }
+.dock .count { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px; background: var(--red); border: 2px solid var(--edge); font-size: .8rem; line-height: 18px; color: #fff; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* Sheet */
+.back { position: fixed; inset: 0; background: rgba(8,10,14,.45); z-index: 20; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  max-height: 72%; overflow-y: auto;
+  background: var(--panel);
+  border-top: 3px solid var(--gold);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  animation: rise .18s ease-out;
+}
+@keyframes rise { from { transform: translateY(30px); opacity: 0; } }
+.sheet-in { max-width: 560px; margin: 0 auto; display: grid; gap: 12px; }
+.sheet-close { position: absolute; top: 8px; right: max(12px, env(safe-area-inset-right, 0px)); }
+.row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.big-price { font-size: 2rem; color: var(--gold); font-variant-numeric: tabular-nums; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--edge); font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.good { color: var(--green); }
+.bad { color: var(--red); }
+.meter { display: inline-block; width: 90px; height: 8px; background: var(--edge); vertical-align: middle; }
+.meter i { display: block; height: 100%; background: var(--green); }
+.pbtn {
+  font: inherit; font-size: 1rem; color: var(--ink);
+  min-height: 48px; padding: 6px 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--panel-2); border: 2px solid var(--edge); box-shadow: inset 0 -4px 0 rgba(0,0,0,.3);
+  cursor: pointer; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.pbtn.ok { background: #2f7d4b; }
+.pbtn.no { background: #7a3328; }
+.pbtn.on { background: var(--gold); color: var(--edge); }
+.pbtn:disabled { opacity: .4; cursor: not-allowed; }
+.pbtn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -2px 0 rgba(0,0,0,.3); }
+.cards { display: grid; gap: 10px; }
+.card { background: var(--frame); border: 2px solid var(--edge); padding: 10px; display: grid; gap: 8px; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--frame); border: 2px solid var(--edge); padding: 10px; display: grid; gap: 6px; justify-items: center; text-align: center; }
+.tile .nm { font-size: .85rem; }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 8px; height: 8px; background: var(--edge); border: 1px solid var(--panel-2); }
+.pips i.on { background: var(--gold); }
+.tile .pbtn { width: 100%; }
+.sec { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.medals { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.medal { background: var(--frame); border: 2px solid var(--edge); padding: 8px; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-size: .8rem; }
+.medal.off { opacity: .45; }
+.medal b { display: block; font-weight: 400; font-size: .85rem; }
+.medal small { color: var(--muted); }
+canvas#chart { width: 100%; height: 120px; display: block; background: var(--frame); border: 2px solid var(--edge); }
+textarea { width: 100%; min-height: 60px; font: 12px ui-monospace, monospace; background: var(--edge); color: var(--ink); border: 2px solid var(--panel-2); padding: 6px; user-select: text; -webkit-user-select: text; }
+details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+.portrait { background: var(--frame); border: 2px solid var(--edge); padding: 6px; }
+.modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(8,10,14,.7); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.modal .in { background: var(--panel); border: 3px solid var(--gold); padding: 22px; max-width: 380px; width: 100%; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.modal h3 { margin: 0; font-weight: 400; font-size: 1.8rem; color: var(--gold); }
+@media (max-width: 520px) {
+  .money { font-size: 1.3rem; }
+  .dock button { width: 62px; }
+}
+@media (prefers-reduced-motion: reduce) { .float, .sheet { animation: none; } .goal .bar i { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="hud">
+    <div class="money" id="hMoneyBox" title="資金"><img class="ic" id="icCoin" width="28" height="28" alt=""><span id="hMoney">0</span></div>
+    <div class="goal" title="第1章の目標：総資産1億円"><img class="ic" data-ic="flag" width="24" height="24" alt=""><div class="bar"><i id="goalBar"></i></div><span id="goalPct">0%</span></div>
+    <div class="mini">
+      <span title="日付"><img class="ic" data-ic="sun" width="20" height="20" alt=""><b id="hDay">1</b></span>
+      <button class="skip" data-act="skip" title="次の日へ進める" aria-label="次の日へ進める"><img class="ic" data-ic="ff" width="20" height="20" alt=""><span id="skipBar"><i id="skipFill"></i></span></button>
+      <span title="信用"><img class="ic" data-ic="star" width="20" height="20" alt=""><b id="hCredit">0</b></span>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="office" width="224" height="192" aria-label="オフィス。お客さんや応募者をタップして話す。書類の山や働いている社員をタップすると手伝える。"></canvas>
+    <div class="news" id="news" hidden></div>
+  </div>
+  <nav class="dock" aria-label="メニュー">
+    <button data-act="rents" aria-label="賃貸物件"><img class="ic" data-ic="key" width="32" height="32" alt="">賃貸<span class="count" id="cRent" hidden></span></button>
+    <button data-act="shop" aria-label="効率化への投資"><img class="ic" data-ic="toolbox" width="32" height="32" alt="">投資</button>
+    <button data-act="edit" id="editBtn" aria-pressed="false" aria-label="家具の配置"><img class="ic" data-ic="move" width="32" height="32" alt="">配置</button>
+    <button data-act="records" aria-label="記録とトロフィー"><img class="ic" data-ic="trophy" width="32" height="32" alt="">記録</button>
+  </nav>
+</div>
+<div class="fx" id="fx"></div>
+<div id="sheetRoot"></div>
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+'use strict';
+// =============================================================
+//  データ
+// =============================================================
+const DAY_SEC = 10;
+const SAVE_KEY = 'bukkenou-proto-v1';
+const GOAL_CH1 = 1e8;
+const OFFLINE_MAX = 1800;
+
+const TYPES = {
+  room:    { name: 'ワンルーム',     base: 400e4,  tier: 1.0, credit: 0 },
+  house:   { name: '戸建て',         base: 1800e4, tier: 1.6, credit: 5 },
+  apart:   { name: 'アパート一棟',   base: 6000e4, tier: 2.4, credit: 15 },
+  mansion: { name: 'マンション一棟', base: 2.4e8,  tier: 3.5, credit: 35 },
+};
+const AREAS = {
+  ura:    { name: '駅裏', mult: 0.85, credit: 0, lv: 1 },
+  jutaku: { name: '住宅街', mult: 1.0, credit: 8, lv: 2 },
+  ekimae: { name: '駅前', mult: 1.45, credit: 25, lv: 3 },
+};
+const TRAITS = {
+  none:     { name: 'ふつう',     mult: 1.0,  w: 48 },
+  view:     { name: '眺望◎',     mult: 1.2,  w: 10, good: true },
+  corner:   { name: '角地',       mult: 1.1,  w: 12, good: true },
+  basement: { name: '地下室',     mult: 1.35, w: 4,  good: true },
+  leak:     { name: '雨漏り',     mult: 0.75, w: 12, bad: true, fix: 'reno' },
+  haunted:  { name: '曰く付き',   mult: 0.45, w: 6,  bad: true, fix: 'oharai' },
+  rebuild:  { name: '再建築不可', mult: 0.75, w: 4,  bad: true },
+};
+const ROLES = {
+  appraise: { name: '査定士',   task: '査定' },
+  renovate: { name: '職人',     task: '工事' },
+  sell:     { name: '営業',     task: '販売' },
+};
+const RARITY = {
+  N:  { rate: 0.6, hire: 30e4,  salary: 1e4, w: 70, stars: 1 },
+  R:  { rate: 1.0, hire: 90e4,  salary: 2e4, w: 25, stars: 2 },
+  SR: { rate: 1.7, hire: 280e4, salary: 4e4, w: 5,  stars: 3 },
+};
+const SEI = ['佐藤','鈴木','高橋','田中','伊藤','渡辺','山本','中村','小林','加藤','吉田','山田','松本','井上','木村','林','清水','森','池田','橋本','阿部','石川','前田','藤田','岡田','後藤','村上','近藤'];
+const MEI = ['翔太','美咲','大輝','陽菜','蓮','結衣','颯太','さくら','健一','真由','拓海','七海','悠斗','葵','誠','彩花','直樹','莉子','和也','玲奈','修','千尋','亮','麻衣','剛','楓'];
+
+const UPGRADES = [
+  { id: 'tpl',    ic: 'papers',  name: '書類テンプレ', max: 5, cost: l => 50e4 * Math.pow(2.3, l),  eff: '手伝い +1' },
+  { id: 'desk',   ic: 'desk',    name: 'デスク増設',   max: 8, cost: l => 100e4 * Math.pow(1.8, l), eff: '席 +1' },
+  { id: 'net',    ic: 'news',    name: '物件情報網',   max: 2, cost: l => 150e4 * Math.pow(2.6, l), eff: '来店 +1' },
+  { id: 'manual', ic: 'book',    name: '査定マニュアル', max: 3, cost: l => 120e4 * Math.pow(2.5, l), eff: '査定 −15%' },
+  { id: 'tool',   ic: 'drill',   name: '電動工具',     max: 3, cost: l => 150e4 * Math.pow(2.5, l), eff: '工事 −15%' },
+  { id: 'flyer',  ic: 'mega',    name: 'チラシ広告',   max: 5, cost: l => 80e4 * Math.pow(2.2, l),  eff: '売値 +4%' },
+  { id: 'train',  ic: 'upman',   name: '社員研修',     max: 5, cost: l => 400e4 * Math.pow(2.1, l), eff: '速さ +10%' },
+  { id: 'policy', ic: 'gear',    name: '業務マニュアル', max: 1, cost: () => 300e4,  eff: '判断を任せる' },
+  { id: 'autobuy',ic: 'cart',    name: '仕入れルート', max: 1, cost: () => 2000e4, eff: '自動で仕入れ', req: 'policy' },
+];
+const TROPHIES = [
+  { id: 'first',    name: '初めての契約',   desc: '最初の物件を売る',              grade: 'b' },
+  { id: 'hire',     name: '一人じゃない',   desc: '最初の社員を雇う',              grade: 'b' },
+  { id: 'meki',     name: '目利き',         desc: '1件で利益率50%以上',            grade: 's' },
+  { id: 'team',     name: 'チーム結成',     desc: '社員5人',                       grade: 'b' },
+  { id: 'auto10',   name: '社長はお茶でも', desc: '手伝わずに10件成約',            grade: 's' },
+  { id: 'click',    name: '腱鞘炎注意',     desc: '1000回手伝う',                  grade: 'b' },
+  { id: 'mansion',  name: '大家さん',       desc: '賃貸5件',                       grade: 'b' },
+  { id: 'layout',   name: '動線の魔術師',   desc: '処理時間を最初の1/5に',          grade: 's' },
+  { id: 'oharai',   name: 'お祓い済み',     desc: '曰く付きを買値の2倍で売る',      grade: 's', hidden: true },
+  { id: 'leak',     name: '雨漏りも個性',   desc: '雨漏りを直して利益',             grade: 'b', hidden: true },
+  { id: 'basement', name: '地下に眠るもの', desc: '地下室を引き当てる',             grade: 'b', hidden: true },
+  { id: 'ch1',      name: '物件王への第一歩', desc: '総資産1億円',                  grade: 'g' },
+];
+
+// =============================================================
+//  ユーティリティ
+// =============================================================
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const wpick = obj => {
+  const ents = Object.entries(obj);
+  let t = ents.reduce((s, [, v]) => s + v.w, 0) * Math.random();
+  for (const [k, v] of ents) { t -= v.w; if (t <= 0) return k; }
+  return ents[0][0];
+};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+function yen(n) {
+  const neg = n < 0, a = Math.abs(n);
+  let s;
+  if (a >= 1e8) s = (a / 1e8).toFixed(a >= 1e10 ? 0 : 2) + '億';
+  else if (a >= 1e4) s = Math.round(a / 1e4).toLocaleString('ja-JP') + '万';
+  else s = Math.round(a).toLocaleString('ja-JP');
+  return (neg ? '−' : '') + s;
+}
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// =============================================================
+//  ドット絵アイコン（コードで描く）
+// =============================================================
+function px(g, c, x, y, w = 1, h = 1) { g.fillStyle = c; g.fillRect(x, y, w, h); }
+function disc(g, c, cx, cy, r) {
+  for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++)
+    if ((x + .5 - cx) ** 2 + (y + .5 - cy) ** 2 <= r * r) { if (c) px(g, c, x, y); else g.clearRect(x, y, 1, 1); }
+}
+function poly(g, c, pts) {
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  for (let y = Math.floor(Math.min(...ys)); y <= Math.max(...ys); y++) for (let x = Math.floor(Math.min(...xs)); x <= Math.max(...xs); x++) {
+    const X = x + .5, Y = y + .5;
+    let ins = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > Y) !== (yj > Y) && X < (xj - xi) * (Y - yi) / (yj - yi) + xi) ins = !ins;
+    }
+    if (ins) px(g, c, x, y);
+  }
+}
+function line(g, c, x0, y0, x1, y1, t = 1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let i = 0; i <= n; i++) px(g, c, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), t, t);
+}
+const ICONS = {
+  coin(g) { disc(g, '#9a6a08', 8, 8, 7.5); disc(g, '#f2c14e', 8, 8, 6.5); disc(g, '#ffd977', 6.5, 6.5, 2.5); const d = '#8a5a00'; line(g, d, 5, 4, 7, 6); line(g, d, 10, 4, 8, 6); px(g, d, 7, 7, 2, 5); px(g, d, 5, 8, 6, 1); px(g, d, 5, 10, 6, 1); },
+  flag(g) { px(g, '#9aa3ad', 3, 2, 1, 13); poly(g, '#e5533d', [[4, 2], [14, 5], [4, 9]]); px(g, '#6b737d', 2, 14, 4, 1); },
+  sun(g) { disc(g, '#f2c14e', 8, 8, 3.6); const c = '#f2c14e'; px(g, c, 7, 1, 2, 2); px(g, c, 7, 13, 2, 2); px(g, c, 1, 7, 2, 2); px(g, c, 13, 7, 2, 2); px(g, c, 3, 3, 2, 2); px(g, c, 11, 3, 2, 2); px(g, c, 3, 11, 2, 2); px(g, c, 11, 11, 2, 2); },
+  star(g) { poly(g, '#f2c14e', [[8, 1], [10, 6], [15, 6], [11, 9.5], [12.5, 15], [8, 11.5], [3.5, 15], [5, 9.5], [1, 6], [6, 6]]); },
+  key(g) { disc(g, '#f2c14e', 5, 8, 4.5); disc(g, null, 5, 8, 2); px(g, '#f2c14e', 9, 7, 6, 2); px(g, '#f2c14e', 11, 9, 1, 2); px(g, '#f2c14e', 13, 9, 1, 3); },
+  toolbox(g) { px(g, '#9aa3ad', 5, 3, 6, 1); px(g, '#9aa3ad', 5, 3, 1, 3); px(g, '#9aa3ad', 10, 3, 1, 3); px(g, '#c8352b', 1, 6, 14, 8); px(g, '#8f2219', 1, 6, 14, 2); px(g, '#f2c14e', 7, 9, 2, 2); },
+  move(g) { const c = '#f4efe4'; px(g, c, 7, 3, 2, 10); px(g, c, 3, 7, 10, 2); poly(g, c, [[8, 0], [11, 3.5], [5, 3.5]]); poly(g, c, [[8, 16], [11, 12.5], [5, 12.5]]); poly(g, c, [[0, 8], [3.5, 5], [3.5, 11]]); poly(g, c, [[16, 8], [12.5, 5], [12.5, 11]]); },
+  trophy(g) { const c = '#f2c14e'; px(g, c, 4, 2, 8, 5); px(g, c, 5, 7, 6, 1); px(g, c, 6, 8, 4, 1); px(g, c, 7, 9, 2, 3); px(g, c, 5, 12, 6, 2); px(g, '#c99512', 4, 13, 8, 1); px(g, c, 2, 3, 2, 1); px(g, c, 2, 3, 1, 3); px(g, c, 3, 6, 1, 1); px(g, c, 12, 3, 2, 1); px(g, c, 13, 3, 1, 3); px(g, c, 12, 6, 1, 1); px(g, '#ffe39a', 5, 3, 1, 3); },
+  check(g) { line(g, '#5cc27a', 2, 8, 6, 12, 3); line(g, '#5cc27a', 6, 12, 13, 3, 3); },
+  cross(g) { line(g, '#e5533d', 3, 3, 12, 12, 3); line(g, '#e5533d', 12, 3, 3, 12, 3); },
+  hammer(g) { px(g, '#8a5a34', 7, 6, 2, 9); px(g, '#9aa3ad', 2, 2, 11, 4); px(g, '#c7ced6', 2, 2, 11, 1); px(g, '#6b737d', 2, 5, 11, 1); },
+  ofuda(g) { px(g, '#d9c9a3', 4, 1, 8, 14); px(g, '#f4ead2', 5, 1, 6, 14); const r = '#c8352b'; px(g, r, 6, 3, 4, 2); px(g, r, 7, 6, 2, 1); px(g, r, 6, 8, 4, 1); px(g, r, 7, 10, 2, 3); },
+  tag(g) { poly(g, '#f2c14e', [[1, 8], [6, 3], [15, 3], [15, 13], [6, 13]]); disc(g, '#283040', 5.5, 8, 1.4); const d = '#8a5a00'; px(g, d, 9, 5, 1, 1); px(g, d, 13, 5, 1, 1); px(g, d, 10, 6, 1, 1); px(g, d, 12, 6, 1, 1); px(g, d, 11, 7, 1, 5); px(g, d, 9, 8, 5, 1); px(g, d, 9, 10, 5, 1); },
+  papers(g) { px(g, '#6b737d', 4, 2, 9, 11); px(g, '#ffffff', 3, 3, 9, 11); px(g, '#9aa3ad', 5, 6, 5, 1); px(g, '#9aa3ad', 5, 8, 5, 1); px(g, '#9aa3ad', 5, 10, 3, 1); px(g, '#5cc27a', 11, 10, 4, 2); px(g, '#5cc27a', 12, 9, 2, 4); },
+  desk(g) { px(g, '#2a2f38', 5, 1, 7, 5); px(g, '#7fc1e0', 6, 2, 5, 3); px(g, '#8f5d35', 1, 7, 14, 2); px(g, '#7a4e2c', 2, 9, 2, 6); px(g, '#7a4e2c', 12, 9, 2, 6); px(g, '#7a4e2c', 4, 9, 8, 3); },
+  news(g) { px(g, '#d9d4c6', 2, 2, 12, 12); px(g, '#f4efe4', 2, 2, 11, 11); px(g, '#2a2f38', 3, 3, 9, 2); px(g, '#9aa3ad', 3, 7, 4, 4); px(g, '#6b737d', 8, 7, 4, 1); px(g, '#6b737d', 8, 9, 4, 1); px(g, '#6b737d', 8, 11, 4, 1); },
+  book(g) { px(g, '#2f5f9e', 3, 2, 10, 12); px(g, '#f4efe4', 12, 3, 2, 10); px(g, '#5b9be0', 4, 2, 1, 12); px(g, '#f2c14e', 6, 5, 5, 2); },
+  drill(g) { px(g, '#e08a2c', 3, 4, 8, 4); px(g, '#9aa3ad', 11, 5, 4, 2); px(g, '#2a2f38', 5, 8, 3, 6); px(g, '#c56f15', 3, 4, 8, 1); },
+  mega(g) { poly(g, '#e5533d', [[2, 6], [12, 2], [12, 14], [2, 10]]); px(g, '#f4efe4', 13, 6, 2, 4); px(g, '#2a2f38', 4, 10, 2, 4); },
+  upman(g) { disc(g, '#f2c7a0', 6, 4, 2.5); px(g, '#3d6fb6', 3, 7, 6, 7); poly(g, '#5cc27a', [[12.5, 2], [15.5, 6], [9.5, 6]]); px(g, '#5cc27a', 11, 6, 3, 8); },
+  gear(g) { const c = '#9aa3ad'; disc(g, c, 8, 8, 5); for (const [x, y] of [[7, 0], [7, 13], [0, 7], [13, 7], [2, 2], [12, 2], [2, 12], [12, 12]]) px(g, c, x, y, 2, 2); disc(g, '#283040', 8, 8, 2); },
+  cart(g) { poly(g, '#9aa3ad', [[2, 3], [15, 5], [13, 11], [5, 11]]); px(g, '#6b737d', 0, 2, 3, 1); disc(g, '#2a2f38', 6, 13.5, 1.6); disc(g, '#2a2f38', 12, 13.5, 1.6); px(g, '#5cc27a', 8, 5, 3, 3); },
+  floppy(g) { px(g, '#2f5f9e', 2, 2, 12, 12); px(g, '#f4efe4', 4, 8, 8, 5); px(g, '#9aa3ad', 5, 2, 6, 4); px(g, '#2a2f38', 8, 3, 2, 2); },
+  people(g) { disc(g, '#f2c7a0', 5, 4, 2.5); px(g, '#3d6fb6', 2, 7, 6, 7); disc(g, '#e8b48a', 11, 5, 2.5); px(g, '#e08a2c', 8, 8, 6, 6); },
+  up(g) { poly(g, '#5cc27a', [[8, 2], [14, 9], [2, 9]]); px(g, '#5cc27a', 6, 9, 4, 5); },
+  down(g) { poly(g, '#e5533d', [[8, 14], [14, 7], [2, 7]]); px(g, '#e5533d', 6, 2, 4, 5); },
+  wrench(g) { line(g, '#9aa3ad', 4, 12, 11, 5, 2); disc(g, '#9aa3ad', 11.5, 4.5, 3); disc(g, null, 12.5, 3.5, 1.3); },
+  pause(g) { px(g, '#f4efe4', 4, 3, 3, 10); px(g, '#f4efe4', 9, 3, 3, 10); },
+  station(g) { px(g, '#9aa3ad', 2, 9, 12, 2); px(g, '#5b9be0', 3, 3, 10, 6); px(g, '#7fc1e0', 4, 4, 3, 3); px(g, '#7fc1e0', 9, 4, 3, 3); px(g, '#2a2f38', 4, 11, 2, 3); px(g, '#2a2f38', 10, 11, 2, 3); },
+  clock(g) { disc(g, '#f4efe4', 8, 8, 6.5); disc(g, '#283040', 8, 8, 5.5); px(g, '#f4efe4', 7, 4, 2, 5); px(g, '#f4efe4', 8, 8, 3, 1); },
+  ff(g) { poly(g, '#f4efe4', [[1, 3], [8, 8], [1, 13]]); poly(g, '#f4efe4', [[8, 3], [15, 8], [8, 13]]); },
+  question(g) { const c = '#f2c14e'; px(g, c, 5, 2, 6, 2); px(g, c, 10, 3, 2, 4); px(g, c, 7, 7, 4, 2); px(g, c, 7, 9, 2, 2); px(g, c, 7, 12, 2, 2); },
+};
+// 物件タイプ・職種の小アイコン（10×10）
+const MINI = {
+  room(g) { poly(g, '#c8352b', [[5, 0], [10, 4.5], [0, 4.5]]); px(g, '#f0e2c0', 2, 4, 6, 6); px(g, '#7a4e2c', 4, 7, 2, 3); px(g, '#7fc1e0', 6, 5, 1, 1); },
+  house(g) { poly(g, '#3f7f5a', [[5, 0], [10.5, 4.5], [-.5, 4.5]]); px(g, '#3f7f5a', 7, 0, 1, 2); px(g, '#f4efe4', 1, 4, 8, 6); px(g, '#7a4e2c', 4, 6, 2, 4); px(g, '#7fc1e0', 2, 5, 1, 2); px(g, '#7fc1e0', 7, 5, 1, 2); },
+  apart(g) { px(g, '#d9b38c', 1, 1, 8, 9); px(g, '#8a6a4a', 1, 1, 8, 1); for (const y of [3, 5]) for (const x of [2, 4, 6]) px(g, '#7fc1e0', x, y, 1, 1); px(g, '#7a4e2c', 4, 7, 2, 3); },
+  mansion(g) { px(g, '#9fb3c8', 2, 0, 6, 10); px(g, '#6f8299', 2, 0, 6, 1); for (let y = 1; y <= 7; y += 2) { px(g, '#f2d46b', 3, y, 1, 1); px(g, '#f2d46b', 6, y, 1, 1); } px(g, '#2a2f38', 4, 8, 2, 2); },
+  appraise(g) { disc(g, '#5b9be0', 4, 4, 3.6); disc(g, '#e8eef5', 4, 4, 2.2); line(g, '#8a5a34', 6, 6, 9, 9, 2); },
+  renovate(g) { px(g, '#9aa3ad', 1, 1, 8, 3); px(g, '#c7ced6', 1, 1, 8, 1); px(g, '#8a5a34', 4, 4, 2, 6); },
+  sell(g) { disc(g, '#9a6a08', 5, 5, 4.6); disc(g, '#f2c14e', 5, 5, 3.6); px(g, '#8a5a00', 4, 3, 2, 4); px(g, '#8a5a00', 3, 5, 4, 1); },
+};
+const ICON_URL = {};
+function iconCanvas(fn, size) {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const g = c.getContext('2d');
+  if (!g) return null;
+  fn(g);
+  return c;
+}
+const ICON_CV = {}, MINI_CV = {};
+function buildIcons() {
+  for (const [k, fn] of Object.entries(ICONS)) { const c = iconCanvas(fn, 16); ICON_CV[k] = c; ICON_URL[k] = c ? c.toDataURL() : ''; }
+  for (const [k, fn] of Object.entries(MINI)) { const c = iconCanvas(fn, 10); MINI_CV[k] = c; ICON_URL['m-' + k] = c ? c.toDataURL() : ''; }
+  document.querySelectorAll('img[data-ic]').forEach(img => { img.src = ICON_URL[img.dataset.ic] || ''; });
+  $('icCoin').src = ICON_URL.coin || '';
+}
+const ic = (name, size = 24, label = '') => `<img class="ic" src="${ICON_URL[name] || ''}" width="${size}" height="${size}" alt="${esc(label)}">`;
+const mi = (name, size = 30, label = '') => `<img class="ic" src="${ICON_URL['m-' + name] || ''}" width="${size}" height="${size}" alt="${esc(label)}">`;
+
+// =============================================================
+//  状態
+// =============================================================
+let S;
+function newState() {
+  return {
+    v: 1, money: 300e4, credit: 0, day: 1, dayT: 0, nextId: 1,
+    props: [], listings: [], staff: [], cands: [], candDay: 0, up: {},
+    policy: { after: 'manual', reno: true, oharai: true, autobuy: false, line: 0.9, reserve: 100e4 },
+    trends: { ura: 1, jutaku: 1, ekimae: 1 },
+    stats: { sold: 0, profit: 0, clicks: 0, autoSold: 0, times: [], firstTime: 0 },
+    trophies: {}, log: [], hist: [], ch1: false, savedAt: Date.now(),
+    office: defaultOffice(), grid: 2,
+  };
+}
+const lv = id => S.up[id] || 0;
+const clickPow = () => 1 + lv('tpl');
+const deskCap = () => S.office.items.filter(i => i.kind === 'desk').length;
+const unlockedTypes = () => Object.keys(TYPES).filter(k => S.credit >= TYPES[k].credit);
+const unlockedAreas = () => Object.keys(AREAS).filter(k => S.credit >= AREAS[k].credit);
+function rawValue(p, withTrait = true) {
+  const T = TYPES[p.type], A = AREAS[p.area];
+  let v = T.base * A.mult * S.trends[p.area] * (0.45 + 0.55 * p.cond / 100) * (1 - p.age * 0.006);
+  if (withTrait) v *= TRAITS[p.trait].mult;
+  return v;
+}
+const sellPrice = p => rawValue(p) * (1 + 0.04 * lv('flyer'));
+const rentPerDay = p => rawValue(p) * 0.0035;
+const renoCost = p => TYPES[p.type].base * AREAS[p.area].mult * 0.06 * (1 + (100 - p.cond) / 100);
+const oharaiCost = p => TYPES[p.type].base * AREAS[p.area].mult * 0.1;
+function workFor(p, task) {
+  const t = TYPES[p.type].tier;
+  if (task === 'appraise') return 8 * t * (1 - 0.15 * lv('manual'));
+  if (task === 'renovate') return 14 * t * (1 - 0.15 * lv('tool'));
+  return 12 * t;
+}
+function projVal(p, over) { return rawValue(Object.assign({}, p, over)); }
+// 売主の物件を買ったときの見込み利益（わかっている情報だけで計算）
+function listingProfit(l) {
+  const f = 1 + 0.04 * lv('flyer');
+  const tr = l.trait === 'haunted' ? 'haunted' : 'none';
+  const quick = projVal(l, { trait: tr }) * f - l.ask;
+  const reno = projVal(l, { trait: tr, cond: 100 }) * f - l.ask - renoCost(l);
+  const oharai = l.trait === 'haunted' ? Math.max(projVal(l, { trait: 'none' }), projVal(l, { trait: 'none', cond: 100 }) - renoCost(l)) * f - l.ask - oharaiCost(l) : -Infinity;
+  const best = Math.max(quick, reno, oharai);
+  return { quick, reno, oharai, best, way: best === oharai ? 'ofuda' : best === reno && reno > quick ? 'hammer' : 'tag' };
+}
+const assets = () => S.money + S.props.reduce((s, p) => s + rawValue(p), 0);
+const staffRate = s => RARITY[s.rar].rate * (1 + 0.1 * lv('train'));
+
+// =============================================================
+//  通知
+// =============================================================
+let newsTimer = 0;
+function news(iconName, text, ms = 3200) {
+  if (S.simulating) return;
+  const n = $('news');
+  n.innerHTML = `${ic(iconName, 20)}<span>${esc(text)}</span>`;
+  n.hidden = false;
+  clearTimeout(newsTimer);
+  newsTimer = setTimeout(() => { n.hidden = true; }, ms);
+}
+function log(msg) {
+  S.log.unshift({ d: S.day, m: msg });
+  if (S.log.length > 80) S.log.length = 80;
+}
+function trophy(id) {
+  if (S.trophies[id]) return;
+  const t = TROPHIES.find(x => x.id === id);
+  if (!t) return;
+  S.trophies[id] = S.day;
+  news('trophy', t.name, 4500);
+  dirty();
+}
+function floatHud(text, cls = '') {
+  if (S.simulating) return;
+  const r = $('hMoneyBox').getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'float down ' + cls;
+  el.textContent = text;
+  el.style.left = (r.left + r.width / 2) + 'px';
+  el.style.top = (r.bottom - 4) + 'px';
+  $('fx').appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+function floatAtCanvas(cx, cy, text, cls = '') {
+  if (S.simulating || reduceMotion && !cls.includes('big')) return;
+  const cv = $('office');
+  const r = cv.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'float ' + cls;
+  el.textContent = text;
+  el.style.left = (r.left + 3 + cx / W * (r.width - 6)) + 'px';
+  el.style.top = (r.top + 3 + cy / H * (r.height - 6) - 10) + 'px';
+  $('fx').appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// =============================================================
+//  オフィス（レイアウト・経路）
+// =============================================================
+const GW = 14, GH = 12, TS = 16, W = GW * TS, H = GH * TS;
+const DOOR = { x: 7, y: 11 }, DOOR_USE = { x: 7, y: 10 };
+const LOBBY_Y = 10;
+const SELL_SLOTS = [1, 2, 3, 4, 5].map(x => ({ x, y: LOBBY_Y }));
+const APPL_SLOTS = [11, 12].map(x => ({ x, y: LOBBY_Y }));
+const KEYBOARD = { x: 10, y: 0, w: 2 };
+const KIND = {
+  desk:  { w: 1, h: 1, name: 'デスク',   use: true },
+  shelf: { w: 1, h: 1, name: '書類棚',   use: true },
+  meet:  { w: 2, h: 2, name: '応接',     use: true },
+  plant: { w: 1, h: 1, name: '観葉植物', use: false },
+  boss:  { w: 2, h: 1, name: '社長席',   use: false },
+};
+function defaultOffice() {
+  return { items: [
+    { id: 'shelf', kind: 'shelf', x: 2, y: 1 },
+    { id: 'boss', kind: 'boss', x: 5, y: 1 },
+    { id: 'meet', kind: 'meet', x: 10, y: 2 },
+    { id: 'plant1', kind: 'plant', x: 1, y: 8 },
+    { id: 'plant2', kind: 'plant', x: 12, y: 8 },
+    { id: 'desk1', kind: 'desk', x: 3, y: 5 },
+    { id: 'desk2', kind: 'desk', x: 5, y: 5 },
+  ] };
+}
+const itemById = id => S.office.items.find(i => i.id === id);
+function useTile(it) { const k = KIND[it.kind]; return k.use ? { x: it.x, y: it.y + k.h } : null; }
+const inside = (x, y) => x >= 1 && x <= GW - 2 && y >= 1 && y <= GH - 2;
+function blockMap(items) {
+  const m = new Uint8Array(GW * GH);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (!inside(x, y)) m[y * GW + x] = 1;
+  m[DOOR.y * GW + DOOR.x] = 0;
+  for (const it of items) {
+    const k = KIND[it.kind];
+    for (let dy = 0; dy < k.h; dy++) for (let dx = 0; dx < k.w; dx++) {
+      const x = it.x + dx, y = it.y + dy;
+      if (x >= 0 && x < GW && y >= 0 && y < GH) m[y * GW + x] = 1;
+    }
+  }
+  return m;
+}
+let BMAP = null;
+function bfs(from, to, map = BMAP) {
+  const sx = Math.max(0, Math.min(GW - 1, Math.round(from.x))), sy = Math.max(0, Math.min(GH - 1, Math.round(from.y)));
+  if (sx === to.x && sy === to.y) return [];
+  const prev = new Int16Array(GW * GH).fill(-1);
+  const start = sy * GW + sx;
+  prev[start] = start;
+  const q = [start];
+  const goal = to.y * GW + to.x;
+  for (let qi = 0; qi < q.length; qi++) {
+    const c = q[qi];
+    if (c === goal) break;
+    const cx = c % GW, cy = (c / GW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+      const n = ny * GW + nx;
+      if (prev[n] !== -1 || map[n]) continue;
+      prev[n] = c; q.push(n);
+    }
+  }
+  if (prev[goal] === -1) return null;
+  const path = [];
+  for (let c = goal; c !== start; c = prev[c]) path.push({ x: c % GW, y: (c / GW) | 0 });
+  return path.reverse();
+}
+function validLayout(items) {
+  const m = blockMap(items);
+  const seen = new Set();
+  for (const it of items) {
+    const k = KIND[it.kind];
+    if (it.x < 1 || it.y < 1 || it.x + k.w - 1 > GW - 2 || it.y + k.h - 1 > LOBBY_Y - 1) return false;
+    for (let dy = 0; dy < k.h; dy++) for (let dx = 0; dx < k.w; dx++) {
+      const key = (it.y + dy) * GW + it.x + dx;
+      if (seen.has(key)) return false;
+      seen.add(key);
+    }
+  }
+  for (const it of items) {
+    const u = useTile(it);
+    if (u && (!inside(u.x, u.y) || m[u.y * GW + u.x] || !bfs(DOOR_USE, u, m))) return false;
+  }
+  for (const s of [...SELL_SLOTS, ...APPL_SLOTS]) if (!bfs(DOOR_USE, s, m)) return false;
+  return true;
+}
+function findDeskSpot() {
+  for (let y = 2; y <= LOBBY_Y - 2; y++) for (let x = 1; x <= GW - 2; x++) {
+    if (validLayout([...S.office.items, { id: '_', kind: 'desk', x, y }])) return { x, y };
+  }
+  return null;
+}
+function freeDesk() {
+  const used = new Set(S.staff.map(s => s.deskId));
+  const d = S.office.items.find(i => i.kind === 'desk' && !used.has(i.id));
+  return d ? d.id : null;
+}
+function locTile(id) {
+  if (id === 'door') return DOOR_USE;
+  const it = itemById(id);
+  return it && useTile(it) ? useTile(it) : DOOR_USE;
+}
+function invalidatePaths() {
+  BMAP = blockMap(S.office.items);
+  for (const a of [...agents.values(), ...npcs.values()]) if (a.target) a.path = bfs(a, a.target) || [];
+}
+
+// =============================================================
+//  物件・人の生成
+// =============================================================
+const maxListings = () => Math.min(SELL_SLOTS.length, 3 + lv('net'));
+function freeSlot(list, n) {
+  const used = new Set(list.map(x => x.slot));
+  for (let i = 0; i < n; i++) if (!used.has(i)) return i;
+  return -1;
+}
+function makeListing() {
+  const types = unlockedTypes();
+  const type = Math.random() < 0.35 ? types[types.length - 1] : pick(types);
+  const p = { id: S.nextId++, type, area: pick(unlockedAreas()), age: randi(2, 45), cond: randi(30, 95), trait: wpick(TRAITS), expires: S.day + randi(4, 7) };
+  // 曰く付きは噂になっているので最初から安い。それ以外の特性は買うまでわからない
+  p.ask = Math.round(rawValue(p, p.trait === 'haunted') * rand(0.70, 1.10) / 1e4) * 1e4;
+  return p;
+}
+function refillListings(n) {
+  for (let i = 0; i < n && S.listings.length < maxListings(); i++) {
+    const slot = freeSlot(S.listings, maxListings());
+    if (slot < 0) break;
+    const l = makeListing();
+    l.slot = slot;
+    S.listings.push(l);
+  }
+}
+function makeCand(slot) {
+  const rar = wpick(RARITY);
+  return { id: S.nextId++, name: `${pick(SEI)} ${pick(MEI)}`, role: pick(Object.keys(ROLES)), rar, slot,
+    hire: Math.round(RARITY[rar].hire * rand(0.85, 1.15) / 1e4) * 1e4, salary: RARITY[rar].salary };
+}
+function refreshCands() {
+  S.cands = APPL_SLOTS.map((_, i) => makeCand(i));
+  S.candDay = S.day;
+}
+
+// =============================================================
+//  行動
+// =============================================================
+function buy(id, auto = false) {
+  const i = S.listings.findIndex(l => l.id === id);
+  if (i < 0) return;
+  const l = S.listings[i];
+  if (S.money < l.ask) return;
+  S.money -= l.ask;
+  S.listings.splice(i, 1);
+  const p = { id: l.id, type: l.type, area: l.area, age: l.age, cond: l.cond, trait: l.trait,
+    buyPrice: l.ask, spent: 0, appraised: false, state: 'task', task: null, work: 0, workMax: 0,
+    boughtT: S.playT || 0, touched: false, at: 'shelf', carried: null, claim: null, waitT: 0 };
+  S.props.push(p);
+  startTask(p, 'appraise');
+  log(`${auto ? '［自動］' : ''}${TYPES[p.type].name}を${yen(l.ask)}円で仕入れ`);
+  dirty();
+}
+function startTask(p, task) { p.task = task; p.state = 'task'; p.work = 0; p.workMax = workFor(p, task); p.waitT = 0; }
+function helpTask(p, ev) {
+  if (!p || !p.task) return;
+  const amt = clickPow();
+  p.work += amt;
+  p.touched = true;
+  S.stats.clicks++;
+  if (S.stats.clicks >= 1000) trophy('click');
+  if (ev) floatAtCanvas(ev.cx, ev.cy, `+${amt}`);
+  if (p.work >= p.workMax) finishTask(p);
+}
+function finishTask(p) {
+  const task = p.task;
+  p.task = null; p.state = 'idle'; p.work = 0;
+  if (task === 'appraise') {
+    p.appraised = true;
+    if (p.trait === 'basement') trophy('basement');
+    log(`査定：${TYPES[p.type].name} ${yen(rawValue(p))}円（${TRAITS[p.trait].name}）`);
+    applyPolicy(p);
+  } else if (task === 'renovate') {
+    p.cond = 100;
+    if (p.trait === 'leak') { p.trait = 'none'; p.fixedLeak = true; }
+    if (p.after === 'sell') startTask(p, 'sell');
+    else if (p.after === 'rent') startRent(p);
+    else applyPolicy(p);
+    p.after = null;
+  } else if (task === 'sell') { completeSale(p); return; }
+  dirty();
+}
+function completeSale(p) {
+  const price = Math.round(sellPrice(p) * rand(0.96, 1.05));
+  const cost = p.buyPrice + p.spent;
+  const profit = price - cost;
+  S.money += price;
+  S.props = S.props.filter(x => x !== p);
+  S.stats.sold++;
+  S.stats.profit += profit;
+  const t = (S.playT || 0) - p.boughtT;
+  S.stats.times.push(t);
+  if (S.stats.times.length > 10) S.stats.times.shift();
+  if (!S.stats.firstTime) S.stats.firstTime = t;
+  const avg = S.stats.times.reduce((a, b) => a + b, 0) / S.stats.times.length;
+  if (S.stats.times.length >= 5 && avg * 5 <= S.stats.firstTime) trophy('layout');
+  S.credit += profit > cost * 0.2 ? 2 : 1;
+  if (!p.touched) { S.stats.autoSold++; if (S.stats.autoSold >= 10) trophy('auto10'); }
+  trophy('first');
+  if (profit >= cost * 0.5) trophy('meki');
+  if (p.wasHaunted && price >= p.buyPrice * 2) trophy('oharai');
+  if (p.fixedLeak && profit > 0) trophy('leak');
+  log(`成約：${TYPES[p.type].name} ${yen(price)}円（${profit >= 0 ? '+' : ''}${yen(profit)}）`);
+  const m = locTile('meet');
+  floatAtCanvas(m.x * TS + 8, m.y * TS - 20, `${profit >= 0 ? '+' : ''}${yen(profit)}`, profit >= 0 ? 'big' : 'big loss');
+  burst(m.x * TS + 8, m.y * TS - 10);
+  dirty();
+}
+function startSellManual(p) { if (!p.claim && !p.carried) p.at = 'meet'; startTask(p, 'sell'); dirty(); }
+function startReno(p, after, manual) {
+  const c = renoCost(p);
+  if (S.money < c) return false;
+  S.money -= c; p.spent += c; p.after = after || null;
+  if (manual && !p.claim && !p.carried) p.at = 'door';
+  startTask(p, 'renovate');
+  dirty();
+  return true;
+}
+function startRent(p) {
+  p.state = 'rent'; p.task = null;
+  if (S.props.filter(x => x.state === 'rent').length >= 5) trophy('mansion');
+  dirty();
+}
+function doOharai(p) {
+  const c = oharaiCost(p);
+  if (S.money < c || p.trait !== 'haunted') return false;
+  S.money -= c; p.spent += c; p.trait = 'none'; p.wasHaunted = true;
+  dirty();
+  return true;
+}
+function applyPolicy(p) {
+  if (!lv('policy') || p.state !== 'idle' || !p.appraised) return;
+  if (p.trait === 'haunted' && S.policy.oharai) doOharai(p);
+  if (S.policy.after === 'manual') return;
+  const needsReno = S.policy.reno && (p.cond < 70 || p.trait === 'leak');
+  if (needsReno) { startReno(p, S.policy.after); return; }
+  if (S.policy.after === 'sell') { startTask(p, 'sell'); dirty(); }
+  else startRent(p);
+}
+function hire(id) {
+  const i = S.cands.findIndex(c => c.id === id);
+  if (i < 0 || S.staff.length >= deskCap()) return;
+  const c = S.cands[i];
+  if (S.money < c.hire) return;
+  S.money -= c.hire;
+  S.cands.splice(i, 1);
+  const s = { id: c.id, name: c.name, role: c.role, rar: c.rar, salary: c.salary, deskId: freeDesk() };
+  S.staff.push(s);
+  // 応募者の立ち位置からそのまま歩き出す
+  const n = npcs.get('c' + c.id);
+  const a = agentFor(s);
+  if (n) { a.x = n.x; a.y = n.y; npcs.delete('c' + c.id); }
+  log(`${ROLES[c.role].name} ${c.name}を採用`);
+  trophy('hire');
+  if (S.staff.length >= 5) trophy('team');
+  dirty();
+}
+function fire(id) {
+  const s = S.staff.find(x => x.id === id);
+  if (!s) return;
+  S.staff = S.staff.filter(x => x !== s);
+  const a = agents.get(s.id);
+  releaseAgent(s.id);
+  if (a) npcs.set('f' + s.id, { key: 'f' + s.id, kind: 'leave', x: a.x, y: a.y, path: bfs(a, DOOR_USE) || [], target: DOOR_USE, dir: 'down', anim: 0, moving: false, sprId: s.id, role: s.role, leaving: true });
+  dirty();
+}
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x => x.id === id);
+  const l = lv(id);
+  if (l >= u.max || (u.req && !lv(u.req))) return;
+  const c = u.cost(l);
+  if (S.money < c) return;
+  let spot = null;
+  if (id === 'desk') { spot = findDeskSpot(); if (!spot) { news('desk', '置く場所がない'); return; } }
+  S.money -= c;
+  S.up[id] = l + 1;
+  if (spot) { S.office.items.push({ id: 'desk' + S.nextId++, kind: 'desk', x: spot.x, y: spot.y }); invalidatePaths(); }
+  if (id === 'net') refillListings(1);
+  if (id === 'policy') S.props.forEach(applyPolicy);
+  dirty();
+}
+
+// =============================================================
+//  社員エージェント・来客NPC
+// =============================================================
+const agents = new Map();
+const npcs = new Map();
+const walkSpeed = () => 3.2 * (1 + 0.05 * lv('train'));
+function agentFor(s) {
+  let a = agents.get(s.id);
+  if (!a) { a = { sid: s.id, x: DOOR_USE.x, y: DOOR_USE.y, path: [], target: null, state: 'idle', job: null, dir: 'down', moving: false, anim: 0, hidden: false }; agents.set(s.id, a); }
+  return a;
+}
+function releaseAgent(sid) {
+  const a = agents.get(sid);
+  if (!a) return;
+  if (a.job) {
+    const p = S.props.find(x => x.id === a.job.pid);
+    if (p) { if (p.carried === sid) { p.carried = null; p.at = 'shelf'; } if (p.claim === sid) p.claim = null; }
+  }
+  agents.delete(sid);
+}
+function goTo(a, tile) { a.target = tile; a.path = bfs(a, tile) || []; }
+function stepMove(a, dt) {
+  let dist = walkSpeed() * dt;
+  a.moving = false;
+  while (dist > 0 && a.path.length) {
+    const t = a.path[0];
+    const dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy);
+    a.moving = true;
+    if (Math.abs(dy) > Math.abs(dx)) a.dir = dy < 0 ? 'up' : 'down'; else if (dx) a.dir = dx < 0 ? 'left' : 'right';
+    if (d <= dist) { a.x = t.x; a.y = t.y; a.path.shift(); dist -= d; }
+    else { a.x += dx / d * dist; a.y += dy / d * dist; dist = 0; }
+  }
+  if (a.moving) a.anim += dt;
+  return !a.path.length && a.target && Math.round(a.x) === a.target.x && Math.round(a.y) === a.target.y;
+}
+function dropFile(a, p, at) {
+  if (p) { if (p.carried === a.sid) p.carried = null; if (p.claim === a.sid) p.claim = null; p.at = at; p.waitT = 0; }
+  a.job = null; a.state = 'idle';
+}
+// ---- チームで取りかかる ----
+const TEAM_MAX = 3;  // 1つの業務に入れる最大人数（担当＋手伝い）
+const teamOf = pid => [...agents.values()].filter(x => x.job && x.job.pid === pid);
+const leadOf = pid => [...agents.values()].find(x => x.job && x.job.pid === pid && !x.job.help && (x.state === 'working' || x.state === 'offsite'));
+function faceTo(a, b) {
+  if (!b) return;
+  const dx = b.x - a.x, dy = b.y - a.y;
+  a.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+}
+function helpSpot(c, self) {
+  const taken = new Set();
+  for (const x of agents.values()) {
+    if (x === self) continue;
+    if (x.target) taken.add(x.target.y * GW + x.target.x);
+    taken.add(Math.round(x.y) * GW + Math.round(x.x));
+  }
+  let best = null, bd = 1e9;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const x = c.x + dx, y = c.y + dy;
+    if ((!dx && !dy) || x < 1 || y < 1 || x > GW - 2 || y >= LOBBY_Y) continue;
+    if (BMAP[y * GW + x] || taken.has(y * GW + x)) continue;
+    const d = Math.abs(dx) + Math.abs(dy);
+    if (d < bd && bfs(self, { x, y })) { bd = d; best = { x, y }; }
+  }
+  return best;
+}
+function tryHelp(s, a) {
+  let pickP = null, lead = null, most = 1.5;
+  for (const p of S.props) {
+    if (p.task !== s.role) continue;
+    const l = leadOf(p.id);
+    if (!l || teamOf(p.id).length >= TEAM_MAX) continue;
+    const left = p.workMax - p.work;
+    if (left > most) { pickP = p; lead = l; most = left; }
+  }
+  if (!pickP) return false;
+  const spot = s.role === 'renovate' ? DOOR_USE : helpSpot({ x: Math.round(lead.x), y: Math.round(lead.y) }, a);
+  if (!spot) return false;
+  goTo(a, spot);
+  const there = Math.round(a.x) === spot.x && Math.round(a.y) === spot.y;
+  if (!a.path.length && !there) return false;
+  a.job = { pid: pickP.id, task: s.role, help: true };
+  a.state = 'toHelp';
+  return true;
+}
+function updateAgents(dt) {
+  if (!BMAP) BMAP = blockMap(S.office.items);
+  for (const s of S.staff) {
+    const a = agentFor(s);
+    const myDesk = s.deskId && itemById(s.deskId) ? s.deskId : null;
+    const p = a.job ? S.props.find(x => x.id === a.job.pid) : null;
+    const valid = p && a.job && p.task === a.job.task;
+    switch (a.state) {
+      case 'idle': {
+        a.hidden = false;
+        let best = null, bestLen = 1e9;
+        for (const q of S.props) {
+          if (q.task !== s.role || q.claim || q.carried || !q.at) continue;
+          const path = bfs(a, locTile(q.at));
+          if (path && path.length < bestLen) { best = q; bestLen = path.length; }
+        }
+        if (best) { best.claim = s.id; a.job = { pid: best.id, task: s.role }; goTo(a, locTile(best.at)); a.state = 'toPick'; }
+        else if (tryHelp(s, a)) { /* 仲間の作業を手伝いに行く */ }
+        else if (myDesk) {
+          const t = locTile(myDesk);
+          if (!a.target || a.target.x !== t.x || a.target.y !== t.y) goTo(a, t);
+          stepMove(a, dt);
+          if (!a.moving) a.dir = 'up';
+        }
+        break;
+      }
+      case 'toPick':
+        if (!valid) { dropFile(a, p, p ? p.at : null); break; }
+        if (stepMove(a, dt)) {
+          p.carried = s.id; p.at = null;
+          if (s.role === 'renovate') goTo(a, DOOR_USE);
+          else if (s.role === 'sell') goTo(a, locTile('meet'));
+          else goTo(a, myDesk ? locTile(myDesk) : DOOR_USE);
+          a.state = 'toWork';
+        }
+        break;
+      case 'toWork':
+        if (!valid) { dropFile(a, p, myDesk || 'shelf'); break; }
+        if (stepMove(a, dt)) { a.state = s.role === 'renovate' ? 'offsite' : 'working'; a.hidden = s.role === 'renovate'; a.dir = 'up'; }
+        break;
+      case 'working':
+      case 'offsite':
+        if (!valid) {
+          if (a.state === 'offsite' && p) { a.hidden = false; a.state = 'return'; goTo(a, myDesk ? locTile(myDesk) : locTile('shelf')); }
+          else dropFile(a, p, myDesk || 'shelf');
+          break;
+        }
+        p.work += staffRate(s) * dt;
+        if (p.work >= p.workMax) {
+          const task = p.task;
+          finishTask(p);
+          if (!S.props.includes(p)) { a.job = null; a.state = 'idle'; a.hidden = false; }
+          else if (task === 'renovate') { a.hidden = false; a.state = 'return'; goTo(a, myDesk ? locTile(myDesk) : locTile('shelf')); }
+          else dropFile(a, p, myDesk || 'shelf');
+        }
+        break;
+      case 'toHelp': {
+        if (!valid || !leadOf(p.id)) { a.job = null; a.state = 'idle'; a.hidden = false; break; }
+        if (stepMove(a, dt)) { a.state = 'helping'; a.hidden = s.role === 'renovate'; faceTo(a, leadOf(p.id)); }
+        break;
+      }
+      case 'helping': {
+        if (!valid || !leadOf(p.id)) { a.job = null; a.state = 'idle'; a.hidden = false; break; }
+        p.work += staffRate(s) * dt;
+        if (p.work >= p.workMax) { finishTask(p); a.job = null; a.state = 'idle'; a.hidden = false; }
+        break;
+      }
+      case 'return':
+        if (!p) { a.job = null; a.state = 'idle'; break; }
+        if (stepMove(a, dt)) dropFile(a, p, myDesk || 'shelf');
+        break;
+    }
+  }
+  for (const sid of [...agents.keys()]) if (!S.staff.some(s => s.id === sid)) releaseAgent(sid);
+}
+function syncNpcs(dt) {
+  if (!BMAP) BMAP = blockMap(S.office.items);
+  const live = new Set();
+  for (const l of S.listings) {
+    const key = 'l' + l.id; live.add(key);
+    if (!npcs.has(key)) {
+      const slot = SELL_SLOTS[l.slot] || SELL_SLOTS[0];
+      const n = { key, kind: 'seller', ref: l.id, x: DOOR.x, y: DOOR.y, path: [], target: null, dir: 'up', anim: 0, moving: false, sprId: l.id * 7 + 3, role: 'civ' };
+      goTo(n, slot); npcs.set(key, n);
+    }
+  }
+  for (const c of S.cands) {
+    const key = 'c' + c.id; live.add(key);
+    if (!npcs.has(key)) {
+      const slot = APPL_SLOTS[c.slot] || APPL_SLOTS[0];
+      const n = { key, kind: 'appl', ref: c.id, x: DOOR.x, y: DOOR.y, path: [], target: null, dir: 'up', anim: 0, moving: false, sprId: c.id, role: c.role };
+      goTo(n, slot); npcs.set(key, n);
+    }
+  }
+  for (const [key, n] of npcs) {
+    if (!n.leaving && !live.has(key)) { n.leaving = true; goTo(n, { x: DOOR.x, y: DOOR.y }); }
+    const arrived = stepMove(n, dt);
+    if (!n.moving && !n.leaving) n.dir = 'up';
+    if (n.leaving && (arrived || !n.path.length)) npcs.delete(key);
+  }
+}
+
+// =============================================================
+//  時間経過
+// =============================================================
+function tick(dt) {
+  S.playT = (S.playT || 0) + dt;
+  updateAgents(dt);
+  for (const p of S.props) { if (p.task && !p.claim && !p.carried) p.waitT = (p.waitT || 0) + dt; else p.waitT = 0; }
+  S.dayT += dt;
+  while (S.dayT >= DAY_SEC) { S.dayT -= DAY_SEC; newDay(); }
+  if (lv('policy')) S.props.forEach(p => { if (p.state === 'idle' && p.appraised) applyPolicy(p); });
+  if (lv('autobuy') && S.policy.autobuy) autoBuy();
+  if (!S.ch1 && assets() >= GOAL_CH1) { S.ch1 = true; trophy('ch1'); if (!S.simulating) showClear(); }
+}
+function autoBuy() {
+  const list = S.listings.filter(l => l.ask <= rawValue(l, false) * S.policy.line).sort((a, b) => a.ask / rawValue(a, false) - b.ask / rawValue(b, false));
+  for (const l of list) if (S.money - l.ask >= S.policy.reserve) buy(l.id, true);
+}
+function newDay() {
+  S.day++;
+  let rent = 0;
+  S.props.forEach(p => { if (p.state === 'rent') rent += rentPerDay(p); });
+  const pay = S.staff.reduce((s, x) => s + x.salary, 0);
+  S.money += rent - pay;
+  if (rent || pay) floatHud(`${rent - pay >= 0 ? '+' : ''}${yen(rent - pay)}`, rent - pay >= 0 ? '' : 'loss');
+  for (const k of Object.keys(S.trends)) {
+    let t = S.trends[k] * Math.exp(rand(-0.035, 0.035));
+    t += (1 - t) * 0.04;
+    S.trends[k] = Math.min(1.8, Math.max(0.6, t));
+  }
+  if (Math.random() < 0.05) {
+    const k = pick(unlockedAreas());
+    const up = Math.random() < 0.55;
+    S.trends[k] *= up ? 1.22 : 0.82;
+    news(up ? 'up' : 'down', `${AREAS[k].name}の相場が${up ? '急上昇' : '急落'}`);
+    log(`ニュース：${AREAS[k].name}の相場が${up ? '急上昇' : '急落'}`);
+  }
+  S.listings = S.listings.filter(l => l.expires > S.day);
+  refillListings(1 + lv('net'));
+  if (S.day - S.candDay >= 3) refreshCands();
+  S.hist.push(Math.round(assets()));
+  if (S.hist.length > 200) S.hist.shift();
+  dirty();
+}
+
+// =============================================================
+//  ドット絵（オフィス描画）
+// =============================================================
+const HAIR = ['#2b1d16', '#4a3020', '#1c1c24', '#7a4a26', '#b8862e', '#5b2e2a', '#8a8f99', '#c25a3c'];
+const SKIN = ['#f2c7a0', '#e8b48a', '#d29a6e', '#f5d3b5'];
+const CIV = ['#6a9a4a', '#a0527a', '#d0a040', '#5a7aa0', '#8a6a9a', '#c06a50', '#4a8a8a'];
+const ROLE_COL = {
+  appraise: { c: '#3d6fb6', t: '#ffffff', p: '#2a3348' },
+  renovate: { c: '#e08a2c', t: '#8a4f12', p: '#4a5a6e' },
+  sell:     { c: '#28324a', t: '#d23f2a', p: '#28324a' },
+  boss:     { c: '#5a2a3a', t: '#e3b544', p: '#2b2030' },
+};
+const SPR_FRONT = ['..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.sesssses.', '.ssssssss.', '..ssssss..', '.ccctcccc.', 'cccctccccc', 'sccctcccs.', 'scccccccs.', '.cccccccc.', '.pppppppp.'];
+const SPR_BACK = ['..hhhhhh..', '.hhhhhhhh.', '.hhhhhhhh.', '.hhhhhhhh.', '.shhhhhhs.', '..ssssss..', '.cccccccc.', 'cccccccccc', 'sccccccccs', 'sccccccccs', '.cccccccc.', '.pppppppp.'];
+const LEGS = [['.ppp..ppp.', '.kk....kk.'], ['..pp..ppp.', '..kk...kk.'], ['.ppp..pp..', '.kk...kk..']];
+const HAND = ['..ooooo..', '.okkkkko.', 'okkkkkkko', 'okkkkkkko', 'okokkkkko', '.o.okkko.', '...okkko.', '...okko..', '...okko..', '....oo...'];
+const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
+const sprCache = new Map();
+function sprite(key, rows, pal) {
+  if (sprCache.has(key)) return sprCache.get(key);
+  const c = document.createElement('canvas');
+  c.width = rows[0].length; c.height = rows.length;
+  const g = c.getContext('2d');
+  if (!g) { sprCache.set(key, null); return null; }
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) px(g, pal[ch], x, y); }));
+  sprCache.set(key, c);
+  return c;
+}
+function personSprite(id, role, back, leg) {
+  const rc = role === 'civ' ? { c: CIV[id % CIV.length], t: CIV[(id + 3) % CIV.length], p: '#3a3f4a' } : ROLE_COL[role];
+  const pal = { h: HAIR[id % HAIR.length], s: SKIN[(id >> 1) % SKIN.length], e: '#1d1d26', c: rc.c, t: rc.t, p: rc.p, k: '#2a211c' };
+  return sprite(`${id}-${role}-${back ? 1 : 0}-${leg}`, [...(back ? SPR_BACK : SPR_FRONT), ...LEGS[leg]], pal);
+}
+function drawPerson(g, a, id, role) {
+  const back = a.dir === 'up';
+  const leg = a.moving ? 1 + (Math.floor(a.anim / 0.16) % 2) : 0;
+  const sp = personSprite(id, role, back, leg);
+  const x = Math.round(a.x * TS) + 3, y = Math.round(a.y * TS) + 1;
+  px(g, 'rgba(0,0,0,.2)', x + 1, y + 13, 8, 2);
+  if (!sp) return { x, y };
+  if (a.dir === 'left') { g.save(); g.translate(x + 10, y); g.scale(-1, 1); g.drawImage(sp, 0, 0); g.restore(); }
+  else g.drawImage(sp, x, y);
+  return { x, y };
+}
+function drawNum(g, n, x, y, col) {
+  const s = String(n);
+  for (let i = 0; i < s.length; i++) {
+    const d = DIGITS[+s[i]];
+    if (!d) continue;
+    for (let k = 0; k < 15; k++) if (d[k] === '1') px(g, col, x + i * 4 + (k % 3), y + Math.floor(k / 3));
+  }
+}
+function bubble(g, x, y, w, h, border = '#1d2733') {
+  px(g, border, x, y, w, h);
+  px(g, '#ffffff', x + 1, y + 1, w - 2, h - 2);
+  px(g, border, x + Math.floor(w / 2) - 1, y + h, 3, 1);
+  px(g, border, x + Math.floor(w / 2), y + h + 1, 1, 1);
+}
+function drawBar(g, x, y, w, ratio, col) {
+  px(g, '#1d2733', x - 1, y - 1, w + 2, 5);
+  px(g, '#4a5262', x, y, w, 3);
+  px(g, col, x, y, Math.max(1, Math.round(w * Math.min(1, ratio))), 3);
+}
+function drawPaper(g, x, y) {
+  px(g, '#5a5a5a', x, y, 6, 7);
+  px(g, '#ffffff', x, y, 5, 6);
+  px(g, '#9aa3ad', x + 1, y + 2, 3, 1); px(g, '#9aa3ad', x + 1, y + 4, 3, 1);
+}
+const TASK_COL = { appraise: '#5b9be0', renovate: '#e08a2c', sell: '#f2c14e' };
+const particles = [];
+function burst(x, y) {
+  if (S.simulating) return;
+  for (let i = 0; i < 10; i++) particles.push({ x, y, vx: rand(-40, 40), vy: rand(-90, -40), t: 0 });
+}
+let editMode = false, officeSel = null;
+function drawOffice(now, dt) {
+  const cv = $('office');
+  const g = cv && cv.getContext('2d');
+  if (!g) return;
+  g.imageSmoothingEnabled = false;
+  // 床
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+    const X = x * TS, Y = y * TS;
+    if (y === LOBBY_Y) { px(g, '#a3584a', X, Y, TS, TS); px(g, '#b8695a', X + 1, Y + 1, TS - 2, TS - 2); continue; }
+    px(g, (x + y) % 2 ? '#c99a64' : '#c4945f', X, Y, TS, TS);
+    px(g, '#b3824f', X, Y + ((x % 2) ? 5 : 11), TS, 1);
+    px(g, '#b3824f', X + ((y % 2) ? 3 : 10), Y, 1, TS);
+  }
+  // 壁
+  px(g, '#e6e0d2', 0, 0, W, TS); px(g, '#cfc7b4', 0, TS - 4, W, 4);
+  for (const wx of [3, 8]) { px(g, '#9ac4d8', wx * TS + 2, 3, 24, 8); px(g, '#ffffff', wx * TS + 15, 3, 1, 8); }
+  px(g, '#8c8577', 0, 0, TS, H); px(g, '#8c8577', W - TS, 0, TS, H); px(g, '#8c8577', 0, H - TS, W, TS);
+  px(g, '#a39b8b', TS - 2, TS, 2, H - 2 * TS); px(g, '#a39b8b', W - TS, TS, 2, H - 2 * TS);
+  px(g, '#5c3e26', DOOR.x * TS, DOOR.y * TS, TS, TS); px(g, '#3b2818', DOOR.x * TS + 2, DOOR.y * TS + 2, 12, 14);
+  // 鍵ボード（賃貸）
+  const kb = KEYBOARD;
+  px(g, '#6b4a2e', kb.x * TS + 1, 2, kb.w * TS - 2, 11); px(g, '#8a6240', kb.x * TS + 2, 3, kb.w * TS - 4, 9);
+  const rents = S.props.filter(p => p.state === 'rent').length;
+  for (let i = 0; i < Math.min(6, rents); i++) { const kx = kb.x * TS + 4 + i * 4; px(g, '#f2c14e', kx, 5, 2, 2); px(g, '#f2c14e', kx, 7, 1, 3); }
+  if (!rents) { px(g, '#5c3e26', kb.x * TS + 5, 7, 22, 1); }
+
+  // 家具
+  for (const it of [...S.office.items].sort((a, b) => a.y - b.y)) drawItem(g, it);
+
+  // 書類の山（作業待ち）
+  const piles = {};
+  for (const p of S.props) if (p.state === 'task' && p.at && !p.carried) (piles[p.at] = piles[p.at] || []).push(p);
+  for (const [id, ps] of Object.entries(piles)) {
+    let bx, by;
+    if (id === 'door') { bx = DOOR_USE.x * TS + 11; by = DOOR_USE.y * TS + 6; }
+    else { const it = itemById(id); if (!it) continue; bx = it.x * TS + 9; by = it.y * TS + 1; }
+    ps.slice(0, 4).forEach((p, i) => drawPaper(g, bx - i, by + 4 - i * 2));
+    const top = ps.reduce((a, b) => (b.work / b.workMax > a.work / a.workMax ? b : a));
+    if (top.work > 0) drawBar(g, bx - 4, by - 4, 12, top.work / top.workMax, TASK_COL[top.task]);
+    const waiting = ps.some(p => p.waitT > 6 && S.staff.some(s => s.role === p.task));
+    if (waiting && Math.floor(now / 400) % 2 === 0) { px(g, '#e5533d', bx - 6, by - 10, 5, 7); px(g, '#ffffff', bx - 4, by - 9, 1, 3); px(g, '#ffffff', bx - 4, by - 5, 1, 1); }
+  }
+
+  // 社長と判断待ちの吹き出し
+  const boss = itemById('boss');
+  const idle = S.props.filter(p => p.state === 'idle');
+  if (boss) {
+    const sp = personSprite(7, 'boss', false, 0);
+    if (sp) g.drawImage(sp, boss.x * TS + 11, boss.y * TS - 7);
+    if (idle.length) {
+      const bx = boss.x * TS + 9, by = boss.y * TS - 1 - (Math.floor(now / 300) % 2);
+      bubble(g, bx, by - 12, 14, 10, '#e5533d');
+      if (MINI_CV.sell) g.drawImage(MINI_CV.sell, bx + 1, by - 12 + 0, 10, 10);
+      px(g, '#e5533d', bx + 10, by - 13, 6, 7); drawNum(g, Math.min(9, idle.length), bx + 11, by - 12, '#ffffff');
+    }
+  }
+
+  // 応接のお客さん（販売中）
+  const meet = itemById('meet');
+  const selling = [...agents.values()].some(a => a.state === 'working' && a.job && a.job.task === 'sell') || (piles.meet || []).some(p => p.task === 'sell' && p.work > 0);
+  if (meet && selling) { const sp = personSprite(meet.x * 13 + S.stats.sold, 'civ', false, 0); if (sp) g.drawImage(sp, meet.x * TS + 11, meet.y * TS - 3); }
+
+  // 人（奥から順に）
+  const people = [];
+  for (const a of agents.values()) if (!a.hidden) { const s = S.staff.find(x => x.id === a.sid); if (s) people.push({ a, id: s.id, role: s.role, kind: 'staff' }); }
+  for (const n of npcs.values()) people.push({ a: n, id: n.sprId, role: n.role, kind: n.kind });
+  people.sort((p, q) => p.a.y - q.a.y);
+  for (const pp of people) {
+    const { x, y } = drawPerson(g, pp.a, pp.id, pp.role);
+    const a = pp.a;
+    if (pp.kind === 'staff') {
+      if (a.job && S.props.find(p => p.id === a.job.pid && p.carried === a.sid)) drawPaper(g, x + 2, y - 6);
+      if (a.state === 'working' || a.state === 'helping') {
+        const p = S.props.find(q => q.id === a.job.pid);
+        if (p) drawBar(g, x - 1, y - 6, 12, p.work / p.workMax, TASK_COL[p.task]);
+        const n = a.state === 'working' && p ? teamOf(p.id).length : 0;
+        if (n > 1) { const bx = x + 1, by = y - 15; px(g, '#1d2733', bx, by, 9, 7); px(g, '#f2c14e', bx + 1, by + 1); px(g, '#f2c14e', bx + 2, by + 2); px(g, '#f2c14e', bx + 1, by + 3); px(g, '#f2c14e', bx + 3, by + 1); px(g, '#f2c14e', bx + 3, by + 3); drawNum(g, n, bx + 5, by + 1, '#ffffff'); }
+      }
+    } else if (pp.kind === 'seller' && !a.moving) {
+      const l = S.listings.find(q => q.id === a.ref);
+      if (l) {
+        const bob = Math.floor(now / 500 + l.id) % 2;
+        const pr = listingProfit(l);
+        const border = l.trait === 'haunted' ? '#8a4fc2' : pr.best >= l.ask * 0.3 ? '#2f9a55' : pr.best < 0 ? '#c8352b' : '#1d2733';
+        if (border !== '#1d2733') bubble(g, x - 3, y - 16 - bob, 16, 14, border);
+        bubble(g, x - 2, y - 15 - bob, 14, 12, border);
+        if (MINI_CV[l.type]) g.drawImage(MINI_CV[l.type], x, y - 14 - bob);
+        if (pr.best >= l.ask * 0.6 && MINI_CV.sell && Math.floor(now / 250) % 4) g.drawImage(MINI_CV.sell, x + 8, y - 21 - bob, 7, 7);
+      }
+    } else if (pp.kind === 'appl' && !a.moving) {
+      const c = S.cands.find(q => q.id === a.ref);
+      if (c) {
+        const bob = Math.floor(now / 500 + c.id) % 2;
+        const border = c.rar === 'SR' ? '#d9a21a' : c.rar === 'R' ? '#3d6fb6' : '#1d2733';
+        bubble(g, x - 2, y - 15 - bob, 14, 12, border);
+        if (MINI_CV[c.role]) g.drawImage(MINI_CV[c.role], x, y - 14 - bob);
+      }
+    }
+  }
+  // 現場に出ている職人
+  const out = [...agents.values()].filter(a => a.hidden);
+  const doorPile = piles.door || [];
+  if (out.length || doorPile.length) {
+    const bx = DOOR.x * TS - 2, by = DOOR.y * TS - 2;
+    bubble(g, bx, by - 10, 20, 10, '#e08a2c');
+    if (MINI_CV.renovate) g.drawImage(MINI_CV.renovate, bx + 1, by - 10, 9, 9);
+    drawNum(g, out.length, bx + 13, by - 8, '#1d2733');
+    const ps = [...out.map(a => S.props.find(p => a.job && p.id === a.job.pid)), ...doorPile].filter(Boolean);
+    if (ps.length) { const top = ps.reduce((a, b) => (b.work / b.workMax > a.work / a.workMax ? b : a)); drawBar(g, bx + 2, by + 2, 16, top.work / top.workMax, TASK_COL.renovate); }
+  }
+  // コイン
+  for (const pt of particles) {
+    pt.t += dt; pt.vy += 160 * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+    if (MINI_CV.sell) g.drawImage(MINI_CV.sell, Math.round(pt.x) - 3, Math.round(pt.y) - 3, 7, 7);
+  }
+  for (let i = particles.length - 1; i >= 0; i--) if (particles[i].t > 0.9) particles.splice(i, 1);
+
+  // チュートリアルの指さし
+  const target = hintTarget();
+  if (target && !editMode) {
+    const hs = sprite('hand', HAND, { o: '#1d2733', k: '#ffffff' });
+    const bob = reduceMotion ? 0 : Math.round(Math.sin(now / 160) * 2);
+    if (hs) g.drawImage(hs, target.x - 4, target.y - 10 + bob);
+  }
+
+  // 配置モード
+  if (editMode) {
+    g.strokeStyle = 'rgba(255,255,255,.2)'; g.lineWidth = 1;
+    for (let x = 1; x < GW; x++) { g.beginPath(); g.moveTo(x * TS + .5, TS); g.lineTo(x * TS + .5, LOBBY_Y * TS); g.stroke(); }
+    for (let y = 1; y <= LOBBY_Y; y++) { g.beginPath(); g.moveTo(TS, y * TS + .5); g.lineTo(W - TS, y * TS + .5); g.stroke(); }
+    px(g, 'rgba(0,0,0,.25)', TS, LOBBY_Y * TS, W - 2 * TS, TS);
+    for (const it of S.office.items) { const u = useTile(it); if (u) px(g, 'rgba(255,255,255,.3)', u.x * TS + 5, u.y * TS + 5, 6, 6); }
+    if (officeSel) { const it = itemById(officeSel); if (it) { const k = KIND[it.kind]; g.strokeStyle = '#ffd34d'; g.lineWidth = 2; g.strokeRect(it.x * TS + 1, it.y * TS + 1, k.w * TS - 2, k.h * TS - 2); } }
+  }
+}
+function drawItem(g, it) {
+  const X = it.x * TS, Y = it.y * TS;
+  switch (it.kind) {
+    case 'desk': {
+      const owner = S.staff.find(s => s.deskId === it.id);
+      const u = useTile(it);
+      px(g, '#3c3c46', u.x * TS + 4, u.y * TS + 6, 8, 6); px(g, '#56565f', u.x * TS + 4, u.y * TS + 4, 8, 3);
+      px(g, '#7a4e2c', X + 1, Y + 6, 14, 10); px(g, '#8f5d35', X + 1, Y + 5, 14, 3);
+      px(g, '#2a2f38', X + 4, Y, 8, 6); px(g, owner ? '#7fc1e0' : '#3a4250', X + 5, Y + 1, 6, 4);
+      if (owner) px(g, ROLE_COL[owner.role].c, X + 12, Y + 8, 2, 2);
+      break;
+    }
+    case 'shelf': {
+      px(g, '#5c3e26', X + 1, Y - 6, 14, 22);
+      const cols = ['#cf3b26', '#3d6fb6', '#e3b544', '#3f8f4a', '#8a5ab0', '#e08a2c'];
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) px(g, cols[(i + r * 2) % 6], X + 2 + i * 2, Y - 5 + r * 7, 2, 6);
+      break;
+    }
+    case 'meet':
+      px(g, '#4a6d8c', X + 2, Y + 1, 28, 6); px(g, '#4a6d8c', X + 2, Y + 25, 28, 6); px(g, '#5b82a4', X + 2, Y + 1, 28, 2);
+      px(g, '#d8c3a0', X + 5, Y + 10, 22, 12); px(g, '#c4ad86', X + 5, Y + 20, 22, 2); px(g, '#ffffff', X + 14, Y + 13, 4, 3);
+      break;
+    case 'plant':
+      px(g, '#3f8f4a', X + 4, Y, 8, 9); px(g, '#3f8f4a', X + 2, Y + 3, 12, 4); px(g, '#2f6e38', X + 6, Y + 2, 2, 6); px(g, '#a0522d', X + 4, Y + 9, 8, 7);
+      break;
+    case 'boss':
+      px(g, '#4a2f1c', X + 1, Y + 5, 30, 11); px(g, '#5e3c24', X + 1, Y + 4, 30, 3); px(g, '#e3b544', X + 13, Y + 9, 6, 2);
+      break;
+  }
+}
+function hintTarget() {
+  if (S.stats.sold >= 2) return null;
+  const idle = S.props.filter(p => p.state === 'idle');
+  const boss = itemById('boss');
+  if (idle.length && boss) return { x: boss.x * TS + 16, y: boss.y * TS - 16 };
+  const t = S.props.find(p => p.state === 'task' && p.at && !p.carried && !S.staff.some(s => s.role === p.task));
+  if (t) {
+    if (t.at === 'door') return { x: DOOR_USE.x * TS + 12, y: DOOR_USE.y * TS - 4 };
+    const it = itemById(t.at);
+    if (it) return { x: it.x * TS + 10, y: it.y * TS - 6 };
+  }
+  if (!S.props.length && S.listings.length) {
+    const best = [...S.listings].sort((a, b) => a.ask / rawValue(a, false) - b.ask / rawValue(b, false)).find(l => l.ask <= S.money);
+    const n = best && npcs.get('l' + best.id);
+    if (n && !n.moving) return { x: Math.round(n.x * TS) + 8, y: Math.round(n.y * TS) - 18 };
+  }
+  return null;
+}
+
+// =============================================================
+//  タップ
+// =============================================================
+function canvasPoint(e) {
+  const cv = $('office');
+  const r = cv.getBoundingClientRect();
+  const cx = (e.clientX - r.left - 3) / (r.width - 6) * W;
+  const cy = (e.clientY - r.top - 3) / (r.height - 6) * H;
+  return { cx, cy, tx: Math.floor(cx / TS), ty: Math.floor(cy / TS) };
+}
+function personHit(a, cx, cy) {
+  const x = a.x * TS + 3, y = a.y * TS + 1;
+  return cx >= x - 3 && cx <= x + 13 && cy >= y - 14 && cy <= y + 16;
+}
+function tasksAt(loc) {
+  return S.props.filter(p => p.task && !p.carried && p.at === loc);
+}
+function onOfficeTap(e) {
+  const pt = canvasPoint(e);
+  const { cx, cy, tx, ty } = pt;
+  if (editMode) { editTap(tx, ty); return; }
+  // 来客
+  for (const n of [...npcs.values()].sort((a, b) => b.y - a.y)) {
+    if (n.leaving || n.moving || !personHit(n, cx, cy)) continue;
+    if (n.kind === 'seller') { openSheet('seller', n.ref); return; }
+    if (n.kind === 'appl') { openSheet('appl', n.ref); return; }
+  }
+  // 社員
+  for (const a of [...agents.values()].sort((p, q) => q.y - p.y)) {
+    if (a.hidden || !personHit(a, cx, cy)) continue;
+    if (a.state === 'working' || a.state === 'helping') { const p = S.props.find(q => q.id === a.job.pid); helpTask(p, pt); return; }
+    openSheet('staff', a.sid); return;
+  }
+  // 入口（現場の工事）
+  if ((tx === DOOR.x && (ty === DOOR.y || ty === DOOR_USE.y)) || (Math.abs(tx - DOOR.x) <= 1 && ty === DOOR.y)) {
+    const offs = [...agents.values()].filter(a => a.hidden && a.job).map(a => S.props.find(p => p.id === a.job.pid)).filter(Boolean);
+    const list = [...offs, ...tasksAt('door')];
+    if (list.length) { helpTask(list[0], pt); return; }
+  }
+  // 鍵ボード
+  if (ty === 0 && tx >= KEYBOARD.x && tx < KEYBOARD.x + KEYBOARD.w) { openSheet('rents'); return; }
+  // 家具
+  const it = S.office.items.find(i => { const k = KIND[i.kind]; const u = useTile(i); return (tx >= i.x && tx < i.x + k.w && ty >= i.y - (i.kind === 'shelf' ? 1 : 0) && ty < i.y + k.h) || (u && u.x === tx && u.y === ty); });
+  if (it) {
+    if (it.kind === 'boss') { openSheet('decide'); return; }
+    const list = tasksAt(it.id);
+    if (list.length) { helpTask(list.sort((a, b) => b.work / b.workMax - a.work / a.workMax)[0], pt); return; }
+    if (it.kind === 'desk') { const s = S.staff.find(x => x.deskId === it.id); if (s) openSheet('staff', s.id); else news('people', '空席。応募者を雇おう'); return; }
+  }
+}
+function editTap(tx, ty) {
+  const hit = S.office.items.find(it => { const k = KIND[it.kind]; return tx >= it.x && tx < it.x + k.w && ty >= it.y && ty < it.y + k.h; });
+  if (hit) { officeSel = officeSel === hit.id ? null : hit.id; return; }
+  if (!officeSel) return;
+  const it = itemById(officeSel);
+  const trial = S.office.items.map(i => i === it ? { ...i, x: tx, y: ty } : i);
+  if (!validLayout(trial)) { news('cross', 'そこには置けない'); return; }
+  it.x = tx; it.y = ty;
+  invalidatePaths();
+  save();
+}
+
+// =============================================================
+//  シート（ポップアップ）
+// =============================================================
+let sheet = null;
+function openSheet(kind, ref) { sheet = { kind, ref, arm: null }; renderSheet(); }
+function closeSheet() { sheet = null; $('sheetRoot').innerHTML = ''; }
+function areaPips(area) {
+  const n = AREAS[area].lv;
+  return `<span class="chip" title="${esc(AREAS[area].name)}">${ic('station', 16)}${'■'.repeat(n)}${'□'.repeat(3 - n)}</span>`;
+}
+function trendIc(area) {
+  const t = S.trends[area];
+  return t > 1.04 ? ic('up', 16, '相場上昇') : t < 0.96 ? ic('down', 16, '相場下落') : '';
+}
+function condMeter(c) { return `<span class="chip">${ic('wrench', 16, '状態')}<span class="meter"><i style="width:${c}%;background:${c >= 70 ? 'var(--green)' : c >= 45 ? 'var(--gold)' : 'var(--red)'}"></i></span></span>`; }
+function traitChip(p) {
+  if (!p.appraised) return `<span class="chip">${ic('question', 16)}？</span>`;
+  const t = TRAITS[p.trait];
+  return `<span class="chip ${t.good ? 'good' : t.bad ? 'bad' : ''}">${esc(t.name)}</span>`;
+}
+function sheetSeller(l) {
+  const pr = listingProfit(l);
+  const sign = v => (v >= 0 ? '+' : '') + yen(v);
+  return `<div class="row">${mi(l.type, 60, TYPES[l.type].name)}<div style="display:grid;gap:6px">
+      <div class="big-price">${yen(l.ask)}</div>
+      <div class="row" style="gap:6px">${areaPips(l.area)}${trendIc(l.area)}<span class="chip">築${l.age}</span></div></div></div>
+    <div class="row" style="gap:6px">${condMeter(l.cond)}${l.trait === 'haunted' ? `<span class="chip" style="color:#c79bf0">${ic('ofuda', 16)}曰く付きの噂</span>` : `<span class="chip">${ic('question', 16)}特性？</span>`}</div>
+    <div class="profit ${pr.best >= 0 ? 'good' : 'bad'}" title="見込み利益">${ic(pr.way, 30)}<span>${sign(pr.best)}</span>${pr.way === 'hammer' ? `<small>工事してから売ると</small>` : pr.way === 'ofuda' ? `<small>お祓いしてから売ると</small>` : `<small>そのまま売ると</small>`}</div>
+    <div class="acts"><button class="pbtn ${pr.best >= 0 ? 'ok' : ''}" data-act="buy" data-id="${l.id}" data-cost="${l.ask}">${ic('check', 22)}買う</button>
+    <button class="pbtn no" data-act="decline" data-id="${l.id}">${ic('cross', 22)}断る</button></div>`;
+}
+function sheetDecide() {
+  const idle = S.props.filter(p => p.state === 'idle');
+  if (!idle.length) return `<div class="row">${ic('pause', 24)}<span>判断待ちの物件はない</span></div>`;
+  return `<div class="cards">${idle.map(p => {
+    const v = rawValue(p), cost = p.buyPrice + p.spent, f = 1 + 0.04 * lv('flyer');
+    const canReno = p.cond < 100 || p.trait === 'leak';
+    const sellProf = sellPrice(p) - cost;
+    const renoProf = canReno ? projVal(p, { cond: 100, trait: p.trait === 'leak' ? 'none' : p.trait }) * f - cost - renoCost(p) : -Infinity;
+    const ohProf = p.trait === 'haunted' ? projVal(p, { trait: 'none' }) * f - cost - oharaiCost(p) : -Infinity;
+    const best = Math.max(sellProf, renoProf, ohProf);
+    const sign = x => (x >= 0 ? '+' : '') + yen(x);
+    const cls = x => x === best && x > 0 ? 'ok' : '';
+    return `<div class="card">
+      <div class="row">${mi(p.type, 40, TYPES[p.type].name)}<div style="display:grid;gap:4px">
+        <div class="row" style="gap:6px"><span class="chip">${ic('coin', 16)}${yen(v)}</span>${traitChip(p)}${trendIc(p.area)}</div>
+        <div class="row" style="gap:6px">${condMeter(p.cond)}<span class="chip">仕入れ ${yen(cost)}</span></div></div></div>
+      <div class="acts">
+        <button class="pbtn ${cls(sellProf)}" data-act="sell" data-id="${p.id}" title="すぐ売る">${ic('tag', 22)}${sign(sellProf)}</button>
+        ${canReno ? `<button class="pbtn ${cls(renoProf)}" data-act="reno" data-id="${p.id}" data-cost="${renoCost(p)}" title="工事してから売る（工事費 ${yen(renoCost(p))}）">${ic('hammer', 22)}${sign(renoProf)}</button>` : ''}
+        ${p.trait === 'haunted' ? `<button class="pbtn ${cls(ohProf)}" data-act="oharai" data-id="${p.id}" data-cost="${oharaiCost(p)}" title="お祓いを依頼（${yen(oharaiCost(p))}）">${ic('ofuda', 22)}${sign(ohProf)}</button>` : ''}
+        <button class="pbtn" data-act="rent" data-id="${p.id}" title="貸す">${ic('key', 22)}${yen(rentPerDay(p))}/日</button>
+      </div></div>`;
+  }).join('')}</div>`;
+}
+function sheetRents() {
+  const r = S.props.filter(p => p.state === 'rent');
+  const sum = r.reduce((s, p) => s + rentPerDay(p), 0);
+  if (!r.length) return `<div class="row">${ic('key', 28)}<span>賃貸中の物件はない</span></div>`;
+  return `<div class="row">${ic('key', 28)}<span class="big-price" style="font-size:1.4rem">+${yen(sum)}/日</span></div>
+    <div class="cards">${r.map(p => `<div class="card"><div class="row">${mi(p.type, 32)}<span class="chip">${ic('key', 16)}${yen(rentPerDay(p))}/日</span>${trendIc(p.area)}
+      <button class="pbtn" data-act="sellrent" data-id="${p.id}" style="margin-left:auto">${ic('tag', 20)}${yen(sellPrice(p))}</button></div></div>`).join('')}</div>`;
+}
+function portrait(id, role, scale = 6) {
+  const sp = personSprite(id, role, false, 0);
+  return sp ? `<img class="ic portrait" src="${sp.toDataURL()}" width="${10 * scale}" height="${14 * scale}" alt="">` : '';
+}
+function stars(rar) { return `<span class="chip" style="color:${rar === 'SR' ? 'var(--gold)' : rar === 'R' ? 'var(--blue)' : 'var(--muted)'}">${rar} ${'★'.repeat(RARITY[rar].stars)}</span>`; }
+function speedMeter(rate) { return `<span class="chip">${ic('clock', 16, '速さ')}<span class="meter"><i style="width:${Math.min(100, rate / 2.6 * 100)}%"></i></span></span>`; }
+function sheetAppl(c) {
+  const full = S.staff.length >= deskCap();
+  return `<div class="row">${portrait(c.id, c.role)}<div style="display:grid;gap:6px">
+      <div class="row" style="gap:6px">${mi(c.role, 28, ROLES[c.role].name)}<b>${esc(ROLES[c.role].name)}</b>${stars(c.rar)}</div>
+      <div>${esc(c.name)}</div>
+      ${speedMeter(RARITY[c.rar].rate * (1 + 0.1 * lv('train')))}
+      <span class="chip">${ic('coin', 16)}${yen(c.salary)}/日</span></div></div>
+    <div class="acts"><button class="pbtn ok" data-act="hire" data-id="${c.id}" ${full ? 'disabled' : `data-cost="${c.hire}"`}>${ic('check', 22)}${yen(c.hire)}</button>
+      <button class="pbtn no" data-act="decline-c" data-id="${c.id}">${ic('cross', 22)}</button>
+      ${full ? `<span class="chip bad">${ic('desk', 16)}満席</span>` : ''}</div>`;
+}
+function sheetStaff(s) {
+  const a = agents.get(s.id);
+  const p = a && a.job ? S.props.find(q => q.id === a.job.pid) : null;
+  return `<div class="row">${portrait(s.id, s.role)}<div style="display:grid;gap:6px">
+      <div class="row" style="gap:6px">${mi(s.role, 28)}<b>${esc(ROLES[s.role].name)}</b>${stars(s.rar)}</div>
+      <div>${esc(s.name)}</div>
+      ${speedMeter(staffRate(s))}
+      <span class="chip">${ic('coin', 16)}${yen(s.salary)}/日</span>
+      ${p ? `<span class="chip">${mi(p.type, 16)}${esc(ROLES[s.role].task)}${a.job.help ? 'を手伝い中' : '中'}</span>` : `<span class="chip">${ic('pause', 16)}待機</span>`}</div></div>
+    <div class="acts"><button class="pbtn no" data-act="fire" data-id="${s.id}">${sheet.arm === 'fire' ? 'もう一度で解雇' : '解雇'}</button></div>`;
+}
+function sheetShop() {
+  let h = `<div class="shop">${UPGRADES.map(u => {
+    const l = lv(u.id), maxed = l >= u.max, locked = u.req && !lv(u.req), c = u.cost(l);
+    return `<div class="tile">${ic(u.ic, 40)}<div class="nm">${esc(u.name)}</div><div class="nm" style="color:var(--muted)">${esc(u.eff)}</div>
+      ${u.max > 1 ? `<div class="pips">${Array.from({ length: u.max }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+      ${maxed ? `<button class="pbtn" disabled>${ic('check', 20)}</button>` : locked ? `<button class="pbtn" disabled>${ic('gear', 18)}が先</button>`
+        : `<button class="pbtn ok" data-act="upgrade" data-id="${u.id}" data-cost="${c}">${ic('coin', 18)}${yen(c)}</button>`}</div>`;
+  }).join('')}</div>`;
+  if (lv('policy')) {
+    const P = S.policy;
+    const seg = (k, v, inner) => `<button class="pbtn ${P[k] === v ? 'on' : ''}" data-act="pol" data-k="${k}" data-v="${v}">${inner}</button>`;
+    const tog = (k, inner) => `<button class="pbtn ${P[k] ? 'on' : ''}" data-act="poltog" data-k="${k}" aria-pressed="${!!P[k]}">${inner}</button>`;
+    h += `<div class="sec">${ic('gear', 18)}査定のあと</div>
+      <div class="seg">${seg('after', 'manual', ic('pause', 20) + '待つ')}${seg('after', 'sell', ic('tag', 20) + '売る')}${seg('after', 'rent', ic('key', 20) + '貸す')}</div>
+      <div class="seg">${tog('reno', ic('hammer', 20) + 'ボロは先に工事')}${tog('oharai', ic('ofuda', 20) + '自動お祓い')}</div>`;
+    if (lv('autobuy')) {
+      h += `<div class="sec">${ic('cart', 18)}自動仕入れ</div>
+        <div class="seg">${tog('autobuy', ic('cart', 20) + (P.autobuy ? 'ON' : 'OFF'))}
+          ${[0.95, 0.9, 0.85, 0.8].map(v => seg('line', v, `相場${Math.round(v * 100)}%以下`)).join('')}</div>
+        <div class="seg"><span class="chip">${ic('coin', 16)}残す</span>${[0, 500e4, 2000e4, 1e8].map(v => seg('reserve', v, v ? yen(v) : '0')).join('')}</div>`;
+    }
+  }
+  return h;
+}
+function sheetRecords() {
+  const ts = S.stats.times, avg = ts.length ? ts.reduce((a, b) => a + b, 0) / ts.length : 0;
+  const ratio = S.stats.firstTime && avg ? S.stats.firstTime / avg : 0;
+  const medalIc = gr => gr === 'g' ? 'trophy' : gr === 's' ? 'star' : 'coin';
+  return `<div class="row" style="gap:6px">
+      <span class="chip" title="成約数">${ic('tag', 16)}${S.stats.sold}件</span>
+      <span class="chip ${S.stats.profit >= 0 ? 'good' : 'bad'}" title="累計利益">${ic('coin', 16)}${yen(S.stats.profit)}</span>
+      <span class="chip" title="1件あたりの処理時間">${ic('clock', 16)}${avg ? avg.toFixed(0) + '秒' : '―'}${ratio ? `（${ratio.toFixed(1)}倍速）` : ''}</span>
+      <span class="chip" title="総資産">${ic('flag', 16)}${yen(assets())}</span></div>
+    <canvas id="chart" height="120"></canvas>
+    <div class="medals">${TROPHIES.map(t => {
+      const has = S.trophies[t.id];
+      return `<div class="medal ${has ? '' : 'off'}">${ic(medalIc(t.grade), 26)}<div><b>${!has && t.hidden ? '？？？' : esc(t.name)}</b><small>${!has && t.hidden ? '変わった物件で…' : esc(t.desc)}</small></div></div>`;
+    }).join('')}</div>
+    <details><summary>${ic('floppy', 16)} セーブデータ</summary>
+      <div style="display:grid;gap:8px;margin-top:8px">
+        <div class="acts"><button class="pbtn" data-act="export">書き出す</button><button class="pbtn" data-act="copy">コピー</button><button class="pbtn" data-act="import">読み込む</button></div>
+        <textarea id="saveText" aria-label="セーブデータ"></textarea>
+        <button class="pbtn no" data-act="reset">${sheet && sheet.arm === 'reset' ? 'もう一度で最初から' : '最初からやり直す'}</button>
+      </div></details>`;
+}
+function renderSheet() {
+  if (!sheet) return;
+  let body = '';
+  if (sheet.kind === 'seller') { const l = S.listings.find(x => x.id === sheet.ref); if (!l) return closeSheet(); body = sheetSeller(l); }
+  else if (sheet.kind === 'appl') { const c = S.cands.find(x => x.id === sheet.ref); if (!c) return closeSheet(); body = sheetAppl(c); }
+  else if (sheet.kind === 'staff') { const s = S.staff.find(x => x.id === sheet.ref); if (!s) return closeSheet(); body = sheetStaff(s); }
+  else if (sheet.kind === 'decide') body = sheetDecide();
+  else if (sheet.kind === 'rents') body = sheetRents();
+  else if (sheet.kind === 'shop') body = sheetShop();
+  else if (sheet.kind === 'records') body = sheetRecords();
+  const keepText = $('saveText') ? $('saveText').value : '';
+  const keepOpen = document.querySelector('#sheetRoot details') ? document.querySelector('#sheetRoot details').open : false;
+  const scroll = document.querySelector('#sheetRoot .sheet') ? document.querySelector('#sheetRoot .sheet').scrollTop : 0;
+  $('sheetRoot').innerHTML = `<div class="back" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true">
+    <button class="pbtn sheet-close" data-act="close" aria-label="閉じる">${ic('cross', 18)}</button>
+    <div class="sheet-in">${body}</div></div>`;
+  if ($('saveText')) $('saveText').value = keepText;
+  const det = document.querySelector('#sheetRoot details'); if (det && keepOpen) det.open = true;
+  const sh = document.querySelector('#sheetRoot .sheet'); if (sh) sh.scrollTop = scroll;
+  if (sheet.kind === 'records') drawChart();
+  updateLive();
+}
+function drawChart() {
+  const cv = $('chart');
+  const g = cv && cv.getContext('2d');
+  if (!g) return;
+  const dpr = Math.min(devicePixelRatio || 1, 2), w = cv.clientWidth, hgt = 120;
+  cv.width = w * dpr; cv.height = hgt * dpr; g.scale(dpr, dpr);
+  const d = S.hist;
+  g.font = '11px sans-serif'; g.fillStyle = '#a9b0c0';
+  if (d.length < 2) { g.fillText('日がたつとグラフが出る', 8, 20); return; }
+  const max = Math.max(...d, 1), pl = 46, pb = 14, pt = 8;
+  g.strokeStyle = '#353f53';
+  for (let i = 0; i <= 2; i++) { const y = pt + (hgt - pt - pb) * (1 - i / 2); g.beginPath(); g.moveTo(pl, y); g.lineTo(w - 6, y); g.stroke(); g.fillText(yen(max * i / 2), 4, y + 4); }
+  const X = i => pl + (w - pl - 6) * i / (d.length - 1), Y = v => pt + (hgt - pt - pb) * (1 - v / max);
+  g.beginPath(); d.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)));
+  g.strokeStyle = '#f2c14e'; g.lineWidth = 2; g.stroke();
+  g.lineTo(X(d.length - 1), Y(0)); g.lineTo(X(0), Y(0)); g.closePath(); g.globalAlpha = .15; g.fillStyle = '#f2c14e'; g.fill(); g.globalAlpha = 1;
+}
+
+// =============================================================
+//  画面更新
+// =============================================================
+let needRender = false;
+const dirty = () => { needRender = true; };
+function updateLive() {
+  $('hMoney').textContent = yen(S.money);
+  $('hMoneyBox').classList.toggle('neg', S.money < 0);
+  const a = assets(), pct = Math.min(100, a / GOAL_CH1 * 100);
+  $('goalBar').style.width = pct + '%';
+  $('goalPct').textContent = S.ch1 ? '済' : Math.floor(pct) + '%';
+  $('hDay').textContent = S.day;
+  $('skipFill').style.width = (S.dayT / DAY_SEC * 100) + '%';
+  $('hCredit').textContent = S.credit;
+  const rents = S.props.filter(p => p.state === 'rent').length;
+  $('cRent').hidden = !rents; $('cRent').textContent = rents;
+  $('editBtn').setAttribute('aria-pressed', String(editMode));
+  document.querySelectorAll('[data-cost]').forEach(el => { el.disabled = S.money < +el.dataset.cost; });
+}
+function fitCanvas() {
+  const st = $('stage').getBoundingClientRect();
+  const availW = st.width - 10, availH = st.height - 10;
+  let s = Math.min(availW / W, availH / H);
+  const fl = Math.floor(s);
+  if (fl >= 1 && fl / s >= 0.8) s = fl;
+  s = Math.max(0.5, s);
+  const cv = $('office');
+  cv.style.width = Math.floor(W * s) + 'px';
+  cv.style.height = Math.floor(H * s) + 'px';
+}
+
+// =============================================================
+//  入力
+// =============================================================
+$('office').addEventListener('pointerdown', e => { e.preventDefault(); onOfficeTap(e); });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  const id = +b.dataset.id;
+  const p = S.props.find(x => x.id === id);
+  switch (b.dataset.act) {
+    case 'close': closeSheet(); break;
+    case 'buy': buy(id); closeSheet(); break;
+    case 'decline': {
+      const l = S.listings.find(x => x.id === id);
+      if (l) { S.listings = S.listings.filter(x => x !== l); }
+      closeSheet(); break;
+    }
+    case 'decline-c': S.cands = S.cands.filter(x => x.id !== id); closeSheet(); break;
+    case 'hire': hire(id); closeSheet(); break;
+    case 'fire':
+      if (sheet && sheet.arm === 'fire') { fire(id); closeSheet(); }
+      else if (sheet) { sheet.arm = 'fire'; renderSheet(); }
+      break;
+    case 'sell': if (p) startSellManual(p); afterDecide(); break;
+    case 'rent': if (p) startRent(p); afterDecide(); break;
+    case 'reno': if (p) startReno(p, null, true); afterDecide(); break;
+    case 'oharai': if (p) doOharai(p); renderSheet(); break;
+    case 'sellrent': if (p) { p.at = 'meet'; startTask(p, 'sell'); dirty(); } renderSheet(); break;
+    case 'upgrade': buyUpgrade(b.dataset.id); renderSheet(); break;
+    case 'pol': S.policy[b.dataset.k] = b.dataset.k === 'after' ? b.dataset.v : +b.dataset.v; S.props.forEach(applyPolicy); renderSheet(); save(); break;
+    case 'poltog': S.policy[b.dataset.k] = !S.policy[b.dataset.k]; S.props.forEach(applyPolicy); renderSheet(); save(); break;
+    case 'skip': skipDay(); break;
+    case 'rents': openSheet('rents'); break;
+    case 'shop': openSheet('shop'); break;
+    case 'records': openSheet('records'); break;
+    case 'edit': editMode = !editMode; officeSel = null; closeSheet(); if (editMode) news('move', '家具をタップ → 置き場所をタップ', 4000); else save(); updateLive(); break;
+    case 'export': $('saveText').value = exportSave(); break;
+    case 'copy': {
+      const ta = $('saveText');
+      if (!ta.value) ta.value = exportSave();
+      const fb = () => { ta.focus(); ta.select(); news('floppy', '選択したのでコピーしてね'); };
+      try { navigator.clipboard.writeText(ta.value).then(() => news('floppy', 'コピーした'), fb); } catch (err) { fb(); }
+      break;
+    }
+    case 'import': importSave($('saveText').value); break;
+    case 'reset':
+      if (sheet.arm === 'reset') { S = newState(); migrate(); initFresh(); save(); closeSheet(); news('floppy', '最初からスタート'); }
+      else { sheet.arm = 'reset'; renderSheet(); }
+      break;
+  }
+});
+function skipDay() {
+  const before = S.money, startDay = S.day;
+  S.simulating = true;
+  for (let i = 0; i < 400 && S.day === startDay; i++) { tick(0.1); syncNpcs(0.1); }
+  S.simulating = false;
+  const d = S.money - before;
+  if (d) floatHud(`${d >= 0 ? '+' : ''}${yen(d)}`, d >= 0 ? '' : 'loss');
+  dirty();
+}
+function afterDecide() {
+  if (!S.props.some(p => p.state === 'idle')) closeSheet(); else renderSheet();
+}
+addEventListener('keydown', e => { if (e.key === 'Escape') { if (sheet) closeSheet(); else if (editMode) { editMode = false; save(); updateLive(); } } });
+
+// =============================================================
+//  クリア
+// =============================================================
+function showClear() {
+  $('modalRoot').innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="clrT"><div class="in">
+    ${ic('trophy', 64)}<h3 id="clrT">第1章クリア</h3>
+    <div class="row" style="justify-content:center;gap:6px"><span class="chip">${ic('sun', 16)}${S.day}日</span><span class="chip">${ic('tag', 16)}${S.stats.sold}件</span><span class="chip">${ic('people', 16)}${S.staff.length}人</span></div>
+    <button class="pbtn ok" id="clrOk">${ic('check', 22)}つづける</button></div></div>`;
+  $('clrOk').addEventListener('click', () => { $('modalRoot').innerHTML = ''; });
+  $('clrOk').focus();
+}
+
+// =============================================================
+//  セーブ
+// =============================================================
+function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function exportSave() { S.savedAt = Date.now(); return btoa(unescape(encodeURIComponent(JSON.stringify(S)))); }
+function importSave(text) {
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(text.trim()))));
+    if (!data || data.v !== 1) throw new Error('bad');
+    S = Object.assign(newState(), data);
+    migrate(); save(); closeSheet(); news('floppy', '読み込んだ');
+  } catch (e) { news('cross', '読み込めなかった'); }
+}
+function migrate() {
+  agents.clear(); npcs.clear(); BMAP = null;
+  if (S.grid !== 2 || !S.office || !Array.isArray(S.office.items) || !validLayout(S.office.items)) {
+    S.office = defaultOffice(); S.grid = 2;
+  }
+  while (deskCap() < 2 + lv('desk')) { const sp = findDeskSpot(); if (!sp) break; S.office.items.push({ id: 'desk' + S.nextId++, kind: 'desk', x: sp.x, y: sp.y }); }
+  const used = new Set();
+  for (const s of S.staff) { if (!s.deskId || !itemById(s.deskId) || used.has(s.deskId)) s.deskId = null; if (s.deskId) used.add(s.deskId); }
+  for (const s of S.staff) if (!s.deskId) s.deskId = freeDesk();
+  for (const p of S.props) { p.claim = null; if (p.carried || !p.at || (p.at !== 'door' && !itemById(p.at))) p.at = 'shelf'; p.carried = null; p.waitT = 0; }
+  if (S.up.net > 2) S.up.net = 2;
+  S.staff.forEach(s => { s.salary = RARITY[s.rar].salary; });
+  S.cands.forEach(c => { c.salary = RARITY[c.rar].salary; });
+  S.listings = S.listings.slice(0, maxListings());
+  S.listings.forEach((l, i) => { l.slot = i; });
+  S.cands = S.cands.slice(0, APPL_SLOTS.length);
+  S.cands.forEach((c, i) => { c.slot = i; });
+}
+function initFresh() {
+  refillListings(3);
+  const first = S.listings[0];
+  Object.assign(first, { type: 'room', area: 'ura', trait: 'none', cond: 72, age: 18 });
+  first.ask = Math.round(rawValue(first) * 0.8 / 1e4) * 1e4;
+  S.listings.forEach(l => { if (l.ask > S.money * 1.6) l.ask = Math.round(rawValue(l) * 0.95 / 1e4) * 1e4; });
+  refreshCands();
+  log('駅裏に小さな不動産屋を開業');
+}
+function load() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
+  if (data && data.v === 1) {
+    S = Object.assign(newState(), data);
+    migrate();
+    const away = Math.min(OFFLINE_MAX, Math.max(0, (Date.now() - (S.savedAt || Date.now())) / 1000));
+    if (away > 20) {
+      const before = S.money;
+      S.simulating = true;
+      for (let t = 0; t < away; t++) { tick(1); syncNpcs(1); }
+      S.simulating = false;
+      const diff = S.money - before;
+      setTimeout(() => news('clock', `留守中 ${Math.round(away / 60)}分 ${diff >= 0 ? '+' : ''}${yen(diff)}`, 4500), 300);
+    }
+  } else { S = newState(); initFresh(); }
+}
+
+// =============================================================
+//  ループ
+// =============================================================
+buildIcons();
+load();
+fitCanvas();
+updateLive();
+addEventListener('resize', fitCanvas);
+if ('ResizeObserver' in window) new ResizeObserver(fitCanvas).observe($('stage'));
+let last = performance.now(), saveT = 0, liveT = 0;
+function frame(now) {
+  const dt = Math.min(0.25, (now - last) / 1000);
+  last = now;
+  tick(dt);
+  syncNpcs(dt);
+  drawOffice(now, dt);
+  saveT += dt; liveT += dt;
+  if (needRender) {
+    needRender = false;
+    const ae = document.activeElement;
+    if (sheet && !(ae && ae.tagName === 'TEXTAREA')) renderSheet(); else updateLive();
+  } else if (liveT > 0.1) { updateLive(); liveT = 0; }
+  if (saveT > 5) { save(); saveT = 0; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+addEventListener('pagehide', save);
+})();
+</script>
+</body>
+</html>

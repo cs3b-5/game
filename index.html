@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ゲーム置き場</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<style>
+:root { --bg: #14110f; --card: #201b17; --line: #3a3029; --ink: #f4efe4; --muted: #b3ab9c; --gold: #ffc94a; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: "DotGothic16", "Hiragino Sans", "Yu Gothic", monospace; line-height: 1.6; }
+main { max-width: 760px; margin: 0 auto; padding: 40px 16px 60px; display: grid; gap: 28px; }
+h1 { margin: 0; font-weight: 400; font-size: 2.4rem; color: var(--gold); }
+h2 { margin: 0 0 10px; font-weight: 400; font-size: 1.3rem; }
+.list { display: grid; gap: 10px; }
+a.game { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 14px 16px; background: var(--card); border: 2px solid var(--line); color: var(--ink); text-decoration: none; }
+a.game:hover, a.game:focus-visible { border-color: var(--gold); outline: none; }
+a.game b { font-weight: 400; font-size: 1.15rem; }
+a.game span { color: var(--muted); font-size: .9rem; grid-column: 1; }
+a.game em { font-style: normal; color: var(--gold); grid-row: 1 / span 2; grid-column: 2; font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ゲーム置き場</h1>
+  <section>
+    <h2>コア・ディガー</h2>
+    <div class="list">
+      <a class="game" href="core-digger/"><b>コア・ディガー</b><span>一人称で洞窟を掘り進むインクリメンタル。地球の中心を目指す</span><em>PC</em></a>
+    </div>
+  </section>
+  <section>
+    <h2>物件王（試作の記録）</h2>
+    <div class="list">
+      <a class="game" href="bukken-ou/incremental/"><b>インクリメンタル版</b><span>デスク10台＝物件10段階。社員で自動化して会社売却で周回</span><em>最新</em></a>
+      <a class="game" href="bukken-ou/office-v2/"><b>オフィス1画面版</b><span>ドット絵のオフィスで売主・応募者をタップ。社員がチームで作業</span><em>経営シム</em></a>
+      <a class="game" href="bukken-ou/office-v1/"><b>カード＋オフィス版</b><span>物件カードと業務の流れ、家具の配置で動線を作る</span><em>経営シム</em></a>
+      <a class="game" href="bukken-ou/3d-mockups/images/era_compare.png"><b>3Dの街のイメージ図</b><span>円状に広がって時代が進む街（明治〜近未来）</span><em>画像</em></a>
+    </div>
+  </section>
+  <section>
+    <h2>そのほか</h2>
+    <div class="list">
+      <a class="game" href="orbit-hop/"><b>オービットホップ</b><span>惑星の軌道からタップで飛び移るワンボタンゲーム</span><em>PC・スマホ</em></a>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<style>
+html,body{margin:0;background:#000;overflow:hidden}
+#wrap{position:relative}
+canvas{display:block}
+.hud{position:absolute;left:0;right:0;font-family:"DotGothic16",sans-serif;color:#f4efe4;text-shadow:0 2px 0 #0e1118,2px 0 0 #0e1118,-2px 0 0 #0e1118,0 -2px 0 #0e1118}
+.top{top:0;padding:40px 28px 0;display:grid;gap:10px;background:linear-gradient(#0e1118cc,#0e111800)}
+.money{display:flex;align-items:center;gap:12px;font-size:58px}
+.ps{font-size:30px;color:#7be39a}
+.goal{display:flex;align-items:center;gap:12px;font-size:24px;color:#e6e9f0}
+.goal .bar{flex:1;height:16px;background:#0e1118;border:3px solid #353f53}
+.goal .bar i{display:block;height:100%;width:62%;background:#f2c14e}
+.dock{bottom:0;padding:0 24px 44px;display:flex;justify-content:center;gap:18px;background:linear-gradient(#0e111800,#0e1118cc)}
+.dock div{width:150px;height:130px;background:#283040;border:4px solid #0e1118;box-shadow:inset 0 0 0 4px #353f53,inset 0 -8px 0 rgba(0,0,0,.3);display:grid;place-items:center;align-content:center;gap:6px;font-size:26px;position:relative}
+.dock .n{position:absolute;top:-14px;right:-14px;background:#5cc27a;color:#0e1118;border:4px solid #0e1118;font-size:24px;padding:0 10px;text-shadow:none}
+.pop{position:absolute;font-family:"DotGothic16",sans-serif;color:#f4efe4;background:#283040;border:4px solid #f2c14e;padding:14px 18px;display:grid;gap:10px;font-size:28px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.pop .r{display:flex;gap:12px;align-items:center}
+.pop .b{background:#2f7d4b;border:3px solid #0e1118;padding:8px 16px;box-shadow:inset 0 -6px 0 rgba(0,0,0,.3)}
+.pop .g{color:#7be39a}
+.pop:after{content:"";position:absolute;left:50%;bottom:-22px;margin-left:-14px;border:14px solid transparent;border-top-color:#f2c14e}
+img.ic{image-rendering:pixelated}
+</style></head><body>
+<div id="wrap"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+const P = new URLSearchParams(location.search);
+const SHOT = P.get('shot') || 'ch1';
+const W = +(P.get('w') || 1600), H = +(P.get('h') || 1000);
+
+// ---------------- 乱数 ----------------
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const rr = (a, b) => a + rnd() * (b - a);
+const pick = a => a[Math.floor(rnd() * a.length)];
+
+// ---------------- 時間帯 ----------------
+const MODE = { ch1: 'day', ch2: 'day', ch3dusk: 'dusk', ch3night: 'night', end: 'twilight', phone: 'day' }[SHOT];
+const NIGHT = MODE === 'night' || MODE === 'twilight';
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.NoToneMapping;
+document.getElementById('wrap').appendChild(renderer.domElement);
+
+function gradientTex(stops) {
+  const c = document.createElement('canvas'); c.width = 2; c.height = 512;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512);
+  stops.forEach(([p, col]) => gr.addColorStop(p, col));
+  g.fillStyle = gr; g.fillRect(0, 0, 2, 512);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const SKY = {
+  day: [[0, '#8fd0ff'], [1, '#e9f7ff']],
+  dusk: [[0, '#3b3a78'], [0.45, '#e4789a'], [1, '#ffcf8a']],
+  night: [[0, '#070b1f'], [1, '#1d2552']],
+  twilight: [[0, '#05081a'], [0.55, '#1b2456'], [1, '#6a4b8f']],
+}[MODE];
+scene.background = gradientTex(SKY);
+
+// ---------------- 光 ----------------
+const L = {
+  day:      { hemi: ['#e8f5ff', '#a9cf8f', 1.15], sun: ['#fff6e6', 1.9, [-18, 30, 14]] },
+  dusk:     { hemi: ['#ffd6c4', '#90a8d0', 1.25], sun: ['#ffa868', 2.0, [-26, 20, 22]] },
+  night:    { hemi: ['#6a7cc8', '#2a3460', 0.95], sun: ['#a9c0ff', 0.7, [-15, 30, -10]] },
+  twilight: { hemi: ['#7a7fd0', '#2a2d5a', 1.0], sun: ['#d9c6ff', 0.9, [-15, 30, -10]] },
+}[MODE];
+scene.add(new THREE.HemisphereLight(L.hemi[0], L.hemi[1], L.hemi[2]));
+const sun = new THREE.DirectionalLight(L.sun[0], L.sun[1]);
+sun.position.set(...L.sun[2]);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 120 });
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+sun.target.position.set(10, 0, 6); scene.add(sun.target);
+
+// ---------------- 素材 ----------------
+const MAT = {};
+function mat(color, opts = {}) {
+  const key = color + JSON.stringify(opts);
+  if (!MAT[key]) MAT[key] = new THREE.MeshStandardMaterial(Object.assign({ color, flatShading: true, roughness: 0.85, metalness: 0 }, opts));
+  return MAT[key];
+}
+const winDay = mat('#bfe3f5', { roughness: 0.3, metalness: 0.1 });
+const winLit = mat('#ffd98a', { emissive: '#ffcb6b', emissiveIntensity: 1.6 });
+const winDark = mat('#2b3352');
+function box(w, h, d, m, x = 0, y = 0, z = 0, parent = scene, shadow = true) {
+  const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof m === 'string' ? mat(m) : m);
+  me.position.set(x, y + h / 2, z);
+  me.castShadow = shadow; me.receiveShadow = true;
+  parent.add(me); return me;
+}
+function cyl(rt, rb, h, m, x, y, z, parent = scene, seg = 8) {
+  const me = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), typeof m === 'string' ? mat(m) : m);
+  me.position.set(x, y + h / 2, z); me.castShadow = true; me.receiveShadow = true; parent.add(me); return me;
+}
+function gable(w, h, d, color, x, y, z, parent) {
+  const s = new THREE.Shape(); s.moveTo(-w / 2 - 0.06, 0); s.lineTo(w / 2 + 0.06, 0); s.lineTo(0, h); s.lineTo(-w / 2 - 0.06, 0);
+  const g = new THREE.ExtrudeGeometry(s, { depth: d + 0.12, bevelEnabled: false });
+  g.translate(0, 0, -(d + 0.12) / 2);
+  const me = new THREE.Mesh(g, mat(color)); me.position.set(x, y, z); me.castShadow = true; me.receiveShadow = true; parent.add(me); return me;
+}
+// 窓：建物の4面に格子状に並べる
+function windows(g, w, h, d, floors, cols, y0 = 0.25, lit = 0.75) {
+  const fh = (h - y0 - 0.15) / floors;
+  const faces = [[0, d / 2 + 0.011, 0, w], [Math.PI, -d / 2 - 0.011, 0, w], [Math.PI / 2, 0, w / 2 + 0.011, d], [-Math.PI / 2, 0, -w / 2 - 0.011, d]];
+  for (const [rot, oz, ox, span] of faces) {
+    const n = Math.max(1, Math.round(cols * span / w));
+    const cw = span / n;
+    for (let f = 0; f < floors; f++) for (let c = 0; c < n; c++) {
+      const m = NIGHT ? (rnd() < lit ? winLit : winDark) : winDay;
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(cw * 0.55, fh * 0.5), m);
+      const lx = -span / 2 + cw * (c + 0.5);
+      pl.position.set(ox + (rot === Math.PI / 2 ? 0 : rot === -Math.PI / 2 ? 0 : (rot === Math.PI ? -lx : lx)), y0 + fh * (f + 0.5), oz + (rot === Math.PI / 2 ? -lx : rot === -Math.PI / 2 ? lx : 0));
+      pl.rotation.y = rot;
+      g.add(pl);
+    }
+  }
+}
+// ---------------- 建物の種類 ----------------
+const PASTEL = ['#f7d9c4', '#f3e3b3', '#d9ead3', '#cfe0f3', '#f4cccc', '#e6d3f0', '#fbe7c6'];
+const ROOF = ['#c8553d', '#4a6fa5', '#3f7f5a', '#8a5a44', '#d08c3a'];
+function grp(x, z, rot = 0) { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; scene.add(g); return g; }
+const B = {
+  room(x, z, rank = 0) { // 小さな木造アパートの1室・平屋
+    const g = grp(x, z, pick([0, Math.PI / 2]));
+    const c = pick(PASTEL);
+    box(1.3, 0.8, 1.1, c, 0, 0, 0, g);
+    gable(1.3, 0.45, 1.1, pick(ROOF), 0, 0.8, 0, g).rotation.y = Math.PI / 2;
+    windows(g, 1.3, 0.8, 1.1, 1, 2, 0.15);
+    box(0.25, 0.45, 0.05, '#7a4e2c', 0.35, 0, 0.56, g, false);
+    return g;
+  },
+  apart(x, z, rank = 0) { // 2階建てのアパート
+    const g = grp(x, z);
+    const c = rank ? '#e9e4da' : pick(['#e8cfa6', '#d9c2a0', '#cdb79e']);
+    box(2.2, 1.5, 1.2, c, 0, 0, 0, g);
+    box(2.3, 0.08, 1.3, '#8a8f99', 0, 1.5, 0, g);
+    box(2.2, 0.06, 0.35, '#8a8f99', 0, 0.72, 0.75, g);         // 外廊下
+    box(2.2, 0.25, 0.03, '#b9bec7', 0, 0.78, 0.92, g);
+    box(0.3, 1.5, 0.35, '#8a8f99', 1.25, 0, 0.75, g);          // 階段
+    windows(g, 2.2, 1.5, 1.2, 2, 4, 0.15);
+    return g;
+  },
+  house(x, z, rank = 0) { // 戸建て
+    const g = grp(x, z, pick([0, Math.PI / 2, Math.PI]));
+    const c = pick(PASTEL);
+    box(1.6, 1.1, 1.4, c, 0, 0, 0, g);
+    gable(1.6, 0.7, 1.4, pick(ROOF), 0, 1.1, 0, g);
+    box(0.5, 0.6, 0.6, c, 0.9, 0, 0.3, g);
+    windows(g, 1.6, 1.1, 1.4, 2, 2, 0.15);
+    box(1.9, 0.25, 0.05, '#ffffff', 0, 0, 1.05, g, false);     // 塀
+    if (rank) cyl(0.08, 0.1, 0.5, '#7a4e2c', -0.9, 0, 0.9, g), tree(-0.9 + x, z + 0.9, 0.6);
+    return g;
+  },
+  mansion(x, z, rank = 0) { // マンション
+    const g = grp(x, z);
+    const floors = 5 + rank * 2, h = floors * 0.42 + 0.3;
+    box(2.4, h, 1.8, rank > 1 ? '#f1ece2' : pick(['#e6dccb', '#d8d2c6', '#efe3d0']), 0, 0, 0, g);
+    for (let f = 1; f <= floors; f++) box(2.5, 0.05, 0.25, '#ffffff', 0, f * 0.42 - 0.05, 1.0, g, false);
+    box(2.6, 0.12, 2.0, '#9aa3ad', 0, h, 0, g);
+    windows(g, 2.4, h, 1.8, floors, 5, 0.3);
+    return g;
+  },
+  bldg(x, z, rank = 0) { // 商業ビル
+    const g = grp(x, z);
+    const h = 4 + rank * 1.5 + rr(0, 1.2);
+    const glass = rank >= 1;
+    box(2.4, h, 2.4, glass ? mat('#7fb4dc', { roughness: 0.25, metalness: 0.3 }) : pick(['#c9ccd3', '#b8c4cf', '#d7cfc5']), 0, 0, 0, g);
+    box(2.6, 0.9, 2.6, pick(['#e5533d', '#f2c14e', '#3d6fb6']), 0, 0, 0, g);     // 1階の店舗
+    windows(g, 2.4, h, 2.4, Math.round(h / 0.55), 5, 1.0, 0.8);
+    box(1.2, 0.5, 0.15, NIGHT ? mat('#ff6fa8', { emissive: '#ff4f95', emissiveIntensity: 2.5 }) : '#ff6fa8', 0, h + 0.05, 0, g); // 屋上看板
+    if (rank >= 2) { box(1.4, 0.06, 1.4, '#3b3f4a', 0, h, 0, g); cyl(0.5, 0.5, 0.02, '#f2c14e', 0, h + 0.07, 0, g, 16); }
+    return g;
+  },
+  hotel(x, z, rank = 0) {
+    const g = grp(x, z);
+    const h = 5 + rank * 1.5;
+    box(3.2, h, 1.6, pick(['#f4e7d7', '#efe0f4']), 0, 0, 0, g);
+    box(1.4, h + 1.0, 1.8, '#d9c5a8', 0, 0, 0, g);
+    windows(g, 3.2, h, 1.6, Math.round(h / 0.5), 7, 0.6, 0.85);
+    box(3.6, 0.15, 1.2, '#8a5ab0', 0, 0.9, 1.3, g);           // エントランスのひさし
+    box(1.0, 0.35, 0.12, NIGHT ? mat('#f2c14e', { emissive: '#f2c14e', emissiveIntensity: 2 }) : '#f2c14e', 0, h + 1.0, 0.92, g);
+    return g;
+  },
+  tower(x, z, rank = 0) { // タワマン
+    const g = grp(x, z);
+    const h = 11 + rank * 3;
+    const m = rank >= 3 ? mat('#e8c55a', { roughness: 0.3, metalness: 0.6 }) : mat('#b9d2e6', { roughness: 0.25, metalness: 0.35 });
+    box(2.0, h, 2.0, m, 0, 0, 0, g);
+    box(2.2, 0.2, 2.2, '#e9eef4', 0, h * 0.33, 0, g); box(2.2, 0.2, 2.2, '#e9eef4', 0, h * 0.66, 0, g);
+    box(1.4, 0.8, 1.4, '#e9eef4', 0, h, 0, g);
+    cyl(0.03, 0.03, 1.2, '#cfd6de', 0, h + 0.8, 0, g);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), mat('#ff4040', { emissive: '#ff2020', emissiveIntensity: NIGHT ? 3 : 0.5 }));
+    tip.position.set(0, h + 2.05, 0); g.add(tip);
+    windows(g, 2.0, h, 2.0, Math.round(h / 0.45), 4, 0.3, 0.7);
+    return g;
+  },
+  resort(x, z) {
+    const g = grp(x, z);
+    box(4.2, 1.6, 1.6, '#fff4e6', 0, 0, -1.2, g);
+    box(4.4, 0.1, 1.8, '#d08c3a', 0, 1.6, -1.2, g);
+    windows(g, 4.2, 1.6, 1.6, 2, 8, 0.2, 0.9);
+    box(3.0, 0.08, 1.4, '#ffffff', 0, 0, 0.6, g);
+    box(2.6, 0.06, 1.0, mat('#4cc3e6', { roughness: 0.1, emissive: NIGHT ? '#1aa6d9' : '#000000', emissiveIntensity: NIGHT ? 0.8 : 0 }), 0, 0.03, 0.6, g, false);
+    for (const px of [-1.8, 1.8]) palm(x + px, z + 0.6);
+    for (const px of [-0.8, 0.0, 0.8]) { box(0.35, 0.05, 0.15, '#ffffff', px, 0.1, 1.5, g); cyl(0.02, 0.02, 0.5, '#ffffff', px, 0.1, 1.55, g); cone(0.35, 0.18, pick(['#e5533d', '#f2c14e', '#5b9be0']), x + px, 0.6, z + 1.55); }
+    return g;
+  },
+};
+function cone(r, h, c, x, y, z, seg = 7) { const me = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat(c)); me.position.set(x, y + h / 2, z); me.castShadow = true; scene.add(me); return me; }
+function tree(x, z, s = 1) { cyl(0.06 * s, 0.08 * s, 0.35 * s, '#7a4e2c', x, 0, z); cone(0.38 * s, 0.9 * s, pick(['#4f9a4f', '#5fae55', '#3f8a45']), x, 0.3 * s, z, 6); }
+function palm(x, z) {
+  const t = cyl(0.05, 0.08, 1.4, '#a07a52', x, 0, z, scene, 6); t.rotation.z = 0.15;
+  for (let i = 0; i < 5; i++) { const l = box(0.8, 0.04, 0.18, '#3f9a55', x + 0.1, 1.35, z); l.rotation.y = i * Math.PI * 2 / 5; l.rotation.z = -0.35; l.geometry.translate(0.4, 0, 0); }
+}
+function car(x, z, rot, c) {
+  const g = grp(x, z, rot);
+  box(0.62, 0.22, 0.32, c, 0, 0.06, 0, g); box(0.34, 0.16, 0.28, c, -0.04, 0.28, 0, g);
+  box(0.3, 0.13, 0.29, '#2b3352', -0.04, 0.29, 0, g, false);
+  if (NIGHT) { const hl = mat('#fff3c4', { emissive: '#fff3c4', emissiveIntensity: 3 }); box(0.03, 0.06, 0.07, hl, 0.32, 0.12, 0.1, g, false); box(0.03, 0.06, 0.07, hl, 0.32, 0.12, -0.1, g, false); }
+  return g;
+}
+function person(x, z, c) { cyl(0.07, 0.08, 0.22, c, x, 0, z, scene, 6); const h = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), mat('#f2c7a0')); h.position.set(x, 0.3, z); h.castShadow = true; scene.add(h); }
+function lamp(x, z) {
+  cyl(0.03, 0.03, 1.1, '#5b6170', x, 0, z, scene, 5);
+  const head = box(0.18, 0.06, 0.18, NIGHT ? mat('#fff1c2', { emissive: '#ffe08a', emissiveIntensity: 3 }) : '#d8dde4', x, 1.1, z);
+}
+
+// ---------------- 地面・道路 ----------------
+const BS = 6, RD = 1, STEP = BS + RD;   // 区画6マス＋道路1マス
+const bx = i => i * STEP, bz = j => j * STEP;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mat(MODE === 'day' ? '#a9d98a' : MODE === 'dusk' ? '#a9d98a' : '#33465a'));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+// 海
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(300, 400), mat(NIGHT ? '#1d3f7a' : MODE === 'dusk' ? '#7fb0e0' : '#6ec3e6', { roughness: 0.6, metalness: 0 }));
+sea.rotation.x = -Math.PI / 2; sea.position.set(bx(3) + 150 + 1.5, 0.02, 0); sea.receiveShadow = true; scene.add(sea);
+box(3.5, 0.03, 400, NIGHT ? '#5a5240' : '#f1dfae', bx(3) + 0.25, 0, 0, scene, false);  // 砂浜
+// 道路
+const roadM = mat(NIGHT ? '#3d4458' : '#5d6372');
+for (let i = -1; i <= 3; i++) {
+  box(RD, 0.04, 60, roadM, bx(i) - RD / 2 - 0.0, 0, 6, scene, false);
+  for (let z = -22; z < 34; z += 1.2) box(0.08, 0.05, 0.5, '#f4f4f4', bx(i) - 0.5, 0, z, scene, false);
+}
+for (let j = -1; j <= 2; j++) {
+  box(bx(3) + 7, 0.04, RD, roadM, bx(3) / 2 - 3, 0, bz(j) - RD / 2, scene, false);
+  for (let x = -6; x < bx(3); x += 1.2) box(0.5, 0.05, 0.08, '#f4f4f4', x, 0, bz(j) - 0.5, scene, false);
+}
+// 区画の地面（歩道つき）
+function lot(i, j, color) {
+  box(BS, 0.08, BS, NIGHT ? '#4a4f5a' : '#d9d4c6', bx(i) + BS / 2, 0, bz(j) + BS / 2, scene, false);
+  box(BS - 0.5, 0.1, BS - 0.5, color, bx(i) + BS / 2, 0, bz(j) + BS / 2, scene, false);
+}
+// 線路と駅（駅裏の西側）
+function railway() {
+  const x0 = bx(0) - 3.2;
+  box(1.6, 0.12, 80, '#8f8a80', x0, 0, 6, scene, false);
+  for (let z = -30; z < 40; z += 0.5) box(1.3, 0.05, 0.15, '#6b4a2e', x0, 0.12, z, scene, false);
+  for (const dx of [-0.35, 0.35]) box(0.06, 0.06, 80, '#c9ced6', x0 + dx, 0.17, 6, scene, false);
+  // 駅
+  box(2.2, 1.4, 5, '#e9e4da', x0 - 2.0, 0, 2, scene); box(2.6, 0.15, 5.4, '#4a6fa5', x0 - 2.0, 1.4, 2);
+  box(0.6, 0.4, 2.0, NIGHT ? mat('#ffffff', { emissive: '#bfe3ff', emissiveIntensity: 1.2 }) : '#ffffff', x0 - 0.88, 1.6, 2, scene, false);
+  // 電車
+  const tz = SHOT === 'ch1' ? 7 : -4;
+  for (let k = 0; k < 3; k++) {
+    const g = grp(x0, tz + k * 2.3);
+    box(0.95, 0.85, 2.1, '#f4f4f4', 0, 0.22, 0, g); box(0.97, 0.15, 2.12, '#3fa36b', 0, 0.55, 0, g, false);
+    for (let w = -0.7; w <= 0.7; w += 0.45) { const wm = NIGHT ? winLit : winDay; const p1 = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.22), wm); p1.position.set(0.481, 0.85, w); p1.rotation.y = Math.PI / 2; g.add(p1); }
+  }
+}
+
+// ---------------- 区画に建物を置く ----------------
+function fillLots(i, j, type, n, rank, spacing) {
+  const cx = bx(i), cz = bz(j);
+  const per = Math.floor(BS / spacing);
+  let k = 0;
+  for (let a = 0; a < per && k < n; a++) for (let b = 0; b < per && k < n; b++, k++) {
+    const r = typeof rank === 'function' ? rank(k) : rank;
+    B[type](cx + spacing * (b + 0.5), cz + spacing * (a + 0.5), r);
+  }
+}
+function emptyLots(i, j) {
+  const cx = bx(i), cz = bz(j);
+  // 売り地の看板
+  for (const [x, z] of [[2, 2], [4.2, 4]]) {
+    cyl(0.03, 0.03, 0.6, '#7a4e2c', cx + x - 0.3, 0, cz + z); cyl(0.03, 0.03, 0.6, '#7a4e2c', cx + x + 0.3, 0, cz + z);
+    box(0.8, 0.4, 0.05, '#ffffff', cx + x, 0.4, cz + z); box(0.6, 0.08, 0.06, '#e5533d', cx + x, 0.55, cz + z, scene, false);
+  }
+}
+function park(i, j) {
+  lot(i, j, NIGHT ? '#2f4a33' : '#8fcf74');
+  const cx = bx(i), cz = bz(j);
+  for (let k = 0; k < 9; k++) tree(cx + rr(0.6, BS - 0.6), cz + rr(0.6, BS - 0.6), rr(0.8, 1.2));
+  const pond = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.05, 14), mat(NIGHT ? '#1f3d6b' : '#7cc7e8', { roughness: 0.2 }));
+  pond.position.set(cx + 3, 0.12, cz + 3); scene.add(pond);
+}
+
+// ---------------- 進み具合のゲージとコイン ----------------
+const gauges = [];
+function gauge(x, y, z, ratio, col = '#f2c14e', s = 1) {
+  const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  const bg = new THREE.Mesh(new THREE.TorusGeometry(0.5 * s, 0.1 * s, 6, 32), new THREE.MeshBasicMaterial({ color: '#283040' }));
+  const fg = new THREE.Mesh(new THREE.TorusGeometry(0.5 * s, 0.12 * s, 6, 32, Math.PI * 2 * ratio), new THREE.MeshBasicMaterial({ color: col }));
+  fg.rotation.z = Math.PI / 2;
+  g.add(bg, fg);
+  const ic = new THREE.Mesh(new THREE.CircleGeometry(0.34 * s, 20), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+  g.add(ic);
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * s, 0.2 * s, 0.05, 16), new THREE.MeshBasicMaterial({ color: '#f2c14e' }));
+  c.rotation.x = Math.PI / 2; c.position.z = 0.02; g.add(c);
+  gauges.push(g);
+  return g;
+}
+function coin(x, y, z) {
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 16), mat('#ffd040', { metalness: 0.1, roughness: 0.35, emissive: '#c08a10', emissiveIntensity: 0.6 }));
+  c.position.set(x, y, z); c.rotation.set(rr(0, 3), rr(0, 3), rr(0, 3)); scene.add(c);
+}
+
+// ---------------- ショットごとの街 ----------------
+const CARC = ['#e5533d', '#f4f4f4', '#3d6fb6', '#f2c14e', '#2b2f38', '#5cc27a'];
+function cars(n, xs) { for (let k = 0; k < n; k++) { if (rnd() < 0.5) car(bx(pick(xs)) - 0.5 + pick([-0.22, 0.22]), rr(-3, 14), pick([Math.PI / 2, -Math.PI / 2]), pick(CARC)); else car(rr(0, bx(3) - 2), bz(pick([0, 1, 2])) - 0.5 + pick([-0.22, 0.22]), pick([0, Math.PI]), pick(CARC)); } }
+function people(n, area) { for (let k = 0; k < n; k++) person(rr(area[0], area[1]), rr(area[2], area[3]), pick(['#3d6fb6', '#e5533d', '#28324a', '#f2c14e', '#8a5ab0'])); }
+function lamps() { for (let i = 0; i <= 3; i++) for (let z = -1; z < 14; z += 3) lamp(bx(i) - 1.15, z); }
+
+let cam;
+function iso(target, size, dist = 60) {
+  const aspect = W / H;
+  cam = new THREE.OrthographicCamera(-size * aspect, size * aspect, size, -size, 0.1, 500);
+  cam.position.set(target[0] - dist * 0.62, dist * 0.62, target[2] + dist * 0.62);
+  cam.lookAt(...target);
+}
+
+if (SHOT === 'ch1' || SHOT === 'phone') {
+  railway();
+  lot(0, 0, NIGHT ? '#3c5240' : '#b7dd98');
+  B.room(1.0, 1.0); B.room(2.6, 1.0); B.room(1.0, 2.6); B.room(2.6, 2.7);
+  B.apart(4.6, 1.3); B.apart(4.6, 3.6);
+  if (SHOT === 'phone') { B.apart(1.8, 4.7); B.room(4.4, 5.2); }
+  lot(1, 0, '#c9b28a'); emptyLots(1, 0);
+  lot(0, 1, '#c9b28a'); emptyLots(0, 1);
+  if (SHOT === 'phone') { lot(0, 1, '#b7dd98'); B.house(1.2, bz(1) + 1.3); B.house(3.2, bz(1) + 1.3); }
+  lot(1, 1, '#c9b28a');
+  for (let k = 0; k < 6; k++) tree(rr(-1, 13), rr(13.5, 16));
+  tree(5.5, 5.4, 0.8); tree(0.5, 5.5, 0.8);
+  gauge(4.6, 2.9, 3.6, 0.7);
+  for (let k = 0; k < 6; k++) coin(2.6 + rr(-0.5, 0.7), rr(1.4, 2.6), 1.0 + rr(-0.4, 0.4));
+  gauge(2.6, 1.8, 1.0, 1.0, '#5cc27a', 0.7);
+  person(1.8, 1.8, '#28324a'); person(3.5, 2.2, '#3d6fb6'); person(5.6, 2.4, '#28324a');
+  car(bx(1) - 0.72, 3, Math.PI / 2, '#ffffff'); car(3, bz(1) - 0.3, 0, '#e5533d');
+  lamps();
+  if (SHOT === 'ch1') iso([3.4, 0.8, 3.6], 5.0); else iso([4.0, 0.8, 5.4], 12.5);
+}
+
+if (SHOT === 'ch3dusk' || SHOT === 'ch3night' || SHOT === 'end') {
+  railway();
+  // 駅裏
+  lot(0, 0, '#b7dd98'); fillLots(0, 0, 'room', 3, 0, 2); B.apart(1.5, 4.2, 1); B.apart(4.4, 4.2, 1); B.apart(4.4, 2.0, 0);
+  // 住宅街
+  lot(0, 1, '#b7dd98'); fillLots(0, 1, 'house', 9, k => k % 3 === 0 ? 1 : 0, 2);
+  lot(1, 0, '#cfd6c6'); fillLots(1, 0, 'mansion', 4, k => k % 3, 3);
+  park(0, 2);
+  // 駅前
+  lot(1, 1, '#d6d3cc'); fillLots(1, 1, 'bldg', 4, k => [0, 1, 2, 1][k], 3);
+  lot(2, 0, '#d6d3cc'); B.hotel(bx(2) + 3, bz(0) + 1.6, 1); B.hotel(bx(2) + 3, bz(0) + 4.4, 0);
+  lot(1, 2, '#cfd6c6'); fillLots(1, 2, 'mansion', 4, 1, 3);
+  // ベイエリア
+  lot(2, 1, '#d6d3cc'); fillLots(2, 1, 'tower', 4, k => [1, 2, 0, 3][k], 3);
+  lot(2, 2, '#d6d3cc'); fillLots(2, 2, 'bldg', 4, 2, 3);
+  B.resort(bx(3) + 0.4, bz(1) + 3);
+  B.resort(bx(3) + 0.4, bz(2) + 3.4);
+  cars(26, [0, 1, 2, 3]);
+  people(25, [0, bx(3), 0, bz(3)]);
+  lamps();
+  // 観覧車
+  {
+    const g = grp(bx(3) + 0.6, bz(0) + 2);
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.06, 6, 40), mat(NIGHT ? '#ffffff' : '#e9eef4', { emissive: NIGHT ? '#ff7ab6' : '#000', emissiveIntensity: NIGHT ? 1.5 : 0 }));
+    wheel.position.y = 2.7; wheel.rotation.y = Math.PI / 2; g.add(wheel);
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; box(0.25, 0.25, 0.25, pick(['#e5533d', '#f2c14e', '#5b9be0', '#5cc27a']), 0, 2.55 + Math.sin(a) * 2.2, Math.cos(a) * 2.2, g); }
+    box(0.1, 2.7, 0.1, '#9aa3ad', 0, 0, -0.6, g); box(0.1, 2.7, 0.1, '#9aa3ad', 0, 0, 0.6, g);
+  }
+  if (SHOT === 'end') {
+    // 人工島と橋
+    const ix = bx(3) + 14, iz = bz(1) + 3;
+    const island = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.6, 0.6, 12), mat('#d9c48a'));
+    island.position.set(ix, 0.1, iz); island.receiveShadow = true; scene.add(island);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, 0.12, 12), mat('#4a5a52'));
+    top.position.set(ix, 0.4, iz); scene.add(top);
+    box(10, 0.25, 0.8, '#c9ced6', bx(3) + 6, 0.5, iz, scene);
+    for (const [dx, dz, r] of [[-2, -2, 3], [2, -1.5, 2], [0, 2, 3], [-2.5, 1.8, 1], [3, 2, 2]]) { const g = B.tower(ix + dx, iz + dz, r); g.position.y = 0.45; }
+    // 月と月面都市
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(9, 32, 24), mat('#e4e0d4', { emissive: '#8f8a7a', emissiveIntensity: 0.6, flatShading: false }));
+    moon.position.set(ix + 26, 24, iz - 52); scene.add(moon);
+    for (let k = 0; k < 14; k++) { const cr = new THREE.Mesh(new THREE.SphereGeometry(rr(0.8, 2), 10, 8), mat('#c9c4b5', { emissive: '#6b6658', emissiveIntensity: 0.5 })); const a = rr(0, Math.PI * 2), b = rr(-1, 1); cr.position.set(moon.position.x + 8.6 * Math.cos(a) * Math.sqrt(1 - b * b), moon.position.y + 8.6 * b, moon.position.z + 8.6 * Math.sin(a) * Math.sqrt(1 - b * b)); scene.add(cr); }
+    for (let k = 0; k < 7; k++) { const a = -0.3 + k * 0.28; const d = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('#bfe3ff', { emissive: '#8fd0ff', emissiveIntensity: 1.2, transparent: true, opacity: 0.85 })); d.position.set(moon.position.x - 8.7 * Math.cos(a) * 0.6, moon.position.y + 8.2 * Math.sin(a + 0.6), moon.position.z + 6); d.lookAt(moon.position.x - 30, moon.position.y + 20, moon.position.z + 40); d.rotateX(-Math.PI / 2); scene.add(d); }
+    // 星
+    const sg = new THREE.BufferGeometry(), pts = [];
+    for (let k = 0; k < 900; k++) pts.push(rr(-150, 250), rr(20, 140), rr(-200, 40));
+    sg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 0.5 })));
+    cam = new THREE.PerspectiveCamera(42, W / H, 0.1, 600);
+    cam.position.set(-14, 30, 46);
+    cam.lookAt(ix - 2, 9, iz - 8);
+  } else iso([bx(1.5) + 2, 4, bz(1.3)], 15.5);
+}
+for (const g of gauges) g.quaternion.copy(cam.quaternion);
+renderer.render(scene, cam);
+window.RENDERED = true;
+
+// ---------------- スマホ画面のUIの見本 ----------------
+if (SHOT === 'phone') {
+  const ICON = {
+    coin(g) { g.fillStyle = '#9a6a08'; g.beginPath(); g.arc(8, 8, 7.5, 0, 7); g.fill(); g.fillStyle = '#f2c14e'; g.beginPath(); g.arc(8, 8, 6.3, 0, 7); g.fill(); g.fillStyle = '#8a5a00'; g.fillRect(7, 5, 2, 7); g.fillRect(5, 8, 6, 1); g.fillRect(5, 10, 6, 1); },
+    flag(g) { g.fillStyle = '#9aa3ad'; g.fillRect(3, 2, 1, 13); g.fillStyle = '#e5533d'; g.beginPath(); g.moveTo(4, 2); g.lineTo(14, 5); g.lineTo(4, 9); g.fill(); },
+    bldg(g) { g.fillStyle = '#9fb3c8'; g.fillRect(3, 1, 10, 15); g.fillStyle = '#f2d46b'; for (let y = 4; y <= 11; y += 3) for (const x of [5, 8, 11]) g.fillRect(x, y, 1, 2); },
+    toolbox(g) { g.fillStyle = '#c8352b'; g.fillRect(1, 6, 14, 8); g.fillStyle = '#9aa3ad'; g.fillRect(5, 3, 6, 1); g.fillRect(5, 3, 1, 3); g.fillRect(10, 3, 1, 3); g.fillStyle = '#f2c14e'; g.fillRect(7, 9, 2, 2); },
+    sold(g) { g.fillStyle = '#8a5a34'; g.fillRect(3, 1, 1, 15); g.fillRect(12, 1, 1, 15); g.fillStyle = '#e5533d'; g.fillRect(2, 4, 12, 7); g.fillStyle = '#fff'; g.fillRect(4, 6, 8, 1); g.fillRect(4, 8, 6, 1); },
+    trophy(g) { g.fillStyle = '#f2c14e'; g.fillRect(4, 2, 8, 5); g.fillRect(5, 7, 6, 1); g.fillRect(7, 8, 2, 4); g.fillRect(5, 12, 6, 2); g.fillRect(2, 3, 2, 3); g.fillRect(12, 3, 2, 3); },
+  };
+  const icon = (k, s) => { const c = document.createElement('canvas'); c.width = c.height = 16; ICON[k](c.getContext('2d')); return `<img class="ic" src="${c.toDataURL()}" width="${s}" height="${s}">`; };
+  const wrap = document.getElementById('wrap');
+  wrap.insertAdjacentHTML('beforeend', `
+    <div class="hud top"><div class="money">${icon('coin', 60)}<span>8.42億</span></div><div class="ps">+1,240万/秒</div>
+      <div class="goal">${icon('flag', 36)}<span>1</span><div class="bar"><i></i></div><span>100億</span></div></div>
+    <div class="hud dock"><div>${icon('bldg', 64)}物件<span class="n">2</span></div><div>${icon('toolbox', 64)}投資</div><div>${icon('sold', 64)}売却</div><div>${icon('trophy', 64)}記録</div></div>`);
+  // 長押しした建物の上に出る小窓
+  const v = new THREE.Vector3(4.6, 2.0, 3.6).project(cam);
+  const sx = (v.x + 1) / 2 * W, sy = (1 - v.y) / 2 * H;
+  wrap.insertAdjacentHTML('beforeend', `<div class="pop" id="pop"><div class="r"><b>古アパート</b><span>12棟</span></div><div class="r g">+360万/秒</div><div class="r"><span class="b">＋1　1.20億</span><span class="b" style="background:#353f53">社員 1.50億</span></div></div>`);
+  const pop = document.getElementById('pop');
+  pop.style.left = (sx - pop.offsetWidth / 2) + 'px'; pop.style.top = (sy - pop.offsetHeight - 40) + 'px';
+}
+</script></body></html>

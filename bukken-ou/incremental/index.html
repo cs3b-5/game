@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>物件王 プロトタイプ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<style>
+/* Layout: one screen. HUD (money, per-second, chapter bar) on top, the pixel office in the middle, a 4-button dock at the bottom, bottom sheets for buying. Single dark game-frame look by choice. */
+:root {
+  --frame: #1c2029;
+  --panel: #283040;
+  --panel-2: #353f53;
+  --edge: #0e1118;
+  --ink: #f4efe4;
+  --muted: #a9b0c0;
+  --gold: #f2c14e;
+  --red: #e5533d;
+  --green: #5cc27a;
+  --blue: #5b9be0;
+  --pink: #ff7ab6;
+  --pix: "DotGothic16", "Hiragino Sans", "Yu Gothic", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--frame); color: var(--ink); font-family: var(--pix); font-size: 15px; overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+[hidden] { display: none !important; }
+img.ic { image-rendering: pixelated; image-rendering: crisp-edges; display: block; flex: none; }
+#app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.hud { display: grid; gap: 6px; padding-block: 10px 6px; }
+.hud-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.money { display: flex; align-items: center; gap: 8px; font-size: 1.7rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.money.fever { color: var(--pink); text-shadow: 0 0 10px rgba(255,122,182,.6); }
+.persec { color: var(--green); font-size: .95rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.spacer { flex: 1; }
+.chipbtn { font: inherit; color: var(--ink); display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 3px 10px; background: var(--panel-2); border: 2px solid var(--edge); box-shadow: inset 0 -3px 0 rgba(0,0,0,.3); cursor: pointer; font-variant-numeric: tabular-nums; }
+.chipbtn:disabled { opacity: .45; cursor: default; }
+.chipbtn:active:not(:disabled) { transform: translateY(2px); }
+.stat { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.goal { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+.goal .bar { flex: 1; height: 10px; background: var(--edge); border: 2px solid var(--panel-2); }
+.goal .bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .4s; }
+.fevertag { color: var(--pink); font-size: .95rem; }
+
+.stage { position: relative; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+#office { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: manipulation; cursor: pointer; border: 3px solid var(--edge); box-shadow: 0 0 0 2px var(--panel-2); }
+.fx { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
+.float { position: absolute; font-size: .95rem; color: var(--ink); text-shadow: 0 2px 0 var(--edge), 2px 0 0 var(--edge), -2px 0 0 var(--edge), 0 -2px 0 var(--edge); animation: up .9s ease-out forwards; white-space: nowrap; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.float.gold { color: var(--gold); font-size: 1.2rem; animation-duration: 1.3s; }
+.float.pink { color: var(--pink); font-size: 1.4rem; animation-duration: 1.6s; }
+@keyframes up { to { transform: translate(-50%, -44px); opacity: 0; } }
+.news { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); max-width: min(92%, 420px); display: flex; align-items: center; gap: 8px; background: var(--panel); border: 2px solid var(--edge); box-shadow: inset 0 0 0 2px var(--panel-2); padding: 6px 12px; font-size: .9rem; z-index: 5; white-space: nowrap; }
+
+.dock { display: flex; justify-content: center; gap: 10px; padding-block: 8px 12px; }
+.dock button { position: relative; font: inherit; font-size: .75rem; color: var(--ink); width: 68px; height: 62px; display: grid; place-items: center; align-content: center; gap: 2px; background: var(--panel); border: 2px solid var(--edge); box-shadow: inset 0 0 0 2px var(--panel-2), inset 0 -4px 0 rgba(0,0,0,.3); cursor: pointer; }
+.dock .count { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px; background: var(--green); border: 2px solid var(--edge); font-size: .8rem; line-height: 18px; color: var(--edge); }
+.dock .count.red { background: var(--gold); }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+.back { position: fixed; inset: 0; background: rgba(8,10,14,.45); z-index: 20; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; max-height: 74%; overflow-y: auto; background: var(--panel); border-top: 3px solid var(--gold); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px calc(16px + env(safe-area-inset-bottom, 0px)); animation: rise .18s ease-out; }
+@keyframes rise { from { transform: translateY(30px); opacity: 0; } }
+.sheet-in { max-width: 600px; margin: 0 auto; display: grid; gap: 12px; }
+.sheet-close { position: absolute; top: 8px; right: max(12px, env(safe-area-inset-right, 0px)); }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--edge); font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.good { color: var(--green); }
+.pbtn { font: inherit; font-size: .95rem; color: var(--ink); min-height: 44px; padding: 4px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--panel-2); border: 2px solid var(--edge); box-shadow: inset 0 -4px 0 rgba(0,0,0,.3); cursor: pointer; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pbtn.ok { background: #2f7d4b; }
+.pbtn.no { background: #7a3328; }
+.pbtn.on { background: var(--gold); color: var(--edge); }
+.pbtn:disabled { opacity: .4; cursor: not-allowed; }
+.pbtn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -2px 0 rgba(0,0,0,.3); }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.tier { display: grid; grid-template-columns: 48px 1fr auto; gap: 6px 10px; align-items: center; background: var(--frame); border: 2px solid var(--edge); padding: 8px 10px; }
+.tier.dim { opacity: .45; }
+.tier .meta { display: grid; gap: 4px; min-width: 0; }
+.tier .meta .nm { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tier .meta .nm b { font-weight: 400; font-size: 1.1rem; }
+.tier .btns { display: grid; gap: 6px; }
+.ms { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); }
+.ms .bar { width: 90px; height: 6px; background: var(--edge); }
+.ms .bar i { display: block; height: 100%; background: var(--gold); }
+.ups { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.up { background: var(--frame); border: 2px solid var(--edge); padding: 10px; display: grid; gap: 6px; justify-items: center; text-align: center; }
+.up .x3 { font-size: 1.3rem; color: var(--gold); }
+.up .pbtn { width: 100%; }
+.big { font-size: 2rem; color: var(--gold); font-variant-numeric: tabular-nums; }
+.arrow { color: var(--muted); }
+.medals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.medal { background: var(--frame); border: 2px solid var(--edge); padding: 8px; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-size: .8rem; }
+.medal.off { opacity: .45; }
+.medal b { display: block; font-weight: 400; font-size: .85rem; }
+.medal small { color: var(--muted); }
+textarea { width: 100%; min-height: 60px; font: 12px ui-monospace, monospace; background: var(--edge); color: var(--ink); border: 2px solid var(--panel-2); padding: 6px; user-select: text; -webkit-user-select: text; }
+details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+.modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(8,10,14,.7); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.modal .in { background: var(--panel); border: 3px solid var(--gold); padding: 22px; max-width: 380px; width: 100%; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.modal h3 { margin: 0; font-weight: 400; font-size: 1.7rem; color: var(--gold); }
+@media (max-width: 520px) { .money { font-size: 1.35rem; } .dock button { width: 62px; } .tier { grid-template-columns: 40px 1fr; } .tier .btns { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) { .float, .sheet { animation: none; } .goal .bar i { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="hud">
+    <div class="hud-row">
+      <div class="money" id="moneyBox"><img class="ic" data-ic="coin" width="28" height="28" alt=""><span id="hMoney">0</span></div>
+      <span class="persec" id="hPerSec"></span>
+      <span class="fevertag" id="hFever" hidden></span>
+      <span class="spacer"></span>
+      <button class="chipbtn" data-act="ticket" id="ticketBtn" title="時短チケット：10分ぶんの収益をすぐもらう" aria-label="時短チケットを使う"><img class="ic" data-ic="ticket" width="20" height="20" alt=""><b id="hTicket">0</b></button>
+      <span class="stat" id="hKnowBox" title="経営ノウハウ（収益アップ）" hidden><img class="ic" data-ic="star" width="20" height="20" alt=""><b id="hKnow">0</b></span>
+    </div>
+    <div class="goal" title="章の目標（総売上）"><img class="ic" data-ic="flag" width="20" height="20" alt=""><span id="goalCh">1</span><div class="bar"><i id="goalBar"></i></div><span id="goalNext"></span></div>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="office" width="224" height="192" aria-label="オフィス。デスクをタップすると契約が進む。"></canvas>
+    <div class="news" id="news" hidden></div>
+  </div>
+  <nav class="dock" aria-label="メニュー">
+    <button data-act="buy" aria-label="物件と社員"><img class="ic" data-ic="bldg" width="32" height="32" alt="">物件<span class="count" id="cBuy" hidden></span></button>
+    <button data-act="ups" aria-label="投資"><img class="ic" data-ic="toolbox" width="32" height="32" alt="">投資<span class="count" id="cUps" hidden></span></button>
+    <button data-act="sell" aria-label="会社売却"><img class="ic" data-ic="sold" width="32" height="32" alt="">売却<span class="count red" id="cSell" hidden></span></button>
+    <button data-act="records" aria-label="記録"><img class="ic" data-ic="trophy" width="32" height="32" alt="">記録</button>
+  </nav>
+</div>
+<div class="fx" id="fx"></div>
+<div id="sheetRoot"></div>
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+'use strict';
+// CORE-START
+// =============================================================
+//  経済コア（画面に依存しない）
+// =============================================================
+const TIERS = [
+  { id: 'room',    name: 'ワンルーム', cost: 4e4,      r: 1.07, rev: 1e4,       time: 0.6,   mgr: 1e7 },
+  { id: 'apart',   name: '古アパート', cost: 60e4,     r: 1.15, rev: 60e4,      time: 3,     mgr: 15e7 },
+  { id: 'house',   name: '戸建て',     cost: 720e4,    r: 1.14, rev: 540e4,     time: 6,     mgr: 1e9 },
+  { id: 'mansion', name: 'マンション', cost: 8640e4,   r: 1.13, rev: 4320e4,    time: 12,    mgr: 5e9 },
+  { id: 'bldg',    name: '商業ビル',   cost: 1.0368e9, r: 1.12, rev: 5.184e8,   time: 24,    mgr: 1.2e10 },
+  { id: 'hotel',   name: 'ホテル',     cost: 1.24416e10, r: 1.11, rev: 6.2208e9, time: 96,   mgr: 1e11 },
+  { id: 'tower',   name: 'タワマン',   cost: 1.49299e11, r: 1.10, rev: 7.46496e10, time: 384, mgr: 1.11e12 },
+  { id: 'resort',  name: 'リゾート',   cost: 1.79159e12, r: 1.09, rev: 8.95795e11, time: 1536, mgr: 5.55e12 },
+  { id: 'island',  name: '人工島',     cost: 2.14991e13, r: 1.08, rev: 1.07495e13, time: 6144, mgr: 1e14 },
+  { id: 'moon',    name: '月面都市',   cost: 2.57989e14, r: 1.07, rev: 2.96687e14, time: 36864, mgr: 1e15 },
+];
+const SPEED_MS = [25, 50, 100, 200, 300, 400];          // 到達ごとに契約時間が半分
+const REV_MS = [500, 600, 700, 800, 900, 1000];         // 到達ごとに収益×3
+const CHAPTERS = [
+  { goal: 1e10, name: '駅裏の小さな店' },
+  { goal: 1e14, name: '街の不動産屋' },
+  { goal: 1e18, name: '業界の大手' },
+  { goal: 1e24, name: '物件王' },
+];
+const KNOW_DIV = 1e14;      // 会社売却で得られる経営ノウハウの基準
+const KNOW_BONUS = 0.02;    // ノウハウ1つにつき収益+2%
+const OFFLINE_MAX = 3600;   // 留守中の進行は最大1時間
+
+// 投資（一度きりのアップグレード）
+const UPGRADES = (() => {
+  const base = [250e3, 500e3, 1e6, 5e6, 10e6, 25e6, 500e6, 1e9, 5e9, 7e9].map(v => v * 1e4);
+  const rounds = [1, 1e3, 1e6, 1e9, 1e12, 1e15];
+  const list = [];
+  rounds.forEach((k, ri) => {
+    base.forEach((c, ti) => list.push({ id: `u${ri}-${ti}`, tier: ti, mult: 3, cost: c * k }));
+    list.push({ id: `u${ri}-all`, tier: -1, mult: 3, cost: 1e10 * 1e4 * k });
+  });
+  return list.sort((a, b) => a.cost - b.cost);
+})();
+
+function newCore() {
+  return {
+    v: 2,
+    money: 0, run: 0, total: 0,
+    know: 0, knowClaimed: 0,
+    tiers: TIERS.map((t, i) => ({ n: i === 0 ? 1 : 0, mgr: false, prog: 0, run: false })),
+    ups: {},
+    fever: 0, feverMult: 1,
+    tickets: 0,
+    stats: { taps: 0, events: 0, prestiges: 0, playT: 0, cycles: 0 },
+    trophies: {},
+    chapter: 0,
+    savedAt: Date.now(),
+  };
+}
+function speedSteps(n) { let k = 0; for (const m of SPEED_MS) if (n >= m) k++; return k; }
+function nextMilestone(n) { for (const m of [...SPEED_MS, ...REV_MS]) if (n < m) return m; return null; }
+function tierTime(S, i) { return TIERS[i].time / Math.pow(2, speedSteps(S.tiers[i].n)); }
+function globalMult(S) {
+  let m = 1 + KNOW_BONUS * S.know;
+  for (const u of UPGRADES) if (u.tier === -1 && S.ups[u.id]) m *= u.mult;
+  if (S.fever > 0) m *= S.feverMult;
+  return m;
+}
+function tierMult(S, i) {
+  let m = 1;
+  for (const u of UPGRADES) if (u.tier === i && S.ups[u.id]) m *= u.mult;
+  for (const r of REV_MS) if (S.tiers[i].n >= r) m *= 3;
+  return m;
+}
+function tierRev(S, i) { return TIERS[i].rev * S.tiers[i].n * tierMult(S, i) * globalMult(S); }
+function tierPerSec(S, i) { return S.tiers[i].n ? tierRev(S, i) / tierTime(S, i) : 0; }
+function incomePerSec(S) { let s = 0; for (let i = 0; i < TIERS.length; i++) if (S.tiers[i].mgr) s += tierPerSec(S, i); return s; }
+function costOf(S, i, k) {
+  const t = TIERS[i], n = S.tiers[i].n;
+  return t.cost * Math.pow(t.r, n) * (Math.pow(t.r, k) - 1) / (t.r - 1);
+}
+function maxBuy(S, i) {
+  const t = TIERS[i], n = S.tiers[i].n;
+  const k = Math.floor(Math.log(S.money * (t.r - 1) / (t.cost * Math.pow(t.r, n)) + 1) / Math.log(t.r));
+  return Math.max(0, k);
+}
+function earn(S, v) { S.money += v; S.run += v; S.total += v; }
+function buyTier(S, i, k) {
+  if (k <= 0) return false;
+  const c = costOf(S, i, k);
+  if (S.money < c) return false;
+  S.money -= c;
+  S.tiers[i].n += k;
+  return true;
+}
+function hireMgr(S, i) {
+  const T = S.tiers[i];
+  if (T.mgr || S.money < TIERS[i].mgr || !T.n) return false;
+  S.money -= TIERS[i].mgr;
+  T.mgr = true;
+  return true;
+}
+function buyUpgrade(S, id) {
+  const u = UPGRADES.find(x => x.id === id);
+  if (!u || S.ups[id] || S.money < u.cost) return false;
+  S.money -= u.cost;
+  S.ups[id] = true;
+  return true;
+}
+// 手動の契約をスタート
+function startCycle(S, i) {
+  const T = S.tiers[i];
+  if (!T.n || T.mgr || T.run) return false;
+  T.run = true; T.prog = 0;
+  return true;
+}
+// 社長の手伝い：0.5秒ぶん進める（1回で最大1/4周）
+function boostCycle(S, i) {
+  const T = S.tiers[i];
+  if (!T.n || !(T.mgr || T.run)) return 0;
+  const add = Math.min(0.25, 0.5 / tierTime(S, i));
+  T.prog += add;
+  return add;
+}
+// 時間を進める。戻り値は各段階で完了した契約数
+function step(S, dt) {
+  const done = new Array(TIERS.length).fill(0);
+  S.stats.playT += dt;
+  if (S.fever > 0) S.fever = Math.max(0, S.fever - dt);
+  for (let i = 0; i < TIERS.length; i++) {
+    const T = S.tiers[i];
+    if (!T.n || !(T.mgr || T.run)) continue;
+    T.prog += dt / tierTime(S, i);
+    if (T.prog >= 1) {
+      const c = T.mgr ? Math.floor(T.prog) : 1;
+      earn(S, tierRev(S, i) * c);
+      done[i] = c;
+      S.stats.cycles += c;
+      if (T.mgr) T.prog -= c; else { T.prog = 0; T.run = false; }
+    }
+  }
+  while (S.chapter < CHAPTERS.length && S.total >= CHAPTERS[S.chapter].goal) S.chapter++;
+  return done;
+}
+function knowPotential(S) { return Math.floor(150 * Math.sqrt(S.total / KNOW_DIV)); }
+function knowGain(S) { return Math.max(0, knowPotential(S) - S.knowClaimed); }
+function prestige(S) {
+  const g = knowGain(S);
+  if (g <= 0) return false;
+  S.know += g; S.knowClaimed += g;
+  S.money = 0; S.run = 0;
+  S.tiers = TIERS.map((t, i) => ({ n: i === 0 ? 1 : 0, mgr: false, prog: 0, run: false }));
+  S.ups = {};
+  S.fever = 0;
+  S.stats.prestiges++;
+  return g;
+}
+function offline(S, sec) {
+  const s = Math.min(OFFLINE_MAX, Math.max(0, sec));
+  const v = incomePerSec(S) * s;
+  earn(S, v);
+  while (S.chapter < CHAPTERS.length && S.total >= CHAPTERS[S.chapter].goal) S.chapter++;
+  return { sec: s, v };
+}
+// CORE-END
+
+
+// =============================================================
+//  ユーティリティ
+// =============================================================
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const UNITS = [[1e48, '極'], [1e44, '載'], [1e40, '正'], [1e36, '澗'], [1e32, '溝'], [1e28, '穣'], [1e24, '秭'], [1e20, '垓'], [1e16, '京'], [1e12, '兆'], [1e8, '億'], [1e4, '万']];
+function fmt(n) {
+  if (!isFinite(n)) return '∞';
+  const neg = n < 0; n = Math.abs(n);
+  let s;
+  if (n < 1e4) s = Math.floor(n).toLocaleString('ja-JP');
+  else if (n >= 1e52) s = n.toExponential(2);
+  else {
+    const [u, name] = UNITS.find(([u]) => n >= u);
+    const v = n / u;
+    s = (v >= 1000 ? Math.floor(v).toLocaleString('ja-JP') : v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)) + name;
+  }
+  return (neg ? '−' : '') + s;
+}
+function fmtTime(sec) {
+  if (sec < 1) return sec.toFixed(2) + '秒';
+  if (sec < 60) return sec.toFixed(sec < 10 ? 1 : 0) + '秒';
+  if (sec < 3600) return Math.floor(sec / 60) + '分';
+  return (sec / 3600).toFixed(1) + '時間';
+}
+
+// =============================================================
+//  ドット絵（コードで描く）
+// =============================================================
+function px(g, c, x, y, w = 1, h = 1) { g.fillStyle = c; g.fillRect(x, y, w, h); }
+function disc(g, c, cx, cy, r) {
+  for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++)
+    if ((x + .5 - cx) ** 2 + (y + .5 - cy) ** 2 <= r * r) { if (c) px(g, c, x, y); else g.clearRect(x, y, 1, 1); }
+}
+function poly(g, c, pts) {
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  for (let y = Math.floor(Math.min(...ys)); y <= Math.max(...ys); y++) for (let x = Math.floor(Math.min(...xs)); x <= Math.max(...xs); x++) {
+    const X = x + .5, Y = y + .5;
+    let ins = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > Y) !== (yj > Y) && X < (xj - xi) * (Y - yi) / (yj - yi) + xi) ins = !ins;
+    }
+    if (ins) px(g, c, x, y);
+  }
+}
+function line(g, c, x0, y0, x1, y1, t = 1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let i = 0; i <= n; i++) px(g, c, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), t, t);
+}
+const ICONS = {
+  coin(g) { disc(g, '#9a6a08', 8, 8, 7.5); disc(g, '#f2c14e', 8, 8, 6.5); disc(g, '#ffd977', 6.5, 6.5, 2.5); const d = '#8a5a00'; line(g, d, 5, 4, 7, 6); line(g, d, 10, 4, 8, 6); px(g, d, 7, 7, 2, 5); px(g, d, 5, 8, 6, 1); px(g, d, 5, 10, 6, 1); },
+  flag(g) { px(g, '#9aa3ad', 3, 2, 1, 13); poly(g, '#e5533d', [[4, 2], [14, 5], [4, 9]]); px(g, '#6b737d', 2, 14, 4, 1); },
+  star(g) { poly(g, '#f2c14e', [[8, 1], [10, 6], [15, 6], [11, 9.5], [12.5, 15], [8, 11.5], [3.5, 15], [5, 9.5], [1, 6], [6, 6]]); },
+  ticket(g) { px(g, '#ff7ab6', 1, 4, 14, 8); px(g, '#ffb3d6', 1, 4, 14, 2); disc(g, null, 1, 8, 1.6); disc(g, null, 15, 8, 1.6); px(g, '#ffffff', 5, 6, 1, 4); px(g, '#ffffff', 7, 6, 1, 4); px(g, '#ffffff', 9, 6, 1, 4); },
+  bldg(g) { px(g, '#9fb3c8', 3, 1, 10, 15); px(g, '#6f8299', 3, 1, 10, 2); for (let y = 4; y <= 11; y += 3) for (const x of [5, 8, 11]) px(g, '#f2d46b', x, y, 1, 2); px(g, '#2a2f38', 7, 13, 2, 3); },
+  toolbox(g) { px(g, '#9aa3ad', 5, 3, 6, 1); px(g, '#9aa3ad', 5, 3, 1, 3); px(g, '#9aa3ad', 10, 3, 1, 3); px(g, '#c8352b', 1, 6, 14, 8); px(g, '#8f2219', 1, 6, 14, 2); px(g, '#f2c14e', 7, 9, 2, 2); },
+  sold(g) { px(g, '#8a5a34', 3, 1, 1, 15); px(g, '#8a5a34', 12, 1, 1, 15); px(g, '#e5533d', 2, 4, 12, 7); px(g, '#ffffff', 4, 6, 8, 1); px(g, '#ffffff', 4, 8, 6, 1); },
+  trophy(g) { const c = '#f2c14e'; px(g, c, 4, 2, 8, 5); px(g, c, 5, 7, 6, 1); px(g, c, 6, 8, 4, 1); px(g, c, 7, 9, 2, 3); px(g, c, 5, 12, 6, 2); px(g, '#c99512', 4, 13, 8, 1); px(g, c, 2, 3, 2, 1); px(g, c, 2, 3, 1, 3); px(g, c, 3, 6, 1, 1); px(g, c, 12, 3, 2, 1); px(g, c, 13, 3, 1, 3); px(g, c, 12, 6, 1, 1); px(g, '#ffe39a', 5, 3, 1, 3); },
+  check(g) { line(g, '#5cc27a', 2, 8, 6, 12, 3); line(g, '#5cc27a', 6, 12, 13, 3, 3); },
+  cross(g) { line(g, '#e5533d', 3, 3, 12, 12, 3); line(g, '#e5533d', 12, 3, 3, 12, 3); },
+  person(g) { disc(g, '#f2c7a0', 8, 4, 3); px(g, '#2a2f38', 5, 1, 6, 2); px(g, '#28324a', 4, 8, 8, 7); px(g, '#ffffff', 7, 8, 2, 3); px(g, '#d23f2a', 7, 9, 2, 4); },
+  plus(g) { px(g, '#5cc27a', 6, 2, 4, 12); px(g, '#5cc27a', 2, 6, 12, 4); },
+  fire(g) { poly(g, '#e5533d', [[8, 1], [13, 8], [12, 14], [4, 14], [3, 8], [6, 5]]); poly(g, '#f2c14e', [[8, 6], [11, 10], [10, 14], [6, 14], [5, 10]]); },
+  clock(g) { disc(g, '#f4efe4', 8, 8, 6.5); disc(g, '#283040', 8, 8, 5.5); px(g, '#f4efe4', 7, 4, 2, 5); px(g, '#f4efe4', 8, 8, 3, 1); },
+  floppy(g) { px(g, '#2f5f9e', 2, 2, 12, 12); px(g, '#f4efe4', 4, 8, 8, 5); px(g, '#9aa3ad', 5, 2, 6, 4); px(g, '#2a2f38', 8, 3, 2, 2); },
+  lock(g) { px(g, '#9aa3ad', 5, 2, 6, 2); px(g, '#9aa3ad', 4, 3, 2, 5); px(g, '#9aa3ad', 10, 3, 2, 5); px(g, '#f2c14e', 3, 7, 10, 8); px(g, '#8a5a00', 7, 9, 2, 3); },
+  tap(g) { px(g, '#ffffff', 6, 1, 3, 8); px(g, '#ffffff', 4, 7, 9, 6); px(g, '#ffffff', 5, 13, 7, 2); px(g, '#1d2733', 9, 7, 1, 2); px(g, '#1d2733', 11, 8, 1, 2); },
+  hand(g) { px(g, '#f2c7a0', 3, 6, 10, 6); px(g, '#e8b48a', 1, 8, 3, 3); px(g, '#e8b48a', 12, 8, 3, 3); px(g, '#28324a', 0, 9, 2, 4); px(g, '#28324a', 14, 9, 2, 4); },
+};
+const MINI = {
+  room(g) { poly(g, '#c8352b', [[5, 0], [10, 4.5], [0, 4.5]]); px(g, '#f0e2c0', 2, 4, 6, 6); px(g, '#7a4e2c', 4, 7, 2, 3); px(g, '#7fc1e0', 6, 5, 1, 1); },
+  apart(g) { px(g, '#d9b38c', 1, 1, 8, 9); px(g, '#8a6a4a', 1, 1, 8, 1); for (const y of [3, 5]) for (const x of [2, 4, 6]) px(g, '#7fc1e0', x, y, 1, 1); px(g, '#7a4e2c', 4, 7, 2, 3); },
+  house(g) { poly(g, '#3f7f5a', [[5, 0], [10.5, 4.5], [-.5, 4.5]]); px(g, '#f4efe4', 1, 4, 8, 6); px(g, '#7a4e2c', 4, 6, 2, 4); px(g, '#7fc1e0', 2, 5, 1, 2); px(g, '#7fc1e0', 7, 5, 1, 2); },
+  mansion(g) { px(g, '#c9a27a', 2, 0, 6, 10); px(g, '#8f6a4a', 2, 0, 6, 1); for (let y = 2; y <= 6; y += 2) { px(g, '#7fc1e0', 3, y, 1, 1); px(g, '#7fc1e0', 6, y, 1, 1); } px(g, '#2a2f38', 4, 8, 2, 2); },
+  bldg(g) { px(g, '#7fa0c4', 1, 2, 8, 8); px(g, '#5a7aa0', 1, 2, 8, 1); for (let y = 4; y <= 6; y += 2) for (let x = 2; x <= 7; x++) px(g, '#cfe6f5', x, y, 1, 1); px(g, '#e5533d', 1, 8, 8, 2); },
+  hotel(g) { px(g, '#d6c6e8', 1, 1, 8, 9); px(g, '#8a5ab0', 1, 1, 8, 2); px(g, '#f2c14e', 4, 1, 2, 1); for (let y = 4; y <= 6; y += 2) for (const x of [2, 4, 6]) px(g, '#f2d46b', x, y, 1, 1); px(g, '#8a5ab0', 3, 8, 4, 2); },
+  tower(g) { px(g, '#9fb3c8', 3, 0, 4, 10); px(g, '#cfe6f5', 4, 1, 1, 8); px(g, '#e5533d', 4, 0, 2, 1); px(g, '#6f8299', 2, 6, 6, 4); },
+  resort(g) { px(g, '#7fc1e0', 0, 7, 10, 3); px(g, '#f2d9a0', 0, 8, 10, 2); px(g, '#8a5a34', 5, 2, 1, 6); poly(g, '#3f8f4a', [[5.5, 1], [10, 3], [1, 3]]); px(g, '#f2c14e', 1, 0, 2, 2); },
+  island(g) { px(g, '#5b9be0', 0, 6, 10, 4); poly(g, '#d9c48a', [[1, 7], [9, 7], [8, 5], [2, 5]]); px(g, '#9fb3c8', 3, 1, 2, 5); px(g, '#cfe6f5', 6, 3, 2, 3); },
+  moon(g) { disc(g, '#d9d4c6', 5, 5, 4.6); disc(g, '#b8b2a2', 3.5, 4, 1.2); disc(g, '#b8b2a2', 6.5, 7, 1); px(g, '#5b9be0', 6, 1, 2, 3); px(g, '#cfe6f5', 6, 1, 1, 1); },
+};
+const ICON_CV = {}, ICON_URL = {};
+function cv(fn, size) { const c = document.createElement('canvas'); c.width = size; c.height = size; const g = c.getContext('2d'); if (!g) return null; fn(g); return c; }
+function buildIcons() {
+  for (const [k, fn] of Object.entries(ICONS)) { const c = cv(fn, 16); ICON_CV[k] = c; ICON_URL[k] = c ? c.toDataURL() : ''; }
+  for (const [k, fn] of Object.entries(MINI)) { const c = cv(fn, 10); ICON_CV['m-' + k] = c; ICON_URL['m-' + k] = c ? c.toDataURL() : ''; }
+  document.querySelectorAll('img[data-ic]').forEach(img => { img.src = ICON_URL[img.dataset.ic] || ''; });
+}
+const ic = (name, size = 24, alt = '') => `<img class="ic" src="${ICON_URL[name] || ''}" width="${size}" height="${size}" alt="${esc(alt)}">`;
+const mi = (i, size = 30) => ic('m-' + TIERS[i].id, size, TIERS[i].name);
+
+// 人のドット絵
+const HAIR = ['#2b1d16', '#4a3020', '#1c1c24', '#7a4a26', '#b8862e', '#5b2e2a', '#8a8f99', '#c25a3c'];
+const SKIN = ['#f2c7a0', '#e8b48a', '#d29a6e', '#f5d3b5'];
+const SUIT = ['#3d6fb6', '#28324a', '#e08a2c', '#3f8f4a', '#8a5ab0', '#a0527a', '#4a8a8a', '#c06a50', '#5a7aa0', '#d0a040'];
+const SPR_FRONT = ['..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.sesssses.', '.ssssssss.', '..ssssss..', '.ccctcccc.', 'cccctccccc', 'sccctcccs.', 'scccccccs.', '.cccccccc.', '.pppppppp.'];
+const SPR_BACK = ['..hhhhhh..', '.hhhhhhhh.', '.hhhhhhhh.', '.hhhhhhhh.', '.shhhhhhs.', '..ssssss..', '.cccccccc.', 'cccccccccc', 'sccccccccs', 'sccccccccs', '.cccccccc.', '.pppppppp.'];
+const LEGS = [['.ppp..ppp.', '.kk....kk.'], ['..pp..ppp.', '..kk...kk.'], ['.ppp..pp..', '.kk...kk..']];
+const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
+const sprCache = new Map();
+function sprite(key, rows, pal) {
+  if (sprCache.has(key)) return sprCache.get(key);
+  const c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length;
+  const g = c.getContext('2d');
+  if (!g) { sprCache.set(key, null); return null; }
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) px(g, pal[ch], x, y); }));
+  sprCache.set(key, c);
+  return c;
+}
+function personSprite(id, suit, back, leg, gold) {
+  const pal = { h: HAIR[id % HAIR.length], s: SKIN[(id >> 1) % SKIN.length], e: '#1d1d26', c: gold ? '#f2c14e' : suit, t: gold ? '#ffffff' : '#ffffff', p: '#2a3348', k: '#2a211c' };
+  return sprite(`${id}-${suit}-${back ? 1 : 0}-${leg}-${gold ? 1 : 0}`, [...(back ? SPR_BACK : SPR_FRONT), ...LEGS[leg]], pal);
+}
+function drawNum(g, n, x, y, col) {
+  const s = String(n);
+  for (let i = 0; i < s.length; i++) { const d = DIGITS[+s[i]]; if (!d) continue; for (let k = 0; k < 15; k++) if (d[k] === '1') px(g, col, x + i * 4 + (k % 3), y + Math.floor(k / 3)); }
+  return s.length * 4 - 1;
+}
+
+// =============================================================
+//  オフィスの配置
+// =============================================================
+const GW = 14, GH = 12, TS = 16, W = GW * TS, H = GH * TS;
+const DOOR = { x: 7, y: 11 }, LOBBY_Y = 10;
+const DESKS = TIERS.map((t, i) => ({ x: 2 + (i % 5) * 2, y: i < 5 ? 3 : 7 }));
+const SEAT = i => ({ x: DESKS[i].x, y: DESKS[i].y + 1 });
+const BOSS = { x: 6, y: 1, w: 2 };
+const DECOR = [{ k: 'shelf', x: 1, y: 1 }, { k: 'shelf', x: 12, y: 1 }, { k: 'plant', x: 12, y: 4 }, { k: 'plant', x: 12, y: 8 }, { k: 'plant', x: 1, y: 8 }];
+function blockMap() {
+  const m = new Uint8Array(GW * GH);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (x < 1 || x > GW - 2 || y < 1 || y > GH - 2) m[y * GW + x] = 1;
+  m[DOOR.y * GW + DOOR.x] = 0;
+  for (const d of DESKS) m[d.y * GW + d.x] = 1;
+  for (let x = BOSS.x; x < BOSS.x + BOSS.w; x++) m[BOSS.y * GW + x] = 1;
+  for (const d of DECOR) m[d.y * GW + d.x] = 1;
+  return m;
+}
+const BMAP = blockMap();
+function bfs(from, to) {
+  const sx = Math.round(from.x), sy = Math.round(from.y);
+  if (sx === to.x && sy === to.y) return [];
+  const prev = new Int16Array(GW * GH).fill(-1), start = sy * GW + sx, goal = to.y * GW + to.x;
+  prev[start] = start;
+  const q = [start];
+  for (let qi = 0; qi < q.length; qi++) {
+    const c = q[qi]; if (c === goal) break;
+    const cx = c % GW, cy = (c / GW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+      const n = ny * GW + nx;
+      if (prev[n] !== -1 || BMAP[n]) continue;
+      prev[n] = c; q.push(n);
+    }
+  }
+  if (prev[goal] === -1) return [];
+  const path = [];
+  for (let c = goal; c !== start; c = prev[c]) path.push({ x: c % GW, y: (c / GW) | 0 });
+  return path.reverse();
+}
+function stepMove(a, dt, speed = 3.5) {
+  let dist = speed * dt;
+  a.moving = false;
+  while (dist > 0 && a.path.length) {
+    const t = a.path[0], dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy);
+    a.moving = true;
+    if (Math.abs(dy) > Math.abs(dx)) a.dir = dy < 0 ? 'up' : 'down'; else if (dx) a.dir = dx < 0 ? 'left' : 'right';
+    if (d <= dist) { a.x = t.x; a.y = t.y; a.path.shift(); dist -= d; } else { a.x += dx / d * dist; a.y += dy / d * dist; dist = 0; }
+  }
+  if (a.moving) a.anim += dt;
+  return !a.path.length;
+}
+
+// =============================================================
+//  状態・トロフィー
+// =============================================================
+const SAVE_KEY = 'bukkenou-inc-v1';
+let S;
+const unlocked = i => i === 0 || S.tiers[i - 1].n > 0 || S.tiers[i].n > 0;
+const TROPHIES = [
+  { id: 'first',  name: '初めての家賃',   desc: '最初の契約を終える',       ic: 'coin',   ok: () => S.stats.cycles >= 1 },
+  { id: 'mgr',    name: '一人じゃない',   desc: '社員を1人雇う',            ic: 'person', ok: () => S.tiers.some(t => t.mgr) },
+  { id: 'n25',    name: '25棟',           desc: 'どれかを25棟',             ic: 'bldg',   ok: () => S.tiers.some(t => t.n >= 25) },
+  { id: 'n100',   name: '100棟',          desc: 'どれかを100棟',            ic: 'bldg',   ok: () => S.tiers.some(t => t.n >= 100) },
+  { id: 'n400',   name: '400棟',          desc: 'どれかを400棟',            ic: 'bldg',   ok: () => S.tiers.some(t => t.n >= 400) },
+  { id: 'auto5',  name: '社長はお茶でも', desc: '5部署を自動化',            ic: 'person', ok: () => S.tiers.filter(t => t.mgr).length >= 5 },
+  { id: 'autoAll',name: '全自動',         desc: '10部署すべて自動化',       ic: 'person', ok: () => S.tiers.every(t => t.mgr) },
+  { id: 'taps',   name: '腱鞘炎注意',     desc: '1000回タップ',             ic: 'tap',    ok: () => S.stats.taps >= 1000 },
+  { id: 'event',  name: '目利き',         desc: '掘り出し物を10回つかまえる', ic: 'fire', ok: () => S.stats.events >= 10 },
+  { id: 'sell1',  name: '売って、また始める', desc: '初めての会社売却',    ic: 'sold',   ok: () => S.stats.prestiges >= 1 },
+  { id: 'know',   name: '老舗の知恵',     desc: 'ノウハウ1000',             ic: 'star',   ok: () => S.know >= 1000 },
+  { id: 'ch1',    name: CHAPTERS[0].name, desc: `総売上 ${fmt(CHAPTERS[0].goal)}`, ic: 'flag', ok: () => S.chapter >= 1 },
+  { id: 'ch2',    name: CHAPTERS[1].name, desc: `総売上 ${fmt(CHAPTERS[1].goal)}`, ic: 'flag', ok: () => S.chapter >= 2 },
+  { id: 'ch3',    name: CHAPTERS[2].name, desc: `総売上 ${fmt(CHAPTERS[2].goal)}`, ic: 'flag', ok: () => S.chapter >= 3 },
+  { id: 'ch4',    name: CHAPTERS[3].name, desc: `総売上 ${fmt(CHAPTERS[3].goal)}`, ic: 'trophy', ok: () => S.chapter >= 4 },
+  { id: 'moon',   name: '月の大家さん',   desc: '月面都市を手に入れる',     ic: 'star',   ok: () => S.tiers[9].n > 0, hidden: true },
+  { id: 'fever',  name: 'お祭り騒ぎ',     desc: 'フィーバー中に会社売却',   ic: 'fire',   ok: () => false, hidden: true },
+];
+function checkTrophies() {
+  for (const t of TROPHIES) if (!S.trophies[t.id] && t.ok()) { S.trophies[t.id] = Date.now(); news(t.ic, t.name, 4000); }
+}
+
+// =============================================================
+//  通知・エフェクト
+// =============================================================
+let newsTimer = 0;
+function news(iconName, text, ms = 3000) {
+  const n = $('news');
+  n.innerHTML = `${ic(iconName, 20)}<span>${esc(text)}</span>`;
+  n.hidden = false;
+  clearTimeout(newsTimer);
+  newsTimer = setTimeout(() => { n.hidden = true; }, ms);
+}
+function canvasToPage(cx, cy) {
+  const r = $('office').getBoundingClientRect();
+  return { x: r.left + 3 + cx / W * (r.width - 6), y: r.top + 3 + cy / H * (r.height - 6) };
+}
+function float(cx, cy, text, cls = '') {
+  if (reduceMotion && !cls) return;
+  const p = canvasToPage(cx, cy);
+  const el = document.createElement('div');
+  el.className = 'float ' + cls; el.textContent = text;
+  el.style.left = p.x + 'px'; el.style.top = (p.y - 8) + 'px';
+  $('fx').appendChild(el);
+  setTimeout(() => el.remove(), 1700);
+}
+const coins = [];
+function burst(x, y, n = 6) {
+  if (reduceMotion) return;
+  for (let i = 0; i < n && coins.length < 60; i++) coins.push({ x, y, vx: rand(-35, 35), vy: rand(-80, -40), t: 0 });
+}
+
+// =============================================================
+//  社員と掘り出し物の客
+// =============================================================
+const staff = new Map();   // tier -> agent
+let customer = null, nextCustomer = rand(40, 80);
+function syncStaff(dt, instant) {
+  for (let i = 0; i < TIERS.length; i++) {
+    const T = S.tiers[i];
+    if (T.mgr && !staff.has(i)) {
+      const seat = SEAT(i);
+      const a = instant ? { x: seat.x, y: seat.y, path: [] } : { x: DOOR.x, y: DOOR.y, path: bfs(DOOR, seat) };
+      Object.assign(a, { dir: 'up', anim: 0, moving: false, id: i * 37 + 11 });
+      staff.set(i, a);
+    }
+    if (!T.mgr && staff.has(i)) staff.delete(i);
+  }
+  for (const a of staff.values()) { if (stepMove(a, dt)) a.dir = 'up'; }
+  // 掘り出し物の客
+  if (!customer) {
+    nextCustomer -= dt;
+    if (nextCustomer <= 0) {
+      const slot = { x: pick([2, 3, 4, 5, 9, 10, 11]), y: LOBBY_Y };
+      customer = { x: DOOR.x, y: DOOR.y, path: bfs(DOOR, slot), dir: 'up', anim: 0, moving: false, stay: 15, leaving: false, id: Math.floor(rand(0, 999)) };
+    }
+  } else {
+    const c = customer;
+    const arrived = stepMove(c, dt, c.leaving ? 5 : 3.5);
+    if (!c.leaving && arrived) { c.dir = 'down'; c.stay -= dt; if (c.stay <= 0) { c.leaving = true; c.path = bfs(c, DOOR); } }
+    if (c.leaving && arrived) { customer = null; nextCustomer = rand(70, 140); }
+  }
+}
+function catchCustomer() {
+  const c = customer;
+  if (!c || c.leaving) return;
+  c.leaving = true; c.path = bfs(c, DOOR);
+  S.stats.events++;
+  const r = Math.random();
+  const p = { cx: c.x * TS + 8, cy: c.y * TS - 6 };
+  if (r < 0.5) {
+    S.fever = 20; S.feverMult = 7;
+    news('fire', 'フィーバー！ 20秒間 収益×7', 3500);
+    float(p.cx, p.cy, '×7', 'pink');
+  } else if (r < 0.85) {
+    const v = Math.max(incomePerSec(S) * 90, S.money * 0.1, 5e5);
+    earn(S, v);
+    news('coin', `掘り出し物 +${fmt(v)}`);
+    float(p.cx, p.cy, '+' + fmt(v), 'gold');
+    burst(p.cx, p.cy, 12);
+  } else {
+    S.tickets++;
+    news('ticket', '時短チケット +1');
+    float(p.cx, p.cy, '+1', 'pink');
+  }
+  checkTrophies();
+  dirty();
+}
+
+// =============================================================
+//  オフィス描画
+// =============================================================
+const lastFloat = new Array(TIERS.length).fill(0), accum = new Array(TIERS.length).fill(0);
+function drawBar(g, x, y, w, ratio, col) {
+  px(g, '#1d2733', x - 1, y - 1, w + 2, 5); px(g, '#4a5262', x, y, w, 3);
+  px(g, col, x, y, Math.max(0, Math.round(w * Math.min(1, ratio))), 3);
+}
+function bubble(g, x, y, w, h, border) {
+  px(g, border, x, y, w, h); px(g, '#ffffff', x + 1, y + 1, w - 2, h - 2);
+  px(g, border, x + Math.floor(w / 2) - 1, y + h, 3, 1); px(g, border, x + Math.floor(w / 2), y + h + 1, 1, 1);
+}
+function drawRoom(g) {
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+    const X = x * TS, Y = y * TS;
+    if (y === LOBBY_Y) { px(g, '#a3584a', X, Y, TS, TS); px(g, '#b8695a', X + 1, Y + 1, TS - 2, TS - 2); continue; }
+    px(g, (x + y) % 2 ? '#c99a64' : '#c4945f', X, Y, TS, TS);
+    px(g, '#b3824f', X, Y + ((x % 2) ? 5 : 11), TS, 1); px(g, '#b3824f', X + ((y % 2) ? 3 : 10), Y, 1, TS);
+  }
+  px(g, '#e6e0d2', 0, 0, W, TS); px(g, '#cfc7b4', 0, TS - 4, W, 4);
+  for (const wx of [3, 9]) { px(g, '#9ac4d8', wx * TS + 2, 3, 24, 8); px(g, '#ffffff', wx * TS + 15, 3, 1, 8); }
+  px(g, '#8c8577', 0, 0, TS, H); px(g, '#8c8577', W - TS, 0, TS, H); px(g, '#8c8577', 0, H - TS, W, TS);
+  px(g, '#a39b8b', TS - 2, TS, 2, H - 2 * TS); px(g, '#a39b8b', W - TS, TS, 2, H - 2 * TS);
+  px(g, '#5c3e26', DOOR.x * TS, DOOR.y * TS, TS, TS); px(g, '#3b2818', DOOR.x * TS + 2, DOOR.y * TS + 2, 12, 14);
+  // 章の額縁
+  const fx = 6 * TS + 2;
+  px(g, '#8a6240', fx, 2, 28, 10); px(g, '#f4efe4', fx + 2, 4, 24, 6);
+  for (let i = 0; i < CHAPTERS.length; i++) px(g, i < S.chapter ? '#f2c14e' : '#c9c1b0', fx + 4 + i * 6, 5, 4, 4);
+  for (const d of DECOR) {
+    const X = d.x * TS, Y = d.y * TS;
+    if (d.k === 'shelf') {
+      px(g, '#5c3e26', X + 1, Y - 6, 14, 22);
+      const cols = ['#cf3b26', '#3d6fb6', '#e3b544', '#3f8f4a', '#8a5ab0', '#e08a2c'];
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) px(g, cols[(i + r * 2 + d.x) % 6], X + 2 + i * 2, Y - 5 + r * 7, 2, 6);
+    } else {
+      px(g, '#3f8f4a', X + 4, Y, 8, 9); px(g, '#3f8f4a', X + 2, Y + 3, 12, 4); px(g, '#2f6e38', X + 6, Y + 2, 2, 6); px(g, '#a0522d', X + 4, Y + 9, 8, 7);
+    }
+  }
+  // 社長席
+  const bx = BOSS.x * TS, by = BOSS.y * TS;
+  px(g, '#4a2f1c', bx + 1, by + 5, 30, 11); px(g, '#5e3c24', bx + 1, by + 4, 30, 3); px(g, '#e3b544', bx + 13, by + 9, 6, 2);
+  const sp = personSprite(7, '#5a2a3a', false, 0, false);
+  if (sp) g.drawImage(sp, bx + 11, by - 7);
+}
+function drawDesk(g, i, now) {
+  const d = DESKS[i], X = d.x * TS, Y = d.y * TS, T = S.tiers[i];
+  const open = unlocked(i);
+  const seat = SEAT(i);
+  if (!open) {
+    // まだ解放されていない：シートがかかったデスク
+    const prevOpen = i > 0 && unlocked(i - 1);
+    px(g, '#6b5a48', X + 1, Y + 5, 14, 11); px(g, '#8a7a68', X + 2, Y + 3, 12, 6);
+    if (prevOpen) { bubble(g, X + 2, Y - 13, 12, 11, '#6b737d'); if (ICON_CV.lock) g.drawImage(ICON_CV.lock, X + 3, Y - 12, 10, 10); }
+    return;
+  }
+  // 椅子
+  if (!staff.has(i)) { px(g, '#3c3c46', seat.x * TS + 4, seat.y * TS + 6, 8, 6); px(g, '#56565f', seat.x * TS + 4, seat.y * TS + 4, 8, 3); }
+  // 机とモニター
+  px(g, '#7a4e2c', X + 1, Y + 6, 14, 10); px(g, '#8f5d35', X + 1, Y + 5, 14, 3);
+  px(g, '#2a2f38', X + 4, Y, 8, 6);
+  const tierCol = SUIT[i];
+  px(g, T.n ? tierCol : '#3a4250', X + 5, Y + 1, 6, 4);
+  if (T.n && (T.mgr || T.run) && Math.floor(now / 200 + i) % 2) px(g, '#ffffff', X + 6, Y + 2, 2, 1);
+  // 吹き出し（物件アイコン＋棟数）
+  const afford = !T.n ? S.money >= costOf(S, i, 1) : (!T.mgr && S.money >= TIERS[i].mgr) || S.money >= costOf(S, i, 1);
+  const label = T.n ? String(T.n) : '';
+  const w = 13 + (label ? label.length * 4 + 1 : 0);
+  const bx = X + 8 - Math.floor(w / 2), by = Y - 15 - (afford && !T.n ? Math.floor(now / 300) % 2 : 0);
+  const border = !T.n ? (afford ? '#2f9a55' : '#6b737d') : (afford ? '#2f9a55' : '#1d2733');
+  bubble(g, bx, by, w, 12, border);
+  if (!T.n) g.globalAlpha = afford ? 1 : .45;
+  if (ICON_CV['m-' + TIERS[i].id]) g.drawImage(ICON_CV['m-' + TIERS[i].id], bx + 1, by + 1);
+  g.globalAlpha = 1;
+  if (label) drawNum(g, label, bx + 12, by + 4, '#1d2733');
+  // 進み具合
+  if (T.n) {
+    const t = tierTime(S, i);
+    const fast = t < 0.25 && (T.mgr || T.run);
+    const ratio = fast ? 1 : T.prog;
+    const col = S.fever > 0 ? '#ff7ab6' : T.mgr ? '#5cc27a' : '#f2c14e';
+    drawBar(g, X + 1, (seat.y + 1) * TS + 1, 14, ratio, fast && Math.floor(now / 80) % 2 ? '#ffffff' : col);
+  }
+}
+function drawPerson(g, a, suit, gold) {
+  const leg = a.moving ? 1 + (Math.floor(a.anim / 0.16) % 2) : 0;
+  const sp = personSprite(a.id, suit, a.dir === 'up', leg, gold);
+  const x = Math.round(a.x * TS) + 3, y = Math.round(a.y * TS) + 1;
+  px(g, 'rgba(0,0,0,.2)', x + 1, y + 13, 8, 2);
+  if (sp) { if (a.dir === 'left') { g.save(); g.translate(x + 10, y); g.scale(-1, 1); g.drawImage(sp, 0, 0); g.restore(); } else g.drawImage(sp, x, y); }
+  return { x, y };
+}
+function hintTarget() {
+  if (S.stats.taps >= 30 && S.tiers.filter(t => t.n).length >= 2) return null;
+  for (let i = 0; i < TIERS.length; i++) {
+    const T = S.tiers[i];
+    if (unlocked(i) && !T.n && S.money >= costOf(S, i, 1)) return { x: DESKS[i].x * TS + 8, y: DESKS[i].y * TS - 18 };
+  }
+  for (let i = 0; i < TIERS.length; i++) {
+    const T = S.tiers[i];
+    if (T.n && !T.mgr && !T.run) return { x: DESKS[i].x * TS + 8, y: DESKS[i].y * TS + 4 };
+  }
+  return null;
+}
+function drawOffice(now, dt) {
+  const c = $('office'), g = c && c.getContext('2d');
+  if (!g) return;
+  g.imageSmoothingEnabled = false;
+  drawRoom(g);
+  for (let i = 0; i < TIERS.length; i++) drawDesk(g, i, now);
+  const people = [...[...staff.entries()].map(([i, a]) => ({ a, suit: SUIT[i] }))];
+  if (customer) people.push({ a: customer, suit: '#f2c14e', gold: true, cust: true });
+  people.sort((p, q) => p.a.y - q.a.y);
+  for (const p of people) {
+    const { x, y } = drawPerson(g, p.a, p.suit, p.gold);
+    if (p.cust && !p.a.leaving) {
+      const bob = Math.floor(now / 250) % 2;
+      bubble(g, x - 3, y - 16 - bob, 16, 13, '#f2c14e');
+      if (ICON_CV.fire) g.drawImage(ICON_CV.fire, x - 1, y - 15 - bob, 12, 12);
+      if (Math.floor(now / 150) % 3 === 0) { px(g, '#ffffff', x - 4, y - 2, 1, 1); px(g, '#ffffff', x + 12, y + 4, 1, 1); }
+    }
+  }
+  for (const p of coins) {
+    p.t += dt; p.vy += 170 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (ICON_CV.coin) g.drawImage(ICON_CV.coin, Math.round(p.x) - 3, Math.round(p.y) - 3, 7, 7);
+  }
+  for (let i = coins.length - 1; i >= 0; i--) if (coins[i].t > 0.9) coins.splice(i, 1);
+  const h = hintTarget();
+  if (h && ICON_CV.tap) g.drawImage(ICON_CV.tap, h.x - 4, h.y + (reduceMotion ? 0 : Math.round(Math.sin(now / 160) * 2)), 12, 12);
+  if (S.fever > 0) { g.fillStyle = 'rgba(255,122,182,.10)'; g.fillRect(0, 0, W, H); }
+}
+
+// =============================================================
+//  タップ
+// =============================================================
+function onTap(e) {
+  const r = $('office').getBoundingClientRect();
+  const cx = (e.clientX - r.left - 3) / (r.width - 6) * W, cy = (e.clientY - r.top - 3) / (r.height - 6) * H;
+  const tx = Math.floor(cx / TS), ty = Math.floor(cy / TS);
+  // 掘り出し物の客
+  if (customer && !customer.leaving) {
+    const x = customer.x * TS + 3, y = customer.y * TS + 1;
+    if (cx >= x - 6 && cx <= x + 16 && cy >= y - 20 && cy <= y + 16) { catchCustomer(); return; }
+  }
+  // デスク（吹き出し・机・椅子・ゲージのあたり）
+  for (let i = 0; i < TIERS.length; i++) {
+    const d = DESKS[i];
+    if (tx !== d.x || ty < d.y - 1 || ty > d.y + 2) continue;
+    tapDesk(i, cx, cy);
+    return;
+  }
+  if (ty <= BOSS.y + 1 && tx >= BOSS.x && tx < BOSS.x + BOSS.w) { openSheet('buy'); return; }
+}
+function tapDesk(i, cx, cy) {
+  const T = S.tiers[i], d = DESKS[i];
+  if (!unlocked(i)) { news('lock', `${TIERS[i - 1].name}を買うと解放`); return; }
+  if (!T.n) {
+    if (S.money >= costOf(S, i, 1)) { buyTier(S, i, 1); burst(d.x * TS + 8, d.y * TS, 8); news('m-' + TIERS[i].id, `${TIERS[i].name}を手に入れた`); checkTrophies(); dirty(); }
+    else openSheet('buy', i);
+    return;
+  }
+  S.stats.taps++;
+  if (startCycle(S, i)) { float(d.x * TS + 8, d.y * TS + 2, '契約'); }
+  else if (boostCycle(S, i)) { if (!reduceMotion) float(d.x * TS + 8, d.y * TS + 2, '⚡'); }
+  if (S.stats.taps % 50 === 0) checkTrophies();
+}
+
+// =============================================================
+//  シート
+// =============================================================
+let sheet = null, buyMode = 1;
+function openSheet(kind, focus) { sheet = { kind, focus, arm: false }; renderSheet(true); }
+function closeSheet() { sheet = null; $('sheetRoot').innerHTML = ''; }
+function buyCount(i) {
+  if (buyMode === 'max') return Math.max(1, maxBuy(S, i));
+  if (buyMode === 'next') { const m = nextMilestone(S.tiers[i].n); return m ? m - S.tiers[i].n : 1; }
+  return buyMode;
+}
+function sheetBuy() {
+  const seg = (v, label) => `<button class="pbtn ${buyMode === v ? 'on' : ''}" data-act="mode" data-v="${v}">${label}</button>`;
+  let h = `<div class="seg">${seg(1, '×1')}${seg(10, '×10')}${seg(100, '×100')}${seg('next', `${ic('flag', 16)}次の節目`)}${seg('max', 'MAX')}</div>`;
+  for (let i = 0; i < TIERS.length; i++) {
+    if (!unlocked(i)) { h += `<div class="tier dim">${ic('lock', 40)}<div class="meta"><div class="nm"><b>？？？</b></div></div></div>`; break; }
+    const T = S.tiers[i], k = buyCount(i), c = costOf(S, i, k), nm = nextMilestone(T.n);
+    const prevM = [0, ...SPEED_MS, ...REV_MS].filter(m => m <= T.n).pop();
+    const ratio = nm ? (T.n - prevM) / (nm - prevM) : 1;
+    const msIcon = nm && SPEED_MS.includes(nm) ? ic('clock', 14) : ic('coin', 14);
+    h += `<div class="tier" ${sheet.focus === i ? 'id="focusRow"' : ''}>
+      ${mi(i, 44)}
+      <div class="meta">
+        <div class="nm"><b>${esc(TIERS[i].name)}</b><span class="chip">${T.n}棟</span></div>
+        <div class="row" style="gap:6px"><span class="chip good">${fmt(T.n ? tierPerSec(S, i) : TIERS[i].rev / TIERS[i].time * globalMult(S))}/秒</span><span class="chip">${ic('clock', 14)}${fmtTime(tierTime(S, i))}</span></div>
+        ${nm ? `<div class="ms">${msIcon}<span class="bar"><i style="width:${ratio * 100}%"></i></span>${nm}棟で${SPEED_MS.includes(nm) ? '速さ×2' : '収益×3'}</div>` : ''}
+      </div>
+      <div class="btns">
+        <button class="pbtn ok" data-act="buyTier" data-i="${i}" data-k="${k}" data-cost="${c}">${ic('plus', 16)}${k}　${fmt(c)}</button>
+        ${T.mgr ? `<span class="chip good" style="justify-content:center;min-height:44px">${ic('person', 18)}${ic('check', 16)}</span>`
+          : `<button class="pbtn" data-act="mgr" data-i="${i}" data-cost="${T.n ? TIERS[i].mgr : Infinity}" title="社員を雇うと自動で契約する">${ic('person', 18)}${fmt(TIERS[i].mgr)}</button>`}
+      </div></div>`;
+  }
+  return h;
+}
+function availableUps() { return UPGRADES.filter(u => !S.ups[u.id]).filter(u => u.tier === -1 || unlocked(u.tier)); }
+function sheetUps() {
+  const list = availableUps().slice(0, 9);
+  const done = Object.keys(S.ups).length;
+  return `<div class="row"><span class="chip">${ic('check', 16)}${done}/${UPGRADES.length}</span><span class="chip">${ic('star', 16)}全体 ×${fmt(globalMult(S))}</span></div>
+    <div class="ups">${list.map(u => `<div class="up">${u.tier === -1 ? ic('star', 36, '全部') : mi(u.tier, 36)}<div class="x3">×${u.mult}</div><div style="font-size:.8rem;color:var(--muted)">${u.tier === -1 ? '全物件' : esc(TIERS[u.tier].name)}</div>
+      <button class="pbtn ok" data-act="up" data-id="${u.id}" data-cost="${u.cost}">${ic('coin', 16)}${fmt(u.cost)}</button></div>`).join('')}</div>`;
+}
+function sheetSell() {
+  const g = knowGain(S), now = 1 + KNOW_BONUS * S.know, after = 1 + KNOW_BONUS * (S.know + g);
+  const need = KNOW_DIV * Math.pow((S.knowClaimed + 1) / 150, 2);
+  return `<div class="row" style="gap:14px">${ic('sold', 48)}<div style="display:grid;gap:6px">
+      <div class="row" style="gap:6px">${ic('star', 24)}<span class="big">${fmt(S.know)}</span>${g ? `<span class="big good">+${fmt(g)}</span>` : ''}</div>
+      <div class="row" style="gap:6px"><span class="chip">${ic('coin', 16)}収益 ×${fmt(now)}</span><span class="arrow">→</span><span class="chip good">×${fmt(after)}</span></div></div></div>
+    <div style="font-size:.85rem;color:var(--muted)">会社を売ると、お金・物件・社員・投資がなくなる代わりに、経営ノウハウ（★1つで収益+2%）がずっと残る。</div>
+    ${g ? `<button class="pbtn ${sheet.arm ? 'no' : 'ok'}" data-act="prestige">${ic('sold', 22)}${sheet.arm ? 'もう一度押すと売却' : '会社を売る'}</button>`
+        : `<span class="chip">${ic('flag', 16)}総売上 ${fmt(need)} で★が手に入る</span>`}`;
+}
+function sheetRecords() {
+  const got = TROPHIES.filter(t => S.trophies[t.id]).length;
+  return `<div class="row" style="gap:6px">
+      <span class="chip" title="プレイ時間">${ic('clock', 16)}${fmtTime(S.stats.playT)}</span>
+      <span class="chip" title="総売上">${ic('coin', 16)}${fmt(S.total)}</span>
+      <span class="chip" title="タップ">${ic('tap', 16)}${S.stats.taps}</span>
+      <span class="chip" title="会社売却">${ic('sold', 16)}${S.stats.prestiges}</span>
+      <span class="chip" title="トロフィー">${ic('trophy', 16)}${got}/${TROPHIES.length}</span></div>
+    <div class="medals">${TROPHIES.map(t => { const has = S.trophies[t.id]; return `<div class="medal ${has ? '' : 'off'}">${ic(t.ic, 26)}<div><b>${!has && t.hidden ? '？？？' : esc(t.name)}</b><small>${!has && t.hidden ? '？？？' : esc(t.desc)}</small></div></div>`; }).join('')}</div>
+    <details><summary>${ic('floppy', 16)} セーブデータ</summary><div style="display:grid;gap:8px;margin-top:8px">
+      <div class="seg"><button class="pbtn" data-act="export">書き出す</button><button class="pbtn" data-act="copy">コピー</button><button class="pbtn" data-act="import">読み込む</button></div>
+      <textarea id="saveText" aria-label="セーブデータ"></textarea>
+      <button class="pbtn no" data-act="reset">${sheet.arm ? 'もう一度で最初から' : '最初からやり直す'}</button></div></details>`;
+}
+function renderSheet(first) {
+  if (!sheet) return;
+  const body = { buy: sheetBuy, ups: sheetUps, sell: sheetSell, records: sheetRecords }[sheet.kind]();
+  const old = document.querySelector('#sheetRoot .sheet');
+  const scroll = old ? old.scrollTop : 0;
+  const keepText = $('saveText') ? $('saveText').value : '';
+  const det = document.querySelector('#sheetRoot details');
+  const keepOpen = det ? det.open : false;
+  $('sheetRoot').innerHTML = `<div class="back" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true">
+    <button class="pbtn sheet-close" data-act="close" aria-label="閉じる">${ic('cross', 18)}</button><div class="sheet-in">${body}</div></div>`;
+  const sh = document.querySelector('#sheetRoot .sheet');
+  if (first && $('focusRow')) $('focusRow').scrollIntoView({ block: 'center' }); else if (sh) sh.scrollTop = scroll;
+  if ($('saveText')) $('saveText').value = keepText;
+  const d2 = document.querySelector('#sheetRoot details'); if (d2 && keepOpen) d2.open = true;
+  updateLive();
+}
+
+// =============================================================
+//  HUD
+// =============================================================
+let needRender = false;
+const dirty = () => { needRender = true; };
+function chapterRatio() {
+  if (S.chapter >= CHAPTERS.length) return 1;
+  const lo = Math.log10(S.chapter ? CHAPTERS[S.chapter - 1].goal : 1e4), hi = Math.log10(CHAPTERS[S.chapter].goal);
+  return Math.max(0, Math.min(1, (Math.log10(Math.max(1, S.total)) - lo) / (hi - lo)));
+}
+function updateLive() {
+  $('hMoney').textContent = fmt(S.money);
+  const ps = incomePerSec(S);
+  $('hPerSec').textContent = ps ? `+${fmt(ps)}/秒` : '';
+  $('moneyBox').classList.toggle('fever', S.fever > 0);
+  $('hFever').hidden = !(S.fever > 0);
+  if (S.fever > 0) $('hFever').textContent = `×${S.feverMult} ${Math.ceil(S.fever)}`;
+  $('hTicket').textContent = S.tickets;
+  $('ticketBtn').disabled = !S.tickets || !ps;
+  $('hKnowBox').hidden = !S.know; $('hKnow').textContent = fmt(S.know);
+  $('goalCh').textContent = Math.min(S.chapter + 1, CHAPTERS.length);
+  $('goalBar').style.width = chapterRatio() * 100 + '%';
+  $('goalNext').textContent = S.chapter >= CHAPTERS.length ? '物件王' : fmt(CHAPTERS[S.chapter].goal);
+  let nb = 0;
+  for (let i = 0; i < TIERS.length; i++) if (unlocked(i) && (S.money >= costOf(S, i, 1) || (S.tiers[i].n && !S.tiers[i].mgr && S.money >= TIERS[i].mgr))) nb++;
+  $('cBuy').hidden = !nb; $('cBuy').textContent = nb;
+  const nu = availableUps().filter(u => S.money >= u.cost).length;
+  $('cUps').hidden = !nu; $('cUps').textContent = nu;
+  const g = knowGain(S);
+  $('cSell').hidden = !(g > 0 && g >= Math.max(10, S.know * 0.5)); $('cSell').textContent = '★';
+  document.querySelectorAll('[data-cost]').forEach(el => { el.disabled = S.money < +el.dataset.cost; });
+}
+function fitCanvas() {
+  const st = $('stage').getBoundingClientRect();
+  let s = Math.min((st.width - 10) / W, (st.height - 10) / H);
+  const fl = Math.floor(s);
+  if (fl >= 1 && fl / s >= 0.8) s = fl;
+  s = Math.max(0.5, s);
+  $('office').style.width = Math.floor(W * s) + 'px';
+  $('office').style.height = Math.floor(H * s) + 'px';
+}
+
+// =============================================================
+//  入力
+// =============================================================
+$('office').addEventListener('pointerdown', e => { e.preventDefault(); onTap(e); });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  const i = +b.dataset.i;
+  switch (b.dataset.act) {
+    case 'close': closeSheet(); break;
+    case 'buy': openSheet('buy'); break;
+    case 'ups': openSheet('ups'); break;
+    case 'sell': openSheet('sell'); break;
+    case 'records': openSheet('records'); break;
+    case 'mode': buyMode = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; renderSheet(); break;
+    case 'buyTier': {
+      const was = S.tiers[i].n, k = +b.dataset.k;
+      if (buyTier(S, i, k)) {
+        const d = DESKS[i]; burst(d.x * TS + 8, d.y * TS, Math.min(12, 3 + k));
+        const nm = [...SPEED_MS, ...REV_MS].find(m => was < m && S.tiers[i].n >= m);
+        if (nm) news(SPEED_MS.includes(nm) ? 'clock' : 'coin', `${TIERS[i].name} ${nm}棟！ ${SPEED_MS.includes(nm) ? '速さ×2' : '収益×3'}`);
+        checkTrophies();
+      }
+      renderSheet(); break;
+    }
+    case 'mgr': if (hireMgr(S, i)) { news('person', `${TIERS[i].name}に社員が来た`); checkTrophies(); } renderSheet(); break;
+    case 'up': if (buyUpgrade(S, b.dataset.id)) checkTrophies(); renderSheet(); break;
+    case 'prestige':
+      if (!sheet.arm) { sheet.arm = true; renderSheet(); break; }
+      if (S.fever > 0) S.trophies.fever = S.trophies.fever || Date.now();
+      { const g = prestige(S); staff.clear(); closeSheet(); if (g) { news('star', `経営ノウハウ +${fmt(g)}`, 4500); checkTrophies(); save(); } }
+      break;
+    case 'ticket': {
+      if (!S.tickets) break;
+      const v = incomePerSec(S) * 600;
+      if (!v) break;
+      S.tickets--; earn(S, v);
+      news('ticket', `10分ぶん +${fmt(v)}`);
+      dirty(); break;
+    }
+    case 'export': $('saveText').value = exportSave(); break;
+    case 'copy': {
+      const ta = $('saveText'); if (!ta.value) ta.value = exportSave();
+      const fb = () => { ta.focus(); ta.select(); news('floppy', '選択したのでコピーしてね'); };
+      try { navigator.clipboard.writeText(ta.value).then(() => news('floppy', 'コピーした'), fb); } catch (err) { fb(); }
+      break;
+    }
+    case 'import': importSave($('saveText').value); break;
+    case 'reset':
+      if (!sheet.arm) { sheet.arm = true; renderSheet(); break; }
+      S = newCore(); staff.clear(); customer = null; save(); closeSheet(); news('floppy', '最初からスタート');
+      break;
+  }
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && sheet) closeSheet(); });
+
+// =============================================================
+//  章クリア
+// =============================================================
+let shownChapter = -1;
+function checkChapter() {
+  if (shownChapter < 0) { shownChapter = S.chapter; return; }
+  if (S.chapter > shownChapter) {
+    shownChapter = S.chapter;
+    checkTrophies();
+    const c = CHAPTERS[S.chapter - 1];
+    const last = S.chapter >= CHAPTERS.length;
+    $('modalRoot').innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="clrT"><div class="in">
+      ${ic(last ? 'trophy' : 'flag', 64)}<h3 id="clrT">${last ? 'エンディング' : `第${S.chapter}章クリア`}</h3>
+      <div>${esc(c.name)}</div>
+      <div class="row" style="justify-content:center;gap:6px"><span class="chip">${ic('clock', 16)}${fmtTime(S.stats.playT)}</span><span class="chip">${ic('coin', 16)}${fmt(S.total)}</span></div>
+      <button class="pbtn ok" id="clrOk">${ic('check', 22)}つづける</button></div></div>`;
+    $('clrOk').addEventListener('click', () => { $('modalRoot').innerHTML = ''; });
+    $('clrOk').focus();
+  }
+}
+
+// =============================================================
+//  セーブ
+// =============================================================
+function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function exportSave() { S.savedAt = Date.now(); return btoa(unescape(encodeURIComponent(JSON.stringify(S)))); }
+function normalize(data) {
+  const s = Object.assign(newCore(), data);
+  s.stats = Object.assign(newCore().stats, data.stats || {});
+  s.tiers = TIERS.map((t, i) => Object.assign({ n: 0, mgr: false, prog: 0, run: false }, (data.tiers || [])[i] || {}));
+  return s;
+}
+function importSave(text) {
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(text.trim()))));
+    if (!data || data.v !== 2) throw new Error('bad');
+    S = normalize(data); staff.clear(); customer = null; shownChapter = -1; syncStaff(0, true); save(); closeSheet(); news('floppy', '読み込んだ');
+  } catch (e) { news('cross', '読み込めなかった'); }
+}
+function load() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
+  if (data && data.v === 2) {
+    S = normalize(data);
+    const away = (Date.now() - (S.savedAt || Date.now())) / 1000;
+    if (away > 30) {
+      const r = offline(S, away);
+      if (r.v > 0) setTimeout(() => news('clock', `留守中 ${fmtTime(r.sec)}  +${fmt(r.v)}`, 5000), 300);
+    }
+  } else S = newCore();
+}
+
+// =============================================================
+//  ループ
+// =============================================================
+buildIcons();
+load();
+syncStaff(0, true);
+fitCanvas();
+updateLive();
+addEventListener('resize', fitCanvas);
+if ('ResizeObserver' in window) new ResizeObserver(fitCanvas).observe($('stage'));
+let last = performance.now(), saveT = 0, liveT = 0, trophyT = 0, sheetT = 0, held = false;
+addEventListener('pointerdown', () => { held = true; }, true);
+addEventListener('pointerup', () => { held = false; }, true);
+addEventListener('pointercancel', () => { held = false; }, true);
+function frame(now) {
+  const dt = Math.min(0.25, (now - last) / 1000);
+  last = now;
+  const done = step(S, dt);
+  for (let i = 0; i < done.length; i++) {
+    if (!done[i]) continue;
+    accum[i] += tierRev(S, i) * done[i];
+    if (now - lastFloat[i] > 1100) {
+      const d = DESKS[i];
+      float(d.x * TS + 8, d.y * TS - 14, '+' + fmt(accum[i]));
+      if (tierTime(S, i) >= 0.5) burst(d.x * TS + 8, d.y * TS - 4, 3);
+      accum[i] = 0; lastFloat[i] = now;
+    }
+  }
+  syncStaff(dt, false);
+  drawOffice(now, dt);
+  saveT += dt; liveT += dt; trophyT += dt; sheetT += dt;
+  if (trophyT > 1) { checkTrophies(); checkChapter(); trophyT = 0; }
+  if (needRender) { if (sheet && sheet.kind !== 'records') renderSheet(); else updateLive(); needRender = false; }
+  else if (liveT > 0.25) { updateLive(); liveT = 0; }
+  // シートの数字は1秒ごとに作り直す（押している最中は待つ）
+  if (sheet && sheet.kind !== 'records' && sheetT > 1 && !held) { renderSheet(); sheetT = 0; }
+  if (saveT > 5) { save(); saveT = 0; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+addEventListener('pagehide', save);
+})();
+</script>
+</body>
+</html>
