@@ -372,7 +372,18 @@ function css() {
 .deckGrid .item.out .bc { filter: grayscale(.8) brightness(.5); }
 .btRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 @media (min-width: 760px) { .bt { --bw: min(108px, 13vh); } }
-@media (max-height: 560px) and (orientation: landscape) { .bt { --bw: min(76px, 15vh); grid-template-rows: auto auto 1fr auto auto auto; } .bt .bar { padding: 3px 10px; } .bt .log { min-height: 1.3em; font-size: .7rem; } .bt .turnBtn { padding: 6px 16px; } .bt .hand { padding: 2px 10px 4px; } }
+@media (max-height: 560px) and (orientation: landscape) {
+  .bt { --bw: min(80px, calc((100vh - 36px) / 4.55)); grid-template-columns: minmax(0, 1fr) minmax(150px, 24vw); grid-template-rows: auto auto auto 1fr; grid-template-areas: "ff fb" "mid fb" "mf mb" "hand mb"; padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  .bt .top2 { position: absolute; right: 8px; top: 4px; padding: 0; z-index: 2; } .bt .top2 .t, .bt .top2 #btTurn { display: none; }
+  #foeField { grid-area: ff; } .bt .mid { grid-area: mid; } #meField { grid-area: mf; } #meHand { grid-area: hand; }
+  .bt .bar { flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; padding: 4px 8px; }
+  #foeBar { grid-area: fb; padding-top: 34px; } #meBar { grid-area: mb; }
+  .bt .bar > span[style] { display: none; }
+  .bt .field { padding: 2px 6px; min-height: 0; }
+  .bt .log { min-height: 1.2em; font-size: .68rem; }
+  .bt .turnBtn { padding: 8px 10px; }
+  .bt .hand { padding: 2px 8px 4px; min-height: 0; }
+}
 @media (prefers-reduced-motion: reduce) { .bc, .btFloat, .btBanner, .btSpell { animation: none !important; transition: none !important; } }
 `;
   document.head.appendChild(st);
@@ -383,11 +394,11 @@ function shell() {
   el.className = 'bt'; el.id = 'bt'; el.hidden = true;
   el.innerHTML = `
     <div class="top2"><span class="t">カードバトル</span><span class="meta" id="btTurn"></span><button class="x" id="btQuit">やめる</button></div>
-    <div class="bar"><div class="who" id="foeFace"><span class="ic" id="foeIc"></span><span><span class="lp"><small>LIFE</small><span id="foeLp"></span></span><div class="meta" id="foeMeta"></div></span></div><div class="mana" id="foeMana"></div></div>
+    <div class="bar" id="foeBar"><div class="who" id="foeFace"><span class="ic" id="foeIc"></span><span><span class="lp"><small>LIFE</small><span id="foeLp"></span></span><div class="meta" id="foeMeta"></div></span></div><div class="mana" id="foeMana"></div></div>
     <div class="field" id="foeField"></div>
     <div class="mid"><div class="log" id="btLog"></div></div>
     <div class="field" id="meField"></div>
-    <div class="bar"><div class="who" id="meFace"><span class="ic">🙂</span><span><span class="lp"><small>LIFE</small><span id="meLp"></span></span><div class="meta" id="meMeta"></div></span></div><div class="mana" id="meMana"></div><span style="flex:1"></span><button class="turnBtn" id="btEnd">ターン終了</button></div>
+    <div class="bar" id="meBar"><div class="who" id="meFace"><span class="ic">🙂</span><span><span class="lp"><small>LIFE</small><span id="meLp"></span></span><div class="meta" id="meMeta"></div></span></div><div class="mana" id="meMana"></div><span style="flex:1"></span><button class="turnBtn" id="btEnd">ターン終了</button></div>
     <div class="hand" id="meHand"></div>
     <div class="btSheet" id="btRes" hidden><div class="box"><h2 id="btResT"></h2><p id="btResM"></p><div class="btRow"><button class="bigbtn" id="btNext">次の相手へ</button><button class="bigbtn" id="btAgain">もう一度</button><button class="ghost" id="btBack">相手を選ぶ</button></div></div></div>`;
   document.body.appendChild(el);
