@@ -96,6 +96,7 @@ body { margin: 0; background: #0b0907; color: var(--ink); font-family: var(--pix
   .keys { font-size: .85rem; gap: 2px 12px !important; }
   #startBtn { padding: 8px 22px !important; }
 }
+.homeLink { color: inherit; opacity: .75; font-size: .9rem; }
 /* スマホ共通 */
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
@@ -133,6 +134,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
     </div>
     <button class="buy" id="startBtn" style="justify-self:start;font-size:1.2rem;padding:12px 28px">はじめる</button>
     <div class="small" id="saveNote"></div>
+    <a class="homeLink" href="../index.html">← ゲーム一覧へ戻る</a>
   </div>
 </div>
 
@@ -147,11 +149,12 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
       </div>
     </details>
     <button class="gbtn close" id="closeShop">閉じる <kbd>E</kbd></button>
+    <a class="homeLink" href="../index.html">← ゲーム一覧へ戻る</a>
   </div>
 </div>
 
 <div class="center" id="paused" hidden>
-  <div class="panel" style="width:min(100%,360px);text-align:center;justify-items:center"><h2>一時停止中</h2><button class="buy" id="resumeBtn">つづける</button></div>
+  <div class="panel" style="width:min(100%,360px);text-align:center;justify-items:center"><h2>一時停止中</h2><button class="buy" id="resumeBtn">つづける</button><a class="homeLink" href="../index.html">← ゲーム一覧へ戻る</a></div>
 </div>
 <div class="center" id="ending" hidden>
   <div class="panel title" style="text-align:center;justify-items:center">

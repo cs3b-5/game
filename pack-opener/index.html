@@ -36,6 +36,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .coin { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff2b0, #ffc94a 45%, #b07a10); box-shadow: 0 0 0 2px #7a5208 inset; }
 .comp { font-family: var(--num); font-size: 1.3rem; letter-spacing: .05em; color: var(--muted); }
 .tbtn { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 700; cursor: pointer; }
+.home { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; color: inherit; font-weight: 700; }
+.tbtn.home { padding: 7px 12px; }
 .tbtn:hover { background: rgba(255,255,255,.12); }
 .tbtn.battle { background: linear-gradient(90deg, #ff3d6a, #ff8a3d); border-color: transparent; color: #fff; }
 
@@ -200,6 +202,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 </head>
 <body>
 <header class="top">
+  <a class="tbtn home" href="../index.html" aria-label="ゲーム一覧へ戻る">←</a>
   <div class="logo">開封の儀<small>OPEN THE PACK</small></div>
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>

@@ -133,6 +133,7 @@ function cleanup() {
   for (const side of [B.me, B.foe]) side.field = side.field.map(m => (m && hpOf(side, m) <= 0) ? (killFx(m), null) : m);
 }
 function killFx(m) {
+  emit({ k: 'kill', id: 'u' + m.uid });
   if (FAST) return; const el = $('u' + m.uid); if (el) { el.classList.add('dying'); } A.tone(180, .2, 'sawtooth', .04, -80); }
 
 // ---------------- 行動 ----------------
@@ -256,13 +257,16 @@ function spellGood(side, card) {
 // ---------------- ターンの流れ ----------------
 function over() { return B && (B.me.lp <= 0 || B.foe.lp <= 0); }
 async function startTurn(side) {
-  B.turnSide = side; B.turn++;
+  if (!B || B.done) return;
+  B.turnSide = side; B.turn++; B.turnAt = Date.now();
   side.maxMana = Math.min(MANA_MAX, side.maxMana + 1); side.mana = side.maxMana;
   for (const m of side.field) if (m) m.sleep = false;
   if (!(B.turn === 1)) draw(side, 1);
   render();
   banner(side === B.me ? 'あなたのターン' : `${B.foe.nm}のターン`);
+  emit({ k: 'turn', host: side === B.me });
   if (over()) return finish();
+  if (B.online) { busy = side === B.foe; render(); sync(); return; }
   if (side === B.foe) {
     busy = true; render();
     await wait(900);
@@ -276,11 +280,13 @@ async function startTurn(side) {
 async function endTurn() {
   if (busy || B.turnSide !== B.me || over()) return;
   sel = null; targeting = null;
+  if (B.guest) { busy = true; render(); send({ t: 'act', a: 'end' }); return; }
   busy = true; render();
   await wait(250);
   startTurn(B.foe);
 }
 function finish() {
+  if (B.online) { if (!B.done) { B.done = true; busy = true; sync(); } return finishOnline(); }
   if (B.done) return; B.done = true; busy = true;
   const win = B.foe.lp <= 0 && B.me.lp > 0;
   const f = FOES[B.lv];
@@ -371,6 +377,12 @@ function css() {
 .deckGrid .item .n { position: absolute; right: -4px; top: -6px; z-index: 2; font-family: var(--num); background: var(--gold); color: #2a1a00; border-radius: 999px; padding: 0 7px; font-size: 1rem; }
 .deckGrid .item.out .bc { filter: grayscale(.8) brightness(.5); }
 .btRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.online { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(255,61,106,.12), rgba(70,224,255,.1)); border: 1px solid rgba(255,255,255,.14); }
+.online h3 { margin: 0; font-weight: 900; font-size: 1.05rem; }
+.online input { font: inherit; color: inherit; background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-width: 0; flex: 1; font-size: 16px; }
+.nameRow { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; }
+.codeBox { font-size: .9rem; } .codeBox b { font-family: var(--num); font-size: 2.6rem; letter-spacing: .2em; color: var(--gold); vertical-align: middle; margin-left: 8px; }
+.onStatus { font-size: .78rem; color: var(--muted); line-height: 1.5; }
 @media (min-width: 760px) { .bt { --bw: min(108px, 13vh); } }
 @media (max-height: 560px) and (orientation: landscape) {
   .bt { --bw: min(80px, calc((100vh - 36px) / 4.55)); grid-template-columns: minmax(0, 1fr) minmax(150px, 24vw); grid-template-rows: auto auto auto 1fr; grid-template-areas: "ff fb" "mid fb" "mf mb" "hand mb"; padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
@@ -408,6 +420,15 @@ function shell() {
     <h2>カードバトル</h2>
     <p>集めたカードで20枚のデッキを作って戦う。相手のライフを0にしたら勝ち。勝つとコインがもらえる。</p>
     <div class="foes" id="btFoes"></div>
+    <div class="online">
+      <h3>オンライン対戦</h3>
+      <label class="nameRow">名前 <input id="onName" maxlength="10" placeholder="ななしの金魚" autocomplete="off"></label>
+      <div class="btRow"><button class="bigbtn" id="onRandom">ランダムマッチ</button><button class="ghost" id="onHost">部屋を作る</button></div>
+      <div class="btRow"><input id="onJoinCode" inputmode="numeric" maxlength="4" placeholder="部屋番号（4けた）" autocomplete="off"><button class="ghost" id="onJoin">入る</button></div>
+      <div class="codeBox" id="onCodeBox" hidden>部屋番号 <b id="onCode"></b></div>
+      <div class="onStatus" id="onStatus">友達と同じページを開いて遊ぶ。勝つとコイン+${ONLINE_REWARD}（1日${ONLINE_DAILY}回まで）</div>
+      <button class="ghost" id="onCancel" hidden>やめる</button>
+    </div>
     <div class="btRow"><button class="ghost" id="btDeck">デッキを見る・組む</button><button class="ghost" id="btHow">遊び方</button><button class="ghost" id="btClose">もどる</button></div>
   </div>`;
   document.body.appendChild(menu);
@@ -433,12 +454,35 @@ function shell() {
     <div class="btRow"><button class="bigbtn" id="howOk">わかった</button></div></div>`;
   document.body.appendChild(how);
   // 操作
-  $('btQuit').onclick = () => { if (B && !B.done && !confirm('バトルをやめますか？（負けになります）')) return; if (B && !B.done) { B.me.lp = 0; B.done = true; (A.S.battle || (A.S.battle = { cleared: 0, wins: 0, losses: 0 })).losses++; A.save(); } closeBattle(); openMenu(); };
+  $('btQuit').onclick = () => {
+    if (B && !B.done && !confirm('バトルをやめますか？（負けになります）')) return;
+    if (B && !B.done) { B.me.lp = 0; B.done = true; if (B.online) { const on = A.S.online || (A.S.online = { wins: 0, losses: 0, day: '', n: 0 }); on.losses++; } else (A.S.battle || (A.S.battle = { cleared: 0, wins: 0, losses: 0 })).losses++; A.save(); }
+    netClose(); closeBattle(); openMenu();
+  };
   $('btEnd').onclick = endTurn;
   $('btNext').onclick = () => { $('btRes').hidden = true; startBattle(B.lv + 1); };
-  $('btAgain').onclick = () => { $('btRes').hidden = true; startBattle(B.lv); };
-  $('btBack').onclick = () => { $('btRes').hidden = true; closeBattle(); openMenu(); };
-  $('btClose').onclick = () => { $('btMenu').hidden = true; };
+  $('btAgain').onclick = () => {
+    if (B && B.online) {
+      if (!NET) return;
+      if (NET.role === 'host') { NET.rematchMe = true; if (NET.rematchThem) rematchGo(); else log('相手が「もう一度」を押すのを待っています…'); }
+      else { send({ t: 'rematch' }); $('btAgain').disabled = true; $('btAgain').textContent = '相手を待っています…'; }
+      return;
+    }
+    $('btRes').hidden = true; startBattle(B.lv);
+  };
+  $('btBack').onclick = () => { $('btRes').hidden = true; netClose(); closeBattle(); openMenu(); };
+  $('btClose').onclick = () => { netClose(); $('btMenu').hidden = true; };
+  $('onName').value = A.S.name || '';
+  $('onName').addEventListener('change', e => { A.S.name = e.target.value.trim().slice(0, 10); A.save(); });
+  const start = fn => async () => {
+    A.S.name = $('onName').value.trim().slice(0, 10); A.save();
+    $('onCodeBox').hidden = true; $('onCancel').hidden = false;
+    try { await fn(); } catch (e) { netStatus('つなげなかった（' + (e.type || e.message) + '）', true); }
+  };
+  $('onRandom').onclick = start(randomMatch);
+  $('onHost').onclick = start(hostRoom);
+  $('onJoin').onclick = start(() => joinRoom($('onJoinCode').value.trim()));
+  $('onCancel').onclick = () => { netClose('やめた'); $('onCodeBox').hidden = true; $('onCancel').hidden = true; };
   $('btHow').onclick = () => { $('btHowSheet').hidden = false; };
   $('howOk').onclick = () => { $('btHowSheet').hidden = true; };
   $('btDeck').onclick = openDeck;
@@ -480,10 +524,11 @@ function render() {
   if (!B || FAST) return;
   const me = B.me, foe = B.foe, myTurn = B.turnSide === me && !busy && !over();
   $('btTurn').textContent = `ターン ${Math.ceil(B.turn / 2)}`;
-  $('foeIc').textContent = FOES[B.lv].icon;
+  $('foeIc').textContent = B.online ? '🧑' : FOES[B.lv].icon;
+  if (B.online && !B.done) $('btTurn').textContent = `ターン ${Math.ceil(B.turn / 2)}・のこり${Math.max(0, Math.ceil(TURN_LIMIT - (Date.now() - B.turnAt) / 1000))}秒`;
   $('foeLp').textContent = foe.lp; $('meLp').textContent = me.lp;
   $('foeMeta').textContent = `${foe.nm}・手札${foe.hand.length}・山札${foe.deck.length}`;
-  $('meMeta').textContent = `山札${me.deck.length}`;
+  $('meMeta').textContent = `${B.online ? myName() + '・' : ''}山札${me.deck.length}`;
   const gems = s => Array.from({ length: Math.max(s.maxMana, 1) }, (_, i) => `<i class="${i < s.mana ? 'on' : ''}"></i>`).join('');
   $('foeMana').innerHTML = gems(foe); $('meMana').innerHTML = gems(me);
   const fieldHTML = (side, isMe) => {
@@ -514,22 +559,25 @@ async function onTap(e) {
   if (bc && bc.closest('#meHand')) {
     const card = me.hand.find(h => h.uid === +bc.dataset.uid);
     sel = null;
-    if (!card || !canPlay(me, card)) { A.tone(200, .08, 'square', .03); log(card ? (cost(card) > me.mana ? 'ちからが足りない' : card.c.type === 'M' ? '場がいっぱい' : card.c.type === 'I' ? '持たせるモンスターがいない' : '今は使えない') : ''); render(); return; }
-    if (card.c.type === 'I') { targeting = { type: 'item', card }; log('持たせるモンスターをタップ'); render(); return; }
-    targeting = null; busy = true; await play(me, card); busy = false; render(); if (over()) finish(); return;
+    if (!card || !canPlay(me, card)) { A.tone(200, .08, 'square', .03); logRaw(card ? (cost(card) > me.mana ? 'ちからが足りない' : card.c.type === 'M' ? '場がいっぱい' : card.c.type === 'I' ? '持たせるモンスターがいない' : '今は使えない') : ''); render(); return; }
+    if (card.c.type === 'I') { targeting = { type: 'item', card }; logRaw('持たせるモンスターをタップ'); render(); return; }
+    targeting = null;
+    if (B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid }); return; }
+    busy = true; await play(me, card); busy = false; render(); sync(); if (over()) finish(); return;
   }
   // アイテムを持たせる先
   if (targeting && targeting.type === 'item') {
     const mine = bc && bc.closest('#meField') ? me.field.find(m => m && m.uid === +bc.dataset.uid) : null;
     const card = targeting.card; targeting = null;
-    if (mine) { busy = true; await play(me, card, mine); busy = false; }
+    if (mine && B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid, target: mine.uid }); return; }
+    if (mine) { busy = true; await play(me, card, mine); busy = false; sync(); }
     render(); return;
   }
   // 自分のモンスターを選ぶ
   if (bc && bc.closest('#meField')) {
     const m = me.field.find(x => x && x.uid === +bc.dataset.uid);
-    if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) log('攻撃する相手（モンスターか顔）をタップ'); }
-    else if (m) log('出したばかりのモンスターは次のターンから攻撃できる');
+    if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) logRaw('攻撃する相手（モンスターか顔）をタップ'); }
+    else if (m) logRaw('出したばかりのモンスターは次のターンから攻撃できる');
     render(); return;
   }
   // 攻撃先
@@ -537,24 +585,31 @@ async function onTap(e) {
     const target = face ? null : foe.field.find(x => x && x.uid === +bc.dataset.uid);
     if (!face && !target) return;
     const m = sel; sel = null; busy = true; render();
-    await attack(me, m, target); busy = false; render();
+    if (B.guest) { send({ t: 'act', a: 'attack', uid: m.uid, target: target ? target.uid : 0 }); return; }
+    await attack(me, m, target); busy = false; render(); sync();
     if (over()) finish();
     return;
   }
   if (sel) { sel = null; render(); }
 }
-function log(t) {
+function log(t) { emit({ k: 'log', text: t }); logRaw(t); }
+function floatChat(t) { bannerRaw(t); }
+function logRaw(t) {
   if (FAST) return; if ($('btLog')) $('btLog').textContent = t; }
 function center(id) { const el = $(id); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function floatAt(id, text, col) {
+function floatAt(id, text, col) { emit({ k: 'float', id, text, col }); floatAtRaw(id, text, col); }
+function floatAtRaw(id, text, col) {
   if (FAST) return;
   render();
   const p = center(id); if (!p) return;
   const f = document.createElement('div'); f.className = 'btFloat'; f.textContent = text; f.style.color = col; f.style.left = p.x + 'px'; f.style.top = p.y + 'px';
   document.body.appendChild(f); setTimeout(() => f.remove(), 950);
 }
-function shake(id) { const el = $(id); if (!el) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
-async function lunge(fromId, toId) {
+function shake(id) { emit({ k: 'shake', id }); shakeRaw(id); }
+function shakeRaw(id) { const el = $(id); if (!el) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+let busyAnim = false;
+async function lunge(fromId, toId) { emit({ k: 'lunge', from: fromId, to: toId }); busyAnim = true; await lungeRaw(fromId, toId); busyAnim = false; }
+async function lungeRaw(fromId, toId) {
   if (FAST) return;
   const a = $(fromId), p = center(fromId), q = center(toId);
   if (!a || !p || !q) return;
@@ -565,16 +620,324 @@ async function lunge(fromId, toId) {
   a.style.transition = 'transform .2s ease-out'; a.style.transform = '';
   await wait(120);
 }
-function banner(t) {
-  if (FAST) return; const b = document.createElement('div'); b.className = 'btBanner'; b.textContent = t; document.body.appendChild(b); setTimeout(() => b.remove(), 1150); }
-function bigText(t, col) {
-  if (FAST) return; const b = document.createElement('div'); b.className = 'btBanner'; b.textContent = t; b.style.color = col; document.body.appendChild(b); setTimeout(() => b.remove(), 1150); }
-async function showSpell(card) {
+function banner(t) { bannerRaw(t); }
+function bannerRaw(t, col) {
+  if (FAST) return; const b = document.createElement('div'); b.className = 'btBanner'; b.textContent = t; if (col) b.style.color = col; document.body.appendChild(b); setTimeout(() => b.remove(), 1150); }
+function bigText(t, col) { emit({ k: 'big', text: t, col }); bannerRaw(t, col); return; const b = document.createElement('div'); b.className = 'btBanner'; b.textContent = t; b.style.color = col; document.body.appendChild(b); setTimeout(() => b.remove(), 1150); }
+async function showSpell(card) { emit({ k: 'spell', no: card.c.no }); await showSpellRaw(card.c); }
+async function showSpellRaw(c) {
   if (FAST) return;
   const d = document.createElement('div'); d.className = 'btSpell';
-  d.innerHTML = A.cardHTML(card.c);
+  d.innerHTML = A.cardHTML(c);
   document.body.appendChild(d); A.chime('SR');
   await wait(800); d.remove();
+}
+
+
+// =============================================================
+//  オンライン対戦（PeerJSでブラウザ同士をつなぐ）
+//  ホスト（部屋を作った側）がバトルを進めて、毎回の状態を相手に送る。
+//  ゲスト（入った側）は「何をしたか」だけを送る。
+// =============================================================
+const NET_VER = 1, PREFIX = 'yomatsuri-kaifu-', RAND_SLOTS = 6, TURN_LIMIT = 75, ONLINE_REWARD = 100, ONLINE_DAILY = 5;
+let NET = null;            // { role: 'host'|'guest', peer, conn, opp, rematch }
+function qp(k) { try { return new URLSearchParams(location.search).get(k); } catch (e) { return null; } }
+function peerOpts() {
+  const h = qp('peerhost');    // テスト用：自分で立てたサーバーにつなぐ
+  if (h) { const [host, port] = h.split(':'); return { host, port: +port || 9000, path: '/', secure: false, debug: 0 }; }
+  return { debug: 0 };
+}
+function loadPeerJS() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = qp('peerlib') || 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('通信の部品を読み込めなかった'));
+    document.head.appendChild(s);
+  });
+}
+function openPeer(id) {
+  return new Promise((res, rej) => {
+    const p = id ? new window.Peer(id, peerOpts()) : new window.Peer(peerOpts());
+    const t = setTimeout(() => { rej(Object.assign(new Error('timeout'), { type: 'timeout' })); try { p.destroy(); } catch (e) {} }, 12000);
+    const onErr = e => { clearTimeout(t); p.off('error', onErr); rej(e); try { p.destroy(); } catch (x) {} };
+    p.on('open', () => { clearTimeout(t); p.off('error', onErr); p.on('error', () => {}); res(p); });
+    p.on('error', onErr);
+  });
+}
+// 相手につないで、ホストから「OK」が来たらつながったことにする
+function tryConnect(peer, id, ms = 3500) {
+  return new Promise(res => {
+    let done = false;
+    const fin = v => { if (done) return; done = true; peer.off('error', onErr); clearTimeout(t); res(v); };
+    const onErr = e => { if (e.type === 'peer-unavailable') fin(null); };
+    peer.on('error', onErr);
+    const c = peer.connect(id, { reliable: true });
+    const t = setTimeout(() => { try { c.close(); } catch (e) {} fin(null); }, ms);
+    c.on('open', () => c.send({ t: 'knock', v: NET_VER }));
+    c.on('data', d => { if (d && d.t === 'welcome') fin(c); else if (d && d.t === 'busy') { try { c.close(); } catch (e) {} fin(null); } });
+    c.on('error', () => fin(null));
+  });
+}
+// いくつかの相手に同時につないで、最初にOKをくれた相手にする（ほかは切る）
+function tryConnectAny(peer, ids, ms = 3500) {
+  return new Promise(res => {
+    let done = false; const conns = [];
+    const fin = v => { if (done) return; done = true; clearTimeout(t); for (const c of conns) if (c !== v) { try { c.close(); } catch (e) {} } res(v); };
+    const t = setTimeout(() => fin(null), ms);
+    for (const id of ids) {
+      const c = peer.connect(id, { reliable: true }); if (!c) continue; conns.push(c);
+      c.on('open', () => c.send({ t: 'knock', v: NET_VER }));
+      c.on('data', d => { if (d && d.t === 'welcome') fin(c); });
+    }
+  });
+}
+function myName() { return (A.S.name || '').trim() || 'ななしの金魚'; }
+function netStatus(t, err) { const el = $('onStatus'); if (el) { el.textContent = t; el.style.color = err ? '#ff8aa0' : ''; } }
+function netClose(reason) {
+  const n = NET; NET = null;
+  if (!n) return;
+  clearInterval(n.timer); clearInterval(n.probe); clearInterval(n.hb);
+  try { n.conn && n.conn.open && n.conn.send({ t: 'bye' }); } catch (e) {}
+  try { n.conn && n.conn.close(); } catch (e) {}
+  try { n.peer && n.peer.destroy(); } catch (e) {}
+  if (reason) netStatus(reason);
+}
+function send(msg) { if (NET && NET.conn && NET.conn.open) NET.conn.send(msg); }
+
+// ---- 部屋を作る ----
+async function hostRoom() {
+  netClose(); await loadPeerJS();
+  netStatus('部屋を作っています…');
+  for (let i = 0; i < 6; i++) {
+    const code = String(Math.floor(1000 + rnd() * 9000));
+    try {
+      const peer = await openPeer(PREFIX + 'room-' + code);
+      NET = { role: 'host', peer, conn: null, code };
+      peer.on('connection', acceptConn);
+      peer.on('error', e => { if (!NET || NET.peer !== peer) return; if (e.type !== 'peer-unavailable') netStatus('通信エラー：' + e.type, true); });
+      $('onCode').textContent = code; $('onCodeBox').hidden = false;
+      netStatus('友達にこの番号を教えて、待っててね');
+      return;
+    } catch (e) { if (e.type !== 'unavailable-id') { netStatus('つなげなかった（' + (e.type || e.message) + '）', true); return; } }
+  }
+  netStatus('部屋を作れなかった。もう一度ためしてね', true);
+}
+// ---- 番号で入る ----
+async function joinRoom(code) {
+  netClose(); await loadPeerJS();
+  if (!/^\d{4}$/.test(code)) { netStatus('4けたの番号を入れてね', true); return; }
+  netStatus(`部屋 ${code} につないでいます…`);
+  try {
+    const peer = await openPeer(null);
+    NET = { role: 'guest', peer, conn: null };
+    const c = await tryConnect(peer, PREFIX + 'room-' + code, 8000);
+    if (!c || !NET) { netClose(); netStatus('部屋が見つからない（番号を確かめてね）', true); return; }
+    asGuest(c);
+  } catch (e) { netClose(); netStatus('つなげなかった（' + (e.type || e.message) + '）', true); }
+}
+// ---- ランダムマッチ：あいている待ち合わせ場所を探して、だれもいなければ自分が待つ ----
+async function randomMatch() {
+  netClose(); await loadPeerJS();
+  netStatus('相手をさがしています…');
+  try {
+    const me = await openPeer(null);
+    NET = { role: 'guest', peer: me, conn: null, searching: true };
+    const c0 = await tryConnectAny(me, Array.from({ length: RAND_SLOTS }, (_, k) => PREFIX + 'rand-' + k), 3500);
+    if (c0 && NET && NET.peer === me) return asGuest(c0);
+    if (!NET || NET.peer !== me) return;
+    try { me.destroy(); } catch (e) {}
+    for (let k = 0; k < RAND_SLOTS; k++) {
+      try {
+        const hp = await openPeer(PREFIX + 'rand-' + k);
+        NET = { role: 'host', peer: hp, conn: null, slot: k, random: true };
+        hp.on('connection', acceptConn);
+        netStatus('相手が来るのを待っています…（そのまま待っててね）');
+        // 自分より前の場所でだれか待っていたら、そっちに入る（すれちがい防止）
+        if (k > 0) NET.probe = setInterval(probe, 3500), setTimeout(probe, 600);
+        async function probe() {
+          if (!NET || NET.peer !== hp || NET.conn) return;
+          const pr = await openPeer(null).catch(() => null); if (!pr) return;
+          const c = await tryConnectAny(pr, Array.from({ length: k }, (_, j) => PREFIX + 'rand-' + j), 2500);
+          if (c && NET && NET.peer === hp && !NET.conn) { clearInterval(NET.probe); try { hp.destroy(); } catch (e) {} NET = { role: 'guest', peer: pr, conn: null }; return asGuest(c); }
+          try { pr.destroy(); } catch (e) {}
+        }
+        return;
+      } catch (e) { if (e.type !== 'unavailable-id') throw e; }
+    }
+    netClose(); netStatus('混んでいるみたい。もう一度ためしてね', true);
+  } catch (e) { netClose(); netStatus('つなげなかった（' + (e.type || e.message) + '）', true); }
+}
+// ---- ホスト：だれかが来た ----
+function acceptConn(c) {
+  c.on('data', d => {
+    if (!d) return;
+    if (d.t === 'knock') {
+      if (!NET || NET.conn || NET.role !== 'host') { c.send({ t: 'busy' }); setTimeout(() => c.close(), 300); return; }
+      if (d.v !== NET_VER) { c.send({ t: 'busy' }); return; }
+      NET.conn = c; clearInterval(NET.probe);
+      wire(c);
+      c.send({ t: 'welcome' });
+      netStatus('相手が来た！');
+    }
+  });
+}
+function asGuest(c) {
+  NET.conn = c; NET.role = 'guest';
+  wire(c);
+  const { deck, rental } = playerDeck();
+  send({ t: 'hello', name: myName(), deck, rental, v: NET_VER });
+  netStatus('対戦の準備中…');
+}
+function wire(c) {
+  NET.lastRx = Date.now();
+  c.on('data', d => { if (NET) NET.lastRx = Date.now(); onMsg(d); });
+  c.on('close', () => onLost());
+  c.on('error', () => onLost());
+  // 生きているか確かめる（3秒ごとに合図、12秒こなければ切れたことにする）
+  clearInterval(NET.hb);
+  NET.hb = setInterval(() => {
+    if (!NET) return;
+    send({ t: 'ping' });
+    if (Date.now() - NET.lastRx > 12000) onLost();
+  }, 3000);
+  NET.peer.on('disconnected', () => { try { NET && NET.peer.reconnect(); } catch (e) {} });
+}
+function onLost() {
+  if (!NET) return;
+  const inBattle = B && B.online && !B.done;
+  netClose();
+  if (inBattle) {
+    B.done = true; busy = true;
+    showResult('勝ち（相手の通信が切れた）', '#ffc94a', '相手との通信が切れたので、勝ちになった。（コインはもらえない）', false);
+  } else netStatus('相手との通信が切れた', true);
+}
+async function onMsg(d) {
+  if (!d || !NET) return;
+  if (d.t === 'ping') return;
+  if (d.t === 'bye') return onLost();
+  if (NET.role === 'host') {
+    if (d.t === 'hello') { NET.opp = (d.name || '').slice(0, 10) || 'ななしの金魚'; send({ t: 'hello', name: myName() }); startOnline(d.deck || [], d.rental || []); }
+    else if (d.t === 'act') hostAct(d);
+    else if (d.t === 'rematch') { NET.rematchThem = true; if (NET.rematchMe) rematchGo(); else log(`${NET.opp}が「もう一度」を押した`); }
+    else if (d.t === 'chat') floatChat(d.s);
+  } else {
+    if (d.t === 'hello') { NET.opp = (d.name || '').slice(0, 10) || 'ななしの金魚'; }
+    else if (d.t === 'state') guestState(d);
+    else if (d.t === 'fx') guestFx(d.fx);
+    else if (d.t === 'chat') floatChat(d.s);
+  }
+}
+
+// ---- バトルの状態を送る・受け取る ----
+function sc(m) { return m && { uid: m.uid, no: m.no, atk: m.atk, hp: m.hp, maxHp: m.maxHp, buff: m.buff, sleep: m.sleep, rental: m.rental, items: m.items }; }
+function ss(s, hideHand) { return { nm: s.nm, lp: s.lp, mana: s.mana, maxMana: s.maxMana, deckN: s.deck.length, hand: hideHand ? s.hand.map(() => null) : s.hand.map(sc), field: s.field.map(sc), land: sc(s.land), fatigue: s.fatigue }; }
+function sync() {
+  if (!NET || NET.role !== 'host' || !B || !B.online) return;
+  send({ t: 'state', turn: B.turn, hostTurn: B.turnSide === B.me, me: ss(B.me, true), foe: ss(B.foe, false), done: B.done, left: Math.max(0, Math.ceil(TURN_LIMIT - (Date.now() - B.turnAt) / 1000)), busy: busy && B.turnSide === B.me });
+}
+function emit(fx) { if (NET && NET.role === 'host' && B && B.online && !FAST) send({ t: 'fx', fx }); }
+function guestState(d) {
+  const dc = x => x && Object.assign({}, x, { c: A.CARDS[x.no - 1] });
+  const ds = s => Object.assign({}, s, { deck: { length: s.deckN }, hand: s.hand.map(h => h ? dc(h) : { uid: 0, c: A.CARDS[0], hidden: true }), field: s.field.map(dc), land: dc(s.land) });
+  const me = ds(d.foe), foe = ds(d.me);
+  const first = !B || !B.online;
+  B = { online: true, guest: true, lv: -1, turn: d.turn, me, foe, turnSide: d.hostTurn ? foe : me, done: d.done, turnAt: Date.now() - (TURN_LIMIT - d.left) * 1000 };
+  if (first || (d.turn <= 1 && !d.done)) { $('btMenu').hidden = true; $('bt').hidden = false; $('btRes').hidden = true; $('btAgain').disabled = false; }
+  busy = d.hostTurn || d.done; sel = null; targeting = null;
+  render();
+  if (d.done) { if (!NET.doneShown) { NET.doneShown = true; finishOnline(); } } else NET.doneShown = false;
+}
+// ホストで起きた演出を、ゲストの画面で再生する（自分と相手が逆になる）
+function flipId(id) { return id === 'meFace' ? 'foeFace' : id === 'foeFace' ? 'meFace' : id; }
+function guestFx(f) {
+  if (f.k === 'float') { floatAtRaw(flipId(f.id), f.text, f.col); A.tone(f.col === '#7be39a' ? 880 : 200, .08, 'square', .04, -40); }
+  else if (f.k === 'lunge') lungeRaw(flipId(f.from), flipId(f.to));
+  else if (f.k === 'shake') shakeRaw(flipId(f.id));
+  else if (f.k === 'spell') { const c = A.CARDS[f.no - 1]; showSpellRaw(c); }
+  else if (f.k === 'turn') { bannerRaw(f.host ? `${NET ? NET.opp : '相手'}のターン` : 'あなたのターン'); if (!f.host) A.tone(660, .1, 'triangle', .05); }
+  else if (f.k === 'big') bannerRaw(f.text, f.col);
+  else if (f.k === 'log') logRaw(f.text);
+  else if (f.k === 'kill') { const el = $(f.id); if (el) el.classList.add('dying'); A.tone(180, .2, 'sawtooth', .04, -80); }
+}
+// ---- ホスト：ゲストの行動を実行 ----
+let hostWorking = false;
+async function hostAct(d) {
+  if (!B || !B.online || B.done || B.turnSide !== B.foe || hostWorking) return;
+  hostWorking = true;
+  try {
+    const me = B.foe, them = B.me;
+    if (d.a === 'play') {
+      const card = me.hand.find(h => h.uid === d.uid);
+      const target = d.target ? me.field.find(m => m && m.uid === d.target) : null;
+      if (card && canPlay(me, card) && (card.c.type !== 'I' || target)) await play(me, card, target);
+    } else if (d.a === 'attack') {
+      const m = me.field.find(x => x && x.uid === d.uid);
+      const t = d.target ? them.field.find(x => x && x.uid === d.target) : null;
+      if (m && !m.sleep && (!d.target || t)) await attack(me, m, t);
+    } else if (d.a === 'end') {
+      hostWorking = false; sync();
+      if (!over()) { await wait(200); startTurn(B.me); }
+      return;
+    }
+  } finally { hostWorking = false; }
+  sync();
+  if (over()) finish();
+}
+// ---- ホスト：対戦を始める ----
+function startOnline(guestDeck, guestRental) {
+  const keep = { deck: guestDeck, rental: guestRental };
+  const { deck, rental } = playerDeck();
+  B = { online: true, lv: -1, turn: 0, me: newSide(myName(), deck, rental), foe: newSide(NET.opp, guestDeck.slice(0, DECK).filter(no => no >= 1 && no <= A.CARDS.length), guestRental.slice(0, DECK)), done: false, turnAt: Date.now() };
+  B.foeDeckNos = keep;
+  sel = null; targeting = null; busy = true;
+  $('btMenu').hidden = true; $('bt').hidden = false; $('btRes').hidden = true;
+  draw(B.me, 4); draw(B.foe, 4);
+  const first = rnd() < .5 ? B.me : B.foe;
+  draw(first === B.me ? B.foe : B.me, 1);
+  log(`${NET.opp}と対戦！ ${first === B.me ? 'あなたが先攻' : '相手が先攻'}`); emit({ k: 'log', text: `${myName()}と対戦！ ${first === B.me ? '相手が先攻' : 'あなたが先攻'}` });
+  render(); sync();
+  clearInterval(NET.timer);
+  NET.timer = setInterval(() => {
+    if (!B || !B.online || B.done) return;
+    render();
+    if ((Date.now() - B.turnAt) / 1000 > TURN_LIMIT && !hostWorking && !busyAnim) {
+      log('時間切れ！ ターン終了'); emit({ k: 'log', text: '時間切れ！ ターン終了' });
+      sel = null; targeting = null;
+      startTurn(B.turnSide === B.me ? B.foe : B.me);
+    }
+  }, 1000);
+  setTimeout(() => startTurn(first), 900);
+}
+function rematchGo() {
+  NET.rematchMe = NET.rematchThem = false;
+  $('btRes').hidden = true;
+  send({ t: 'hello', name: myName() });
+  // ゲストのデッキは前と同じものを使う
+  const gd = B.foeDeckNos || [];
+  startOnline(gd.deck || [], gd.rental || []);
+}
+function finishOnline() {
+  if (B.shown) return; B.shown = true; busy = true;
+  const win = B.foe.lp <= 0 && B.me.lp > 0, draw2 = B.foe.lp <= 0 && B.me.lp <= 0;
+  const on = A.S.online || (A.S.online = { wins: 0, losses: 0, day: '', n: 0 });
+  const today = new Date().toISOString().slice(0, 10);
+  if (on.day !== today) { on.day = today; on.n = 0; }
+  let coins = 0;
+  if (win) { on.wins++; if (on.n < ONLINE_DAILY) { on.n++; coins = ONLINE_REWARD; } } else if (!draw2) on.losses++;
+  A.S.coins += coins; A.save(); A.hud();
+  if (win) { A.chime('UR'); A.sparkle(innerWidth / 2, innerHeight / 2, ['#ffc94a', '#ff4fa0', '#fff'], 120, 12); } else A.tone(220, .5, 'triangle', .05, -120);
+  const opp = NET ? NET.opp : '相手';
+  setTimeout(() => showResult(draw2 ? '引き分け' : win ? '勝ち！' : '負け…', win ? '#ffc94a' : '#9aa8a2',
+    `${opp}${win ? 'に勝った' : draw2 ? 'と引き分け' : 'に負けた'}<br>${win ? (coins ? `コイン +${coins}（今日あと${ONLINE_DAILY - on.n}回もらえる）` : '今日のコインはもう上限') : ''}<br><small>通算 ${on.wins}勝 ${on.losses}敗</small>`, true), 900);
+}
+function showResult(title, col, html, online) {
+  $('btRes').hidden = false;
+  $('btResT').textContent = title; $('btResT').style.color = col;
+  $('btResM').innerHTML = html;
+  $('btNext').hidden = true;
+  $('btAgain').hidden = !online || !NET;
+  $('btAgain').textContent = online ? 'もう一度（同じ相手）' : 'もう一度';
 }
 
 // ---------------- 開く・閉じる ----------------
@@ -613,6 +976,7 @@ function startBattle(lv) {
 }
 function closeBattle() { $('bt').hidden = true; B = null; A.hud(); }
 
+addEventListener('pagehide', () => { try { NET && NET.conn && NET.conn.open && NET.conn.send({ t: 'bye' }); } catch (e) {} });
 window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },

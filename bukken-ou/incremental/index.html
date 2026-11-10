@@ -820,7 +820,8 @@ function sheetSell() {
     ${g ? `<button class="pbtn ${sheet.arm ? 'no' : 'ok'}" data-act="prestige">${ic('sold', 22)}${sheet.arm ? 'もう一度押すと売却' : '会社を売る'}</button>`
         : `<span class="chip">${ic('flag', 16)}総売上 ${fmt(need)} で★が手に入る</span>`}`;
 }
-function sheetRecords() {
+function sheetRecords() { return sheetRecords0() + `<a class="pbtn" href="../../index.html" style="justify-self:start;text-decoration:none;padding:10px 16px;color:inherit">← ゲーム一覧へ戻る</a>`; }
+function sheetRecords0() {
   const got = TROPHIES.filter(t => S.trophies[t.id]).length;
   return `<div class="row" style="gap:6px">
       <span class="chip" title="プレイ時間">${ic('clock', 16)}${fmtTime(S.stats.playT)}</span>

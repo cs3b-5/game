@@ -1433,7 +1433,8 @@ function sheetShop() {
   }
   return h;
 }
-function sheetRecords() {
+function sheetRecords() { return sheetRecords0() + `<a class="pbtn" href="../../index.html" style="justify-self:start;text-decoration:none;padding:10px 16px;color:inherit">← ゲーム一覧へ戻る</a>`; }
+function sheetRecords0() {
   const ts = S.stats.times, avg = ts.length ? ts.reduce((a, b) => a + b, 0) / ts.length : 0;
   const ratio = S.stats.firstTime && avg ? S.stats.firstTime / avg : 0;
   const medalIc = gr => gr === 'g' ? 'trophy' : gr === 's' ? 'star' : 'coin';
