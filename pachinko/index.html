@@ -27,14 +27,14 @@ html, body { height: 100%; }
 body { margin: 0; background: radial-gradient(900px 600px at 50% 30%, #231b4a, var(--bg) 70%); background-color: var(--bg); color: var(--ink); font-family: var(--jp); overflow: hidden; user-select: none; -webkit-user-select: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
-.app { height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+.app { height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-width: 0; }
 .logo { font-weight: 900; font-size: 1.05rem; letter-spacing: .02em; white-space: nowrap; }
 .logo b { color: var(--pink); }
 .sp { flex: 1; }
 .balls { display: flex; align-items: baseline; gap: 6px; font-family: var(--num); font-size: 1.7rem; letter-spacing: .04em; color: var(--gold); line-height: 1; font-variant-numeric: tabular-nums; }
 .balls small { font-family: var(--jp); font-size: .7rem; color: var(--muted); letter-spacing: 0; }
-.mode { font-weight: 900; font-size: .78rem; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); white-space: nowrap; }
+.mode { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 900; font-size: .78rem; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); white-space: nowrap; }
 .mode.rush { background: linear-gradient(90deg, #ff3d8a, #ff9a3d); color: #fff; animation: glow 1s ease-in-out infinite alternate; }
 .mode.jitan { background: #2a7aff; color: #fff; }
 .mode.bonus { background: var(--gold); color: #2a1a00; animation: glow .5s ease-in-out infinite alternate; }
@@ -75,7 +75,7 @@ canvas#graph { width: 100%; height: 110px; display: block; background: rgba(0,0,
 
 /* 横長の画面：右にパネル */
 @media (min-aspect-ratio: 4/5) {
-  .app { grid-template-columns: 1fr minmax(260px, 340px); grid-template-rows: auto 1fr; }
+  .app { grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); grid-template-rows: auto 1fr; }
   header { grid-column: 1 / -1; }
   .boardWrap { grid-row: 2; grid-column: 1; }
   .sidecol { grid-row: 2; grid-column: 2; display: grid; align-content: start; gap: 12px; padding: 4px 14px 14px 0; overflow-y: auto; }
@@ -97,6 +97,14 @@ canvas#graph { width: 100%; height: 110px; display: block; background: rgba(0,0,
 .ghost { padding: 10px 18px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); font-weight: 700; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .small { font-size: .74rem; color: var(--muted); }
+.card > .row:last-child { position: sticky; bottom: -20px; background: var(--panel); padding: 8px 0 4px; margin-bottom: -4px; }
+@media (max-height: 560px) {
+  .card { padding: 14px 18px 20px; gap: 8px; }
+  .card h1 { font-size: 1.6rem; }
+  .card p { font-size: .8rem; line-height: 1.55; }
+  .card .stat b { font-size: 1.15rem; }
+  #graph2 { height: 80px !important; }
+}
 
 @media (min-aspect-ratio: 4/5) and (max-height: 560px) {
   header { padding: 2px 10px; gap: 8px; }
@@ -110,6 +118,7 @@ canvas#graph { width: 100%; height: 110px; display: block; background: rgba(0,0,
   .stats .stat b { font-size: 1.15rem; }
   canvas#graph, .help { display: none; }
 }
+@media (max-width: 380px) { .logo { font-size: .9rem; } header { gap: 6px; padding: 6px 8px; } .balls { font-size: 1.4rem; } .balls small { display: none; } .icon { width: 32px; height: 32px; } }
 @media (prefers-reduced-motion: reduce) { .push, .rightArrow, .mode { animation: none !important; } }
 [hidden] { display: none !important; }
 button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -176,7 +185,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
       <div class="stat"><span>出た玉</span><b id="dOut">0</b></div>
     </div>
     <canvas id="graph2" style="width:100%;height:140px;display:block;background:rgba(0,0,0,.25);border-radius:10px"></canvas>
-    <p class="small">確率：通常 1/45・花火RUSH中 1/8。大当たりは10ラウンド（約1400玉）。通常からの当たりの50%、RUSH中の当たりの75%で花火RUSHへ。それ以外は時短50回（夜店チャンス）。</p>
+    <p class="small">確率：通常 1/45・花火RUSH中 1/8。大当たりは10ラウンド（約1400玉）。通常からの当たりの50%、RUSH中の当たりの65%で花火RUSHへ。それ以外は時短15回（夜店チャンス）。</p>
     <div class="row"><button class="big" id="closeData">もどる</button><button class="ghost" id="resetBtn">データを消す</button></div>
   </div>
 </div>
@@ -204,8 +213,8 @@ const pick = a => a[Math.floor(rnd() * a.length)];
 // =============================================================
 const RULE = {
   probN: 1 / 45, probR: 1 / 8,          // 大当たり確率（通常・RUSH）
-  rushN: .5, rushR: .75,                 // 当たったときに花火RUSHへ行く割合
-  jitan: 50,                             // 時短の回数
+  rushN: .5, rushR: .65,                 // 当たったときに花火RUSHへ行く割合
+  jitan: 15,                             // 時短の回数
   rounds: 10, count: 10, roundMax: 25,   // ラウンド数・1ラウンドの玉数・秒
   payHeso: 3, payDen: 2, payPocket: 6, payAtk: 14,
   shotEvery: .6,                         // 発射の間隔（1分に100発）
