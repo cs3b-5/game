@@ -37,6 +37,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .comp { font-family: var(--num); font-size: 1.3rem; letter-spacing: .05em; color: var(--muted); }
 .tbtn { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 700; cursor: pointer; }
 .tbtn:hover { background: rgba(255,255,255,.12); }
+.tbtn.battle { background: linear-gradient(90deg, #ff3d6a, #ff8a3d); border-color: transparent; color: #fff; }
 
 /* ---------- 台 ---------- */
 .stage { position: fixed; inset: 70px 0 150px; display: grid; place-items: center; perspective: 1400px; }
@@ -203,6 +204,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>
   <button class="tbtn" id="binderBtn">図鑑</button>
+  <button class="tbtn battle" id="battleBtn">バトル</button>
   <div class="coins"><i class="coin"></i><span id="coins">0</span></div>
 </header>
 
@@ -225,6 +227,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 
 <script src="art.js"></script>
 <script src="cards.js"></script>
+<script src="battle.js"></script>
 <script>
 (() => {
 'use strict';
@@ -649,6 +652,9 @@ hint(S.opened ? '下からパックを選ぶ' : 'まずは<b>無料パック</b>
 if (TOUCH) document.querySelector('#inspect .cap').textContent = '指でなぞると傾く・タップで閉じる';
 setInterval(() => { if (state === 'idle' || state === 'done') renderShop(); }, 1000);
 addEventListener('pagehide', save);
+// カードバトル（battle.js）に道具をわたす
+window.PackBattle.init({ get S() { return S; }, save, hud, CARDS, ELEMENTS, RAR, inspect, cardHTML, tone, chime, audio, sparkle, toast, esc });
+$('battleBtn').addEventListener('click', () => { audio(); window.PackBattle.open(); });
 })();
 </script>
 </body>
