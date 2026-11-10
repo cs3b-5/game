@@ -168,7 +168,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
     <h1>夜祭り<em>金魚</em></h1>
     <div class="en">HANABI RUSH</div>
     <p>夏祭りの夜、金魚すくいの屋台で一攫千金。玉を打ってヘソに入れると液晶の図柄が回る。<b>3つそろえば大当たり！</b></p>
-    <p class="small">・まずは<b>左打ち</b>（ハンドル35くらい）でヘソを狙う<br>・大当たり中と花火RUSH中は<b>右打ち</b>（ハンドル75くらい）<br>・奇数の図柄でそろうと<b>花火RUSH</b>（次も当たりやすい）<br>・スーパーリーチでは<b>PUSH</b>ボタンを押してみよう<br>・本物のお金は使わない、遊び用のパチンコです</p>
+    <p class="small">・まずは<b>左打ち</b>（ハンドル35くらい）でヘソを狙う<br>・大当たり中と花火RUSH中は<b>右打ち</b>（ハンドル75くらい）<br>・奇数の図柄でそろうと<b>花火RUSH</b>（10回転のあいだ当たりやすい。RUSH中に当たればまたRUSH）<br>・スーパーリーチでは<b>PUSH</b>ボタンを押してみよう<br>・本物のお金は使わない、遊び用のパチンコです</p>
     <div class="row"><button class="big" id="startBtn">遊ぶ</button></div>
   </div>
 </div>
@@ -185,7 +185,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
       <div class="stat"><span>出た玉</span><b id="dOut">0</b></div>
     </div>
     <canvas id="graph2" style="width:100%;height:140px;display:block;background:rgba(0,0,0,.25);border-radius:10px"></canvas>
-    <p class="small">確率：通常 1/45・花火RUSH中 1/8。大当たりは10ラウンド（約1400玉）。通常からの当たりの50%、RUSH中の当たりの65%で花火RUSHへ。それ以外は時短15回（夜店チャンス）。</p>
+    <p class="small">確率：通常 1/45・花火RUSH中 1/8。大当たりは10ラウンド（約1400玉）。花火RUSHは10回転のST（そのあいだ1/8）で、RUSH中に当たれば必ずRUSH継続。通常からの当たりは50%でRUSH、それ以外は時短15回（夜店チャンス）。</p>
     <div class="row"><button class="big" id="closeData">もどる</button><button class="ghost" id="resetBtn">データを消す</button></div>
   </div>
 </div>
@@ -213,7 +213,8 @@ const pick = a => a[Math.floor(rnd() * a.length)];
 // =============================================================
 const RULE = {
   probN: 1 / 45, probR: 1 / 8,          // 大当たり確率（通常・RUSH）
-  rushN: .5, rushR: .65,                 // 当たったときに花火RUSHへ行く割合
+  rushN: .5,                             // 通常で当たったときに花火RUSHへ行く割合（RUSH中の当たりは全部RUSH）
+  st: 10,                                // 花火RUSH（ST）の回数
   jitan: 15,                             // 時短の回数
   rounds: 10, count: 10, roundMax: 25,   // ラウンド数・1ラウンドの玉数・秒
   payHeso: 3, payDen: 2, payPocket: 6, payAtk: 14,
@@ -225,7 +226,7 @@ const RULE = {
 //  セーブ
 // =============================================================
 const KEY = 'pachinko-yomatsuri-v1';
-let S = { balls: 1000, mode: 'normal', jitanLeft: 0, power: 35, mute: false, refills: 0,
+let S = { balls: 1000, mode: 'normal', jitanLeft: 0, stLeft: 0, power: 35, mute: false, refills: 0,
   stats: { spins: 0, hits: 0, rush: 0, maxChain: 0, chain: 0, in: 0, out: 0, spinsSinceHit: 0 }, graph: [1000] };
 try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) S = Object.assign(S, d, { stats: Object.assign(S.stats, d.stats || {}) }); } catch (e) {}
 let saveT = 0;
@@ -265,6 +266,7 @@ const SFX = {
   count() { tone(1760, .04, 'square', .02); },
   firework() { noise(.4, .05, 600); tone(90, .4, 'sine', .08, -40); },
   gate() { tone(2093, .05, 'sine', .02); },
+  gimmick() { tone(110, .5, 'sawtooth', .07, -50); noise(.3, .06, 300); tone(880, .3, 'square', .03, 440, .25); },
 };
 let nailGate = 0;
 
@@ -284,75 +286,104 @@ function resize() {
   drawStatic();
   placeOverlays();
 }
-const LCD = { x: 172, y: 232, w: 256, h: 232 };
+const LCD = B.LCD;
+// 役物（液晶のまわりのかたまり）の外形：枠＋ステージの下
+const BODY = [...B.FRAME.slice(0, 10), [490, 562], [312, 578], [288, 578], [104, 560]];
+// 枠のLED：外形に沿って点を並べる
+const LEDS = [];
+(function () {
+  const pts = B.FRAME.slice(0, 10).concat([[490, 562]]);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [a, b] = [pts[i], pts[i + 1]], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let d = 0; d < l; d += 15) LEDS.push({ x: a[0] + (b[0] - a[0]) * d / l, y: a[1] + (b[1] - a[1]) * d / l, i: LEDS.length });
+  }
+  // 左側（上から下へ）
+  for (let y = 214; y < 556; y += 15) LEDS.push({ x: 104, y, i: LEDS.length });
+})();
+function path(c, pts) { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) c.lineTo(p[0], p[1]); c.closePath(); }
 function drawStatic() {
   const c = staticCv.getContext('2d');
   c.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
-  // 台の背景
+  // セル盤（台の絵）：夏祭りの夜
   const bg = c.createLinearGradient(0, 0, 0, B.H);
-  bg.addColorStop(0, '#1a1342'); bg.addColorStop(.55, '#2a1650'); bg.addColorStop(1, '#0d2340');
+  bg.addColorStop(0, '#120a34'); bg.addColorStop(.5, '#2a0f4a'); bg.addColorStop(1, '#081a3a');
   c.fillStyle = bg; c.fillRect(0, 0, B.W, B.H);
-  // 花火の模様
-  const fw = [[110, 140, 70, '#ff5fb8'], [480, 240, 60, '#46e0ff'], [90, 620, 50, '#ffcc4a'], [520, 820, 40, '#ff5fb8']];
-  for (const [x, y, r, col] of fw) {
-    c.strokeStyle = col; c.globalAlpha = .12; c.lineWidth = 2;
-    for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; c.beginPath(); c.moveTo(x + Math.cos(a) * r * .3, y + Math.sin(a) * r * .3); c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); c.stroke(); }
+  // 大きな月と花火
+  const mg = c.createRadialGradient(80, 120, 5, 80, 120, 90); mg.addColorStop(0, 'rgba(255,240,200,.35)'); mg.addColorStop(1, 'rgba(255,240,200,0)');
+  c.fillStyle = mg; c.fillRect(0, 0, 220, 260);
+  for (const [x, y, r, col] of [[60, 420, 46, '#ff5fb8'], [548, 230, 40, '#46e0ff'], [200, 740, 54, '#ffcc4a'], [420, 760, 44, '#ff5fb8'], [540, 120, 30, '#ffcc4a']]) {
+    c.strokeStyle = col; c.globalAlpha = .16; c.lineWidth = 2;
+    for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; c.beginPath(); c.moveTo(x + Math.cos(a) * r * .25, y + Math.sin(a) * r * .25); c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); c.stroke(); }
     c.globalAlpha = 1;
   }
-  // 水面と金魚のかげ
-  const wg = c.createLinearGradient(0, 760, 0, B.H); wg.addColorStop(0, 'rgba(40,140,220,0)'); wg.addColorStop(1, 'rgba(40,140,220,.35)');
+  // 水面と金魚
+  const wg = c.createLinearGradient(0, 760, 0, B.H); wg.addColorStop(0, 'rgba(40,140,220,0)'); wg.addColorStop(1, 'rgba(40,140,220,.4)');
   c.fillStyle = wg; c.fillRect(0, 760, B.W, 140);
-  for (const [x, y, s, col] of [[150, 830, 1, '#ff6a3d'], [430, 850, .8, '#ffffff'], [250, 860, .7, '#ff3d5a']]) fish(c, x, y, s, col, .35);
-  // 外レール
-  c.lineWidth = 10; c.strokeStyle = '#8b8fb0';
-  c.beginPath(); c.arc(B.CX, B.CY, B.R + 5, Math.PI, 0); c.lineTo(B.RW + 5, B.H); c.moveTo(B.LW - 5, B.H); c.lineTo(B.LW - 5, B.CY); c.stroke();
-  c.lineWidth = 3; c.strokeStyle = '#e8ebff';
-  c.beginPath(); c.arc(B.CX, B.CY, B.R + 2, Math.PI, 0); c.stroke();
-  // ちょうちん（上のレールに沿って）
-  for (let i = 0; i < 11; i++) {
-    const a = Math.PI * (.12 + i * .076), r = B.R - 14, x = B.CX + Math.cos(a) * r, y = B.CY - Math.sin(a) * r;
-    c.fillStyle = i % 2 ? '#ff3d5a' : '#ff8a3d'; c.globalAlpha = .55;
-    c.beginPath(); c.ellipse(x, y, 6, 8, 0, 0, 7); c.fill(); c.globalAlpha = 1;
-  }
-  // プラスチックの部品（線）
-  for (const s of B.SEG) {
-    if (s.k === 'denLid' || s.k === 'denWing' || s.k === 'atkLid') continue;
-    c.lineCap = 'round';
-    c.strokeStyle = s.k === 'stage' ? 'rgba(120,220,255,.9)' : 'rgba(210,200,255,.55)'; c.lineWidth = s.k === 'stage' ? 5 : 4;
-    c.beginPath(); c.moveTo(s.x1, s.y1); c.lineTo(s.x2, s.y2); c.stroke();
-  }
-  // 液晶の枠（金の飾り）
+  for (const [x, y, s, col, d] of [[120, 840, 1, '#ff6a3d', 1], [420, 856, .8, '#ffffff', -1], [250, 868, .7, '#ff3d5a', 1]]) fish(c, x, y, s, col, .35, d);
+  // 外レール（銀色）
+  c.lineWidth = 12; c.strokeStyle = '#6a6e90';
+  c.beginPath(); c.moveTo(B.LW - 6, B.H); c.lineTo(B.LW - 6, B.CY); c.arc(B.CX, B.CY, B.R + 6, Math.PI, 0); c.lineTo(B.RW + 6, B.H); c.stroke();
+  c.lineWidth = 3; c.strokeStyle = '#eef0ff';
+  c.beginPath(); c.moveTo(B.LW - 1, B.H); c.lineTo(B.LW - 1, B.CY); c.arc(B.CX, B.CY, B.R + 1, Math.PI, 0); c.lineTo(B.RW + 1, B.H); c.stroke();
+  // 役物の本体（金と赤）
   c.save();
-  c.beginPath(); c.moveTo(158, 264); c.lineTo(228, 214); c.lineTo(300, 198); c.lineTo(372, 214); c.lineTo(442, 264); c.lineTo(442, 472); c.lineTo(404, 480); c.lineTo(196, 480); c.lineTo(158, 472); c.closePath();
-  const fg = c.createLinearGradient(0, 198, 0, 480); fg.addColorStop(0, '#ffde7a'); fg.addColorStop(.5, '#c8781a'); fg.addColorStop(1, '#7a3a10');
-  c.fillStyle = fg; c.fill(); c.lineWidth = 3; c.strokeStyle = '#fff2c0'; c.stroke();
+  path(c, BODY);
+  const fg = c.createLinearGradient(0, 96, 0, 580); fg.addColorStop(0, '#ffe08a'); fg.addColorStop(.25, '#d08a24'); fg.addColorStop(.7, '#8a3a10'); fg.addColorStop(1, '#5a1a10');
+  c.fillStyle = fg; c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 18; c.shadowOffsetY = 6; c.fill(); c.restore();
+  c.lineWidth = 2.5; c.strokeStyle = '#fff2c0'; path(c, BODY); c.stroke();
+  // 液晶の外の黒いふち
+  c.fillStyle = '#0a0612'; c.beginPath(); c.roundRect(LCD.x - 6, LCD.y - 6, LCD.w + 12, LCD.h + 12, 14); c.fill();
+  // 上のロゴ板
+  c.save();
+  c.beginPath(); c.moveTo(196, 132); c.lineTo(404, 132); c.lineTo(420, 146); c.lineTo(180, 146); c.closePath(); c.fillStyle = '#7a0f20'; c.fill();
+  c.font = '900 13px "Noto Sans JP", sans-serif'; c.textAlign = 'center'; c.fillStyle = '#ffe9b0'; c.fillText('夜 祭 り 金 魚', 300, 144);
   c.restore();
-  // ロゴ
-  c.save(); c.textAlign = 'center'; c.font = '900 17px "Noto Sans JP", sans-serif'; c.fillStyle = '#7a1020'; c.fillText('夜祭り金魚', 300, 226); c.restore();
   // ステージ（青いガラス）
-  c.fillStyle = 'rgba(70,200,255,.18)'; c.beginPath(); c.moveTo(196, 486); c.lineTo(232, 480); c.lineTo(270, 486); c.lineTo(290, 494); c.lineTo(310, 494); c.lineTo(330, 486); c.lineTo(368, 480); c.lineTo(404, 486); c.lineTo(404, 500); c.lineTo(196, 500); c.closePath(); c.fill();
+  c.fillStyle = 'rgba(70,200,255,.25)';
+  c.beginPath(); c.moveTo(130, 528); c.lineTo(180, 538); c.lineTo(240, 544); c.lineTo(290, 552); c.lineTo(290, 560); c.lineTo(104, 552); c.lineTo(104, 520); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(470, 528); c.lineTo(420, 538); c.lineTo(360, 544); c.lineTo(310, 552); c.lineTo(310, 560); c.lineTo(496, 552); c.lineTo(496, 520); c.closePath(); c.fill();
+  c.strokeStyle = '#8ae8ff'; c.lineWidth = 3; c.lineCap = 'round';
+  for (const s of B.SEG) if (s.k === 'stage') { c.beginPath(); c.moveTo(s.x1, s.y1); c.lineTo(s.x2, s.y2); c.stroke(); }
+  // ステージの穴
+  const hg = c.createRadialGradient(300, 556, 2, 300, 556, 16); hg.addColorStop(0, '#fff'); hg.addColorStop(.4, '#ff5fb8'); hg.addColorStop(1, 'rgba(255,95,184,0)');
+  c.fillStyle = hg; c.beginPath(); c.arc(300, 556, 16, 0, 7); c.fill();
   // ワープ入口
-  c.fillStyle = '#46e0ff'; c.beginPath(); c.ellipse(B.P.warp.x - 2, B.P.warp.y, 4, 9, 0, 0, 7); c.fill();
-  label(c, 'WARP', B.P.warp.x - 22, B.P.warp.y - 14, '#46e0ff', 9);
-  // ヘソ
+  c.fillStyle = '#46e0ff'; c.beginPath(); c.ellipse(B.P.warp.x - 1, B.P.warp.y, 4, 10, 0, 0, 7); c.fill();
+  label(c, 'WARP', B.P.warp.x - 30, B.P.warp.y - 14, '#46e0ff', 9);
+  // 道釘のレール（見た目は釘の列）
+  for (const s of B.SEG) if (s.k === 'road') { const l = Math.hypot(s.x2 - s.x1, s.y2 - s.y1); for (let d = 0; d <= l; d += 10) nailDot(c, s.x1 + (s.x2 - s.x1) * d / l, s.y1 + (s.y2 - s.y1) * d / l); }
+  // 右打ちルートの透明プラスチック
+  c.strokeStyle = 'rgba(200,220,255,.55)'; c.lineWidth = 4;
+  for (const s of B.SEG) if (s.k === 'guide' || s.k === 'wall') { c.beginPath(); c.moveTo(s.x1, s.y1); c.lineTo(s.x2, s.y2); c.stroke(); }
+  // 右打ちの印
+  c.save(); c.translate(538, 300); c.fillStyle = 'rgba(255,95,184,.85)'; c.beginPath(); c.moveTo(-14, -8); c.lineTo(6, -8); c.lineTo(6, -16); c.lineTo(20, 0); c.lineTo(6, 16); c.lineTo(6, 8); c.lineTo(-14, 8); c.closePath(); c.fill(); c.restore();
+  label(c, 'RIGHT', 538, 330, '#ff9fd4', 10);
+  // スルーゲート
+  c.strokeStyle = '#4aff9a'; c.lineWidth = 4; c.beginPath(); c.arc(B.P.gate.x, B.P.gate.y + 8, 17, Math.PI, 0); c.stroke();
+  label(c, 'GATE', B.P.gate.x, B.P.gate.y - 14, '#4aff9a', 9);
+  // 電チューの台
+  c.fillStyle = 'rgba(70,224,255,.2)'; c.fillRect(512, 592, 52, 14); label(c, 'V', 538, 618, '#46e0ff', 11);
+  // アタッカーの箱
+  c.fillStyle = 'rgba(255,204,74,.16)'; c.beginPath(); c.moveTo(494, 694); c.lineTo(566, 722); c.lineTo(566, 744); c.lineTo(494, 740); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(255,204,74,.7)'; c.lineWidth = 3; c.beginPath(); c.moveTo(494, 740); c.lineTo(566, 744); c.stroke();
+  label(c, 'ATTACKER', 530, 758, '#ffcc4a', 9);
+  // ヘソ・入賞口
   chucker(c, B.P.heso.x, B.P.heso.y, '#ff3d5a', 'START');
   chucker(c, B.P.pocketL.x, B.P.pocketL.y, '#3d8aff', '');
-  chucker(c, B.P.pocketR.x, B.P.pocketR.y, '#3d8aff', '');
-  // スルーゲート
-  c.strokeStyle = '#4aff9a'; c.lineWidth = 3; c.beginPath(); c.arc(B.P.gate.x, B.P.gate.y + 6, 16, Math.PI, 0); c.stroke();
-  label(c, 'GATE', B.P.gate.x, B.P.gate.y - 14, '#4aff9a', 9);
-  // アタッカーの箱
-  c.fillStyle = 'rgba(255,204,74,.12)'; c.beginPath(); c.moveTo(474, 716); c.lineTo(560, 748); c.lineTo(560, 770); c.lineTo(474, 770); c.closePath(); c.fill();
-  label(c, 'ATTACKER', 512, 784, '#ffcc4a', 9);
-  label(c, '右打ち', 528, 470, '#ff9fd4', 10);
   // 釘
-  for (const n of B.NAILS) {
-    const gr = c.createRadialGradient(n.x - 1, n.y - 1, .3, n.x, n.y, B.NR + .6);
-    gr.addColorStop(0, '#ffffff'); gr.addColorStop(.5, '#c8c8d8'); gr.addColorStop(1, '#5a5a70');
-    c.fillStyle = gr; c.beginPath(); c.arc(n.x, n.y, B.NR, 0, 7); c.fill();
-  }
+  for (const n of B.NAILS) nailDot(c, n.x, n.y);
+  // 左下の表示パネル（特図・普図・右打ちランプ）
+  c.fillStyle = '#05040c'; c.beginPath(); c.roundRect(24, 828, 92, 40, 6); c.fill();
+  c.strokeStyle = '#3a3a5a'; c.lineWidth = 1.5; c.stroke();
+  c.font = '400 9px "Bebas Neue", sans-serif'; c.fillStyle = '#7a7aa0'; c.textAlign = 'left';
+  c.fillText('1', 30, 864); c.fillText('2', 52, 864); c.fillText('普', 74, 864); c.fillText('右', 96, 864);
   // アウト穴
-  c.fillStyle = '#05040c'; c.beginPath(); c.ellipse(300, 880, 24, 10, 0, 0, 7); c.fill();
+  c.fillStyle = '#05040c'; c.beginPath(); c.ellipse(300, 880, 28, 11, 0, 0, 7); c.fill();
+}
+function nailDot(c, x, y) {
+  const gr = c.createRadialGradient(x - 1, y - 1, .3, x, y, B.NR + .6);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(.5, '#c8c8d8'); gr.addColorStop(1, '#5a5a70');
+  c.fillStyle = gr; c.beginPath(); c.arc(x, y, B.NR, 0, 7); c.fill();
 }
 function label(c, t, x, y, col, size) { c.save(); c.font = `400 ${size + 3}px "Bebas Neue", sans-serif`; c.textAlign = 'center'; c.fillStyle = col; c.globalAlpha = .9; c.fillText(t, x, y); c.restore(); }
 function chucker(c, x, y, col, t) {
@@ -410,7 +441,7 @@ function prob() { return S.mode === 'rush' ? RULE.probR : RULE.probN; }
 function addHold(kind) {
   const q = holds[kind]; if (q.length >= RULE.holdMax) return false;
   const hit = rnd() < prob();
-  const rush = hit && rnd() < (S.mode === 'rush' ? RULE.rushR : RULE.rushN);
+  const rush = hit && (S.mode === 'rush' || rnd() < RULE.rushN);
   let reach = 'none';
   if (hit) reach = rnd() < .1 ? 'premium' : rnd() < .62 ? 'super' : 'normal';
   else if (rnd() < (S.mode === 'rush' ? .1 : .12)) reach = rnd() < .28 ? 'super' : 'normal';
@@ -422,7 +453,7 @@ function addHold(kind) {
   else if (reach === 'normal') color = r < .12 ? 'green' : 'white';
   else color = r < .015 ? 'green' : 'white';
   const yokoku = hit ? rnd() < .45 : reach !== 'none' ? rnd() < .12 : rnd() < .015;
-  q.push({ hit, rush, reach, color, yokoku });
+  q.push({ hit, rush, reach, color, yokoku, kind, gim: hit ? rnd() < .4 : reach === 'super' && rnd() < .05 });
   return true;
 }
 function nextHold() {
@@ -438,6 +469,7 @@ function nextHold() {
 function startSpin(h) {
   S.stats.spins++; S.stats.spinsSinceHit++;
   if (S.mode === 'jitan') S.jitanLeft--;
+  if (S.mode === 'rush') S.stLeft--;
   // 最後に出る図柄を決める
   let a, b, c;
   if (h.hit) { const odd = [0, 2, 4, 6, 8], even = [1, 3, 5, 7]; a = b = c = pick(h.rush ? odd : even); }
@@ -450,9 +482,9 @@ function startSpin(h) {
   if (h.reach === 'normal') { stops[2] = stops[1] + 5.2; dur = stops[2] + .9; }
   if (h.reach === 'super') { stops[2] = stops[1] + 10.5; dur = stops[2] + 1.2; }
   if (h.reach === 'premium') { stops[0] = stops[1] = stops[2] = 6.2; dur = 7.4; }
-  spin = { h, t: 0, dur, stops, target: [a, c, b], start: reels.slice(), reachAt: stops[1], pushAt: h.reach === 'super' ? stops[2] - 2.6 : -1, pushed: false, stopped: [false, false, false] };
+  spin = { h, kind: h.kind, t: 0, dur, stops, target: [a, c, b], start: reels.slice(), reachAt: stops[1], pushAt: h.reach === 'super' ? stops[2] - 2.6 : -1, pushed: false, stopped: [false, false, false] };
   if (h.yokoku) { addFx('school', 1.6); SFX.yokoku(); }
-  if (h.reach === 'premium') { banner = { text: '全回転', t: 0, life: 6, col: '#ffcc4a' }; SFX.win(); }
+  if (h.reach === 'premium') { banner = { text: '全回転', t: 0, life: 6, col: '#ffcc4a' }; SFX.win(); dropGimmick(2.2); }
 }
 // 図柄の位置：止まる時間に向けてだんだん遅くなる
 function reelPos(i, t) {
@@ -491,12 +523,14 @@ function stepSpin(dt) {
     }
   }
   if (spin.h.reach === 'super' && prevT < spin.reachAt + 1.4 && spin.t >= spin.reachAt + 1.4) { banner = { text: '花火リーチ', t: 0, life: 2, col: '#ffcc4a' }; }
+  if (spin.h.gim && prevT < spin.reachAt + 4 && spin.t >= spin.reachAt + 4) dropGimmick(2.6);
   if (spin.h.reach === 'super' && spin.t > spin.reachAt + 1.4 && spin.t < spin.stops[2] && rnd() < dt * 1.6) { addFx('firework', 1.4); if (rnd() < .5) SFX.firework(); }
   if (spin.t >= spin.dur) endSpin();
 }
 function endSpin() {
   const h = spin.h; spin = null;
   if (S.mode === 'jitan' && S.jitanLeft <= 0 && !h.hit) { S.mode = 'normal'; banner = { text: '夜店チャンス終了', t: 0, life: 2, col: '#a89fc8' }; S.stats.chain = 0; }
+  if (S.mode === 'rush' && S.stLeft <= 0 && !h.hit) { S.mode = 'normal'; banner = { text: `RUSH終了 ${S.stats.chain}連`, t: 0, life: 2.6, col: '#ffb3e0' }; S.stats.chain = 0; }
   if (h.hit) startBonus(h);
   ui();
 }
@@ -511,7 +545,7 @@ function startBonus(h) {
   S.stats.spinsSinceHit = 0;
   bonus = { rush: h.rush, phase: 'fanfare', t: 0, round: 0, cnt: 0, pay: 0 };
   banner = { text: '大当たり！', t: 0, life: 2.6, col: '#ffcc4a', big: true };
-  SFX.win(); shake = .8;
+  SFX.win(); shake = .8; if (!gim) dropGimmick(2.4);
   for (let i = 0; i < 5; i++) setTimeout(() => addFx('firework', 1.5), i * 300);
   W.denOpen = false;
 }
@@ -526,7 +560,7 @@ function stepBonus(dt) {
   }
   else if (bonus.phase === 'interval' && bonus.t > 1.2) { bonus.phase = 'round'; bonus.round++; bonus.t = 0; bonus.cnt = 0; W.atkOpen = true; SFX.round(); }
   else if (bonus.phase === 'ending' && bonus.t > 3.2) {
-    if (bonus.rush) { if (S.mode !== 'rush') S.stats.rush++; S.mode = 'rush'; }
+    if (bonus.rush) { if (S.mode !== 'rush') S.stats.rush++; S.mode = 'rush'; S.stLeft = RULE.st; }
     else { S.mode = 'jitan'; S.jitanLeft = RULE.jitan; }
     bonus = null; ui();
   }
@@ -564,98 +598,135 @@ function addFx(k, life) {
   fx.push(f);
 }
 function drawLCD(c, now) {
+  const K = 1.32;                               // 図柄の大きさ
   c.save();
   c.beginPath(); c.roundRect(LCD.x, LCD.y, LCD.w, LCD.h, 10); c.clip();
   // 背景：モードで変わる
   const sky = c.createLinearGradient(0, LCD.y, 0, LCD.y + LCD.h);
-  if (bonus) { sky.addColorStop(0, '#3a1a00'); sky.addColorStop(1, '#a8501a'); }
-  else if (S.mode === 'rush') { sky.addColorStop(0, '#2a0040'); sky.addColorStop(1, '#a01a6a'); }
+  if (bonus) { sky.addColorStop(0, '#3a1a00'); sky.addColorStop(1, '#c8601a'); }
+  else if (S.mode === 'rush') { sky.addColorStop(0, '#2a0040'); sky.addColorStop(1, '#b01a6a'); }
   else if (S.mode === 'jitan') { sky.addColorStop(0, '#001a40'); sky.addColorStop(1, '#1a5aa0'); }
-  else { sky.addColorStop(0, '#0a0a2a'); sky.addColorStop(1, '#22366a'); }
+  else { sky.addColorStop(0, '#070722'); sky.addColorStop(1, '#22366a'); }
   c.fillStyle = sky; c.fillRect(LCD.x, LCD.y, LCD.w, LCD.h);
   const superMode = spin && spin.h.reach === 'super' && spin.t > spin.reachAt + 1.4 && spin.t < spin.dur;
-  if (superMode) { c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(LCD.x, LCD.y, LCD.w, LCD.h); }
-  // 屋台のちょうちん
-  for (let i = 0; i < 7; i++) {
-    const x = LCD.x + 18 + i * 37, y = LCD.y + 14 + Math.sin(now * 2 + i) * 2;
-    c.fillStyle = i % 2 ? '#ff3d5a' : '#ff8a3d'; c.globalAlpha = .8; c.beginPath(); c.ellipse(x, y, 7, 9, 0, 0, 7); c.fill(); c.globalAlpha = 1;
+  // 屋台の街並み
+  if (!superMode) {
+    for (let i = 0; i < 6; i++) {
+      const x = LCD.x + 10 + i * 60, y = LCD.y + LCD.h - 96;
+      c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(x, y, 50, 50);
+      c.fillStyle = ['#c8322a', '#2a6ac8', '#c8962a'][i % 3]; c.globalAlpha = .6;
+      c.beginPath(); c.moveTo(x - 4, y); c.lineTo(x + 25, y - 16); c.lineTo(x + 54, y); c.closePath(); c.fill(); c.globalAlpha = 1;
+    }
   }
-  // 水面
-  c.fillStyle = 'rgba(70,170,255,.18)'; c.fillRect(LCD.x, LCD.y + LCD.h - 46, LCD.w, 46);
+  // ちょうちんの列
+  for (let i = 0; i < 9; i++) {
+    const x = LCD.x + 20 + i * 40, y = LCD.y + 18 + Math.sin(now * 2 + i) * 2;
+    c.fillStyle = i % 2 ? '#ff3d5a' : '#ff8a3d'; c.globalAlpha = .85; c.beginPath(); c.ellipse(x, y, 8, 11, 0, 0, 7); c.fill(); c.globalAlpha = 1;
+  }
+  // 水面と泳ぐ金魚
+  c.fillStyle = 'rgba(70,170,255,.2)'; c.fillRect(LCD.x, LCD.y + LCD.h - 46, LCD.w, 46);
+  for (let i = 0; i < 3; i++) { const x = LCD.x + ((now * (20 + i * 8) + i * 130) % (LCD.w + 80)) - 40; fish(c, x, LCD.y + LCD.h - 26 + i * 6, .5, ['#ff6a3d', '#fff', '#ff3d5a'][i], .6, -1); }
+  if (superMode) { c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(LCD.x, LCD.y, LCD.w, LCD.h); }
   // エフェクト（後ろ）
   for (const f of fx) if (f.k === 'firework' || f.k === 'bigFire') drawFirework(c, f);
   // 図柄
-  const cy = LCD.y + LCD.h * .48;
-  const xs = [LCD.x + LCD.w * .2, LCD.x + LCD.w * .5, LCD.x + LCD.w * .8];
+  const cy = LCD.y + LCD.h * .45;
+  const xs = [LCD.x + LCD.w * .19, LCD.x + LCD.w * .5, LCD.x + LCD.w * .81];
   for (let col = 0; col < 3; col++) {
-    const order = [0, 2, 1][col];  // 左・中・右 の止まる順（左→右→中）
+    const order = [0, 2, 1][col];  // 左→右→中 の順に止まる
     let pos;
     if (spin) {
       if (spin.h.reach === 'premium') pos = spin.t >= spin.stops[0] ? spin.target[0] : ((spin.t * 3) % 9);
       else pos = spin.stopped[order] ? spin.target[order] : reelPos(order, spin.t);
     } else pos = reels[col];
     const big = superMode && col === 1;
-    const sc = big ? 1.25 : superMode ? .7 : 1;
-    const x = big ? LCD.x + LCD.w / 2 : superMode ? (col === 0 ? LCD.x + 44 : LCD.x + LCD.w - 44) : xs[col];
-    const y = superMode && !big ? LCD.y + LCD.h - 50 : cy;
-    const fl = Math.floor(pos), fr = pos - fl;
+    const sc = (big ? 1.45 : superMode ? .62 : 1) * K;
+    const x = big ? LCD.x + LCD.w / 2 : superMode ? (col === 0 ? LCD.x + 46 : LCD.x + LCD.w - 46) : xs[col];
+    const y = superMode && !big ? LCD.y + LCD.h - 56 : cy;
+    const fl = Math.floor(pos), fr = pos - fl, step = 92 * K;
     const spinning = spin && !(spin.h.reach === 'premium' ? spin.t >= spin.stops[0] : spin.stopped[order]);
-    const glow = !spin && reels[0] === reels[1] && reels[1] === reels[2] && (bonus || false);
-    if (spinning && !big && !(spin.h.reach === 'premium')) {
+    const glow = !spin && bonus && reels[0] === reels[1] && reels[1] === reels[2];
+    if (spinning && !big && spin.h.reach !== 'premium') {
       c.save(); c.globalAlpha = .9;
-      drawSym(c, (fl + 1) % 9, x, y - fr * 92 + 92, sc * .95);
-      drawSym(c, fl % 9, x, y - fr * 92, sc * .95);
+      drawSym(c, (fl + 1) % 9, x, y - fr * step + step, sc * .95);
+      drawSym(c, fl % 9, x, y - fr * step, sc * .95);
       c.restore();
     } else drawSym(c, Math.round(pos) % 9, x, y, sc, glow || (spin && spin.h.reach === 'premium') || (big && spin.h.hit && spin.stopped[2]));
   }
   // リーチの線
   if (spin && spin.stopped[1] && !spin.stopped[2] && spin.h.reach !== 'premium' && !superMode) {
-    c.strokeStyle = 'rgba(255,95,184,.8)'; c.lineWidth = 3; c.setLineDash([8, 6]);
+    c.strokeStyle = 'rgba(255,95,184,.85)'; c.lineWidth = 3; c.setLineDash([10, 7]);
     c.beginPath(); c.moveTo(LCD.x + 10, cy); c.lineTo(LCD.x + LCD.w - 10, cy); c.stroke(); c.setLineDash([]);
   }
   // 金魚群（予告）
-  for (const f of fx) if (f.k === 'school') for (const fi of f.fish) { const p = Math.max(0, (f.t - fi.d) / (f.life - .5)); if (p > 0 && p < 1) fish(c, LCD.x + LCD.w + 30 - p * (LCD.w + 70), fi.y, fi.s, fi.c, 1); }
-  // 大当たり中の表示
+  for (const f of fx) if (f.k === 'school') for (const fi of f.fish) { const p = Math.max(0, (f.t - fi.d) / (f.life - .5)); if (p > 0 && p < 1) fish(c, LCD.x + LCD.w + 30 - p * (LCD.w + 70), fi.y, fi.s * 1.3, fi.c, 1); }
+  // 下の帯：保留・モード・ラウンド
+  c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(LCD.x, LCD.y + LCD.h - 34, LCD.w, 34);
+  const by = LCD.y + LCD.h - 17;
+  // 保留（左：ヘソ、右：電チュー）。真ん中は今回っている分
+  const HC = { white: '#ffffff', green: '#4aff9a', red: '#ff3d5a', gold: '#ffcc4a' };
+  for (let i = 0; i < 4; i++) { const h = holds.heso[i]; c.beginPath(); c.arc(LCD.x + 18 + i * 20, by, 7, 0, 7); c.fillStyle = h ? HC[h.color] : 'rgba(255,255,255,.12)'; c.fill(); }
+  for (let i = 0; i < 4; i++) { const h = holds.den[i]; c.beginPath(); c.arc(LCD.x + LCD.w - 18 - i * 20, by, 7, 0, 7); c.fillStyle = h ? '#46e0ff' : 'rgba(255,255,255,.12)'; c.fill(); }
+  if (spin) { c.beginPath(); c.arc(LCD.x + LCD.w / 2, by, 9, 0, 7); c.fillStyle = HC[spin.h.color] || '#fff'; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); }
+  c.textAlign = 'center'; c.textBaseline = 'middle';
   if (bonus) {
-    c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(LCD.x, LCD.y + LCD.h - 54, LCD.w, 54);
-    c.textAlign = 'center'; c.fillStyle = '#ffcc4a';
-    c.font = '400 30px "Bebas Neue", sans-serif';
-    const r = bonus.phase === 'fanfare' ? 'BIG BONUS' : bonus.phase === 'ending' ? 'TOTAL ' + bonus.pay.toLocaleString() : `ROUND ${bonus.round}/${RULE.rounds}  ${bonus.cnt}/${RULE.count}`;
-    c.fillText(r, LCD.x + LCD.w / 2, LCD.y + LCD.h - 20);
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(LCD.x, LCD.y + LCD.h - 78, LCD.w, 44);
+    c.fillStyle = '#ffcc4a'; c.font = '400 34px "Bebas Neue", sans-serif';
+    const r = bonus.phase === 'fanfare' ? 'BIG BONUS' : bonus.phase === 'ending' ? 'TOTAL ' + bonus.pay.toLocaleString() : `ROUND ${bonus.round}/${RULE.rounds}   ${bonus.cnt}/${RULE.count}`;
+    c.fillText(r, LCD.x + LCD.w / 2, LCD.y + LCD.h - 55);
   } else if (S.mode !== 'normal') {
-    c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(LCD.x, LCD.y + LCD.h - 30, LCD.w, 30);
-    c.textAlign = 'center'; c.font = '900 14px "Noto Sans JP", sans-serif'; c.fillStyle = '#fff';
-    c.fillText(S.mode === 'rush' ? `花火RUSH ${S.stats.chain}連中` : `夜店チャンス 残り${Math.max(0, S.jitanLeft)}回`, LCD.x + LCD.w / 2, LCD.y + LCD.h - 10);
+    c.font = '900 15px "Noto Sans JP", sans-serif'; c.fillStyle = '#fff';
+    const t = S.mode === 'rush' ? `花火RUSH ${S.stats.chain}連 ・ 残り${Math.max(0, S.stLeft)}回` : `夜店チャンス 残り${Math.max(0, S.jitanLeft)}回`;
+    c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(LCD.x, LCD.y + 34, LCD.w, 26); c.fillStyle = S.mode === 'rush' ? '#ffb3e0' : '#9ad8ff'; c.fillText(t, LCD.x + LCD.w / 2, LCD.y + 47);
+    if (S.mode === 'rush' && S.stLeft <= 3 && !spin) { c.font = '900 22px "Noto Sans JP", sans-serif'; c.fillStyle = '#ff5fb8'; c.fillText('ラスト' + Math.max(0, S.stLeft) + '回！', LCD.x + LCD.w / 2, LCD.y + 82); }
   }
   // 大きな文字
   if (banner) {
-    const p = banner.t / banner.life, sc = banner.big ? 1 : .8;
-    c.save(); c.translate(LCD.x + LCD.w / 2, LCD.y + LCD.h * (banner.big ? .45 : .26));
+    const p = banner.t / banner.life, sc = banner.big ? 1.3 : 1;
+    c.save(); c.translate(LCD.x + LCD.w / 2, LCD.y + LCD.h * (banner.big ? .45 : .24));
     const pop = p < .12 ? .4 + p / .12 * .7 : p < .2 ? 1.1 - (p - .12) * 1.2 : 1;
     c.scale(pop * sc, pop * sc); c.globalAlpha = p > .85 ? (1 - p) / .15 : 1;
     c.font = `900 ${banner.big ? 44 : 34}px "Noto Sans JP", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const tw = c.measureText(banner.text).width; if (tw > LCD.w - 24) { const k = (LCD.w - 24) / tw; c.scale(k, k); }
+    const tw = c.measureText(banner.text).width * sc; if (tw > LCD.w - 24) { const k = (LCD.w - 24) / tw; c.scale(k, k); }
     c.lineWidth = 8; c.strokeStyle = '#1a0a20'; c.strokeText(banner.text, 0, 0);
     c.fillStyle = banner.col; c.fillText(banner.text, 0, 0);
     c.restore();
   }
   c.restore();
-  // 液晶の枠のふち
-  c.strokeStyle = '#2a1a10'; c.lineWidth = 3; c.beginPath(); c.roundRect(LCD.x, LCD.y, LCD.w, LCD.h, 10); c.stroke();
-  // 保留（液晶の下）
-  const all = [...holds.heso.map(h => [h, 'h']), ...holds.den.map(h => [h, 'd'])];
-  for (let i = 0; i < 8; i++) {
-    const x = 300 - 66 + (i % 4) * 44 + (i >= 4 ? 0 : 0), y = i < 4 ? 474 : 474;
-    if (i >= 4) break;
-    const h = holds.heso[i];
-    c.beginPath(); c.arc(x, y, 5, 0, 7);
-    c.fillStyle = h ? { white: '#ffffff', green: '#4aff9a', red: '#ff3d5a', gold: '#ffcc4a' }[h.color] : 'rgba(255,255,255,.15)';
-    c.fill();
+}
+// 枠のLEDの色
+function ledColor(i, now) {
+  const reachOn = spin && spin.stopped[1] && spin.h.reach !== 'none' && !spin.stopped[2];
+  if (bonus || (spin && spin.h.reach === 'premium')) return `hsl(${(i * 24 + now * 360) % 360} 100% 60%)`;
+  if (gim) return Math.floor(now * 12) % 2 ? '#ffe08a' : '#fff';
+  if (reachOn && spin.h.reach === 'super') return Math.floor(now * 10 + i) % 2 ? '#ff1e4a' : '#fff';
+  if (reachOn) return Math.floor(now * 6) % 2 ? '#ff5fb8' : '#4a1030';
+  if (S.mode === 'rush') return (i + Math.floor(now * 14)) % 4 < 2 ? '#ff5fb8' : '#ff9a3d';
+  if (S.mode === 'jitan') return (i + Math.floor(now * 8)) % 6 < 3 ? '#46e0ff' : '#1a3a6a';
+  const w = .5 + .5 * Math.sin(now * 2 - i * .25);
+  return `rgba(${90 + w * 80 | 0},${120 + w * 100 | 0},255,${.35 + w * .5})`;
+}
+// 金魚役物（液晶の上の金の金魚。チャンスで落ちてくる）
+let gim = null;
+function dropGimmick(life = 2.4) { gim = { t: 0, life }; shake = .5; SFX.gimmick(); }
+function drawGimmick(c, now) {
+  let y = 118, s = .9, rot = Math.sin(now * 1.6) * .06;
+  if (gim) {
+    const p = gim.t;
+    if (p < .35) { y = 118 + (p / .35) ** 2 * 210; s = .9 + p / .35 * 1.4; }
+    else if (p < gim.life - .5) { const q = p - .35; y = 328 - Math.abs(Math.sin(q * 9)) * 26 * Math.exp(-q * 4); s = 2.3; rot = Math.sin(q * 20) * .05 * Math.exp(-q * 3); }
+    else { const q = (p - (gim.life - .5)) / .5; y = 328 - q * 210; s = 2.3 - q * 1.4; }
   }
-  for (let i = 0; i < holds.den.length; i++) { c.fillStyle = '#46e0ff'; c.beginPath(); c.arc(430 - i * 10, 466, 3.5, 0, 7); c.fill(); }
-  // 普図ランプ
-  c.fillStyle = futsu.dur > 0 ? (Math.floor(now * 8) % 2 ? '#4aff9a' : '#1a4a2a') : futsu.opens.length ? '#4aff9a' : '#1a4a2a';
-  c.beginPath(); c.arc(560, 470, 5, 0, 7); c.fill();
+  c.save(); c.translate(300, y); c.rotate(rot); c.scale(s, s);
+  if (gim) { c.shadowColor = '#ffcc4a'; c.shadowBlur = 30; }
+  const gg = c.createLinearGradient(-30, -16, 30, 16); gg.addColorStop(0, '#fff5c0'); gg.addColorStop(.4, '#ffcc4a'); gg.addColorStop(1, '#b07010');
+  c.fillStyle = gg;
+  c.beginPath(); c.ellipse(-4, 0, 20, 12, 0, 0, 7); c.fill();
+  c.beginPath(); c.moveTo(12, 0); c.quadraticCurveTo(28, -18, 34, -12); c.quadraticCurveTo(26, 0, 34, 12); c.quadraticCurveTo(28, 18, 12, 0); c.fill();
+  c.shadowBlur = 0;
+  c.fillStyle = '#7a1020'; c.beginPath(); c.arc(-14, -3, 2.8, 0, 7); c.fill();
+  c.strokeStyle = '#fff'; c.lineWidth = 1; c.globalAlpha = .7; c.beginPath(); c.arc(-4, -2, 8, 3.6, 5); c.stroke();
+  c.restore();
 }
 function drawFirework(c, f) {
   const p = f.t / f.life, big = f.k === 'bigFire';
@@ -681,20 +752,28 @@ function draw(now) {
   g.drawImage(staticCv, sx * scale * dpr, sy * scale * dpr);
   g.setTransform(scale * dpr, 0, 0, scale * dpr, sx * scale * dpr, sy * scale * dpr);
   drawLCD(g, now);
+  // 枠のLED
+  for (const L of LEDS) { g.fillStyle = ledColor(L.i, now); g.beginPath(); g.arc(L.x, L.y, 2.6, 0, 7); g.fill(); }
   // 風車
-  for (const c of [B.P.wmL, B.P.wmR]) {
-    g.save(); g.translate(c.x, c.y); g.rotate(W.wmA);
+  { const c = B.P.wm; g.save(); g.translate(c.x, c.y); g.rotate(W.wmA);
     for (let k = 0; k < 3; k++) { g.rotate(2.094); g.fillStyle = k ? '#ff8a3d' : '#ffcc4a'; g.beginPath(); g.moveTo(0, -2); g.lineTo(17, -4); g.lineTo(17, 4); g.lineTo(0, 2); g.fill(); }
-    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 4, 0, 7); g.fill(); g.restore();
-  }
-  // 電チュー
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 4, 0, 7); g.fill(); g.restore(); }
+  // 電チュー・アタッカー
   g.lineCap = 'round'; g.lineWidth = 5;
   for (const s of B.SEG) {
-    if (s.k === 'denLid' && !W.denOpen) { g.strokeStyle = '#46e0ff'; g.beginPath(); g.moveTo(s.x1, s.y1); g.lineTo(s.x2, s.y2); g.stroke(); }
-    if (s.k === 'denWing' && W.denOpen) { g.strokeStyle = '#46e0ff'; g.beginPath(); g.moveTo(s.x1, s.y1); g.lineTo(s.x2, s.y2); g.stroke(); }
-    if (s.k === 'atkLid' && !W.atkOpen) { g.strokeStyle = '#ffcc4a'; g.lineWidth = 6; g.beginPath(); g.moveTo(s.x1, s.y1); g.lineTo(s.x2, s.y2); g.stroke(); g.lineWidth = 5; }
+    if ((s.k === 'denLid' && !W.denOpen) || (s.k === 'denWing' && W.denOpen)) { g.strokeStyle = W.denOpen ? '#9af4ff' : '#46e0ff'; g.beginPath(); g.moveTo(s.x1, s.y1); g.lineTo(s.x2, s.y2); g.stroke(); }
+    if (s.k === 'atkLid' && !W.atkOpen) { g.strokeStyle = '#ffcc4a'; g.lineWidth = 7; g.beginPath(); g.moveTo(s.x1, s.y1); g.lineTo(s.x2, s.y2); g.stroke(); g.lineWidth = 5; }
   }
-  if (W.atkOpen) { g.fillStyle = 'rgba(255,204,74,.35)'; g.beginPath(); g.moveTo(474, 716); g.lineTo(560, 748); g.lineTo(560, 768); g.lineTo(474, 768); g.closePath(); g.fill(); }
+  if (W.atkOpen) { g.fillStyle = `rgba(255,204,74,${.3 + .2 * Math.sin(now * 12)})`; g.beginPath(); g.moveTo(494, 694); g.lineTo(566, 722); g.lineTo(566, 744); g.lineTo(494, 740); g.closePath(); g.fill(); }
+  // 表示パネルのランプ
+  const lamp = (x, on, col) => { g.fillStyle = on ? col : '#1a1a2a'; g.beginPath(); g.arc(x, 846, 6, 0, 7); g.fill(); };
+  const blink = Math.floor(now * 10) % 2 === 0;
+  lamp(33, spin && spin.kind === 'heso' ? blink : false, '#ff3d5a');
+  lamp(55, spin && spin.kind === 'den' ? blink : false, '#46e0ff');
+  lamp(77, futsu.dur > 0 ? blink : futsu.opens.length > 0, '#4aff9a');
+  lamp(99, !!bonus || inSupport(), '#ff5fb8');
+  // 金魚役物
+  drawGimmick(g, now);
   // 玉
   for (const b of W.balls) {
     const gr = g.createRadialGradient(b.x - 2, b.y - 2, .5, b.x, b.y, B.BR);
@@ -735,6 +814,7 @@ function tick(dt) {
   for (const f of fx) f.t += dt; fx = fx.filter(f => f.t < f.life);
   for (const s of sparks) { s.t += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 200 * dt; } sparks = sparks.filter(s => s.t < s.life);
   if (banner) { banner.t += dt; if (banner.t > banner.life) banner = null; }
+  if (gim) { gim.t += dt; if (gim.t > gim.life) gim = null; }
   shake = Math.max(0, shake - dt);
   nailGate -= dt;
   hud();
@@ -751,6 +831,7 @@ function handle(e) {
     case 'atk': pay(RULE.payAtk); if (bonus) { bonus.cnt++; bonus.pay += RULE.payAtk; } SFX.count(); sparkAt(e.x, e.y, '#ffcc4a', 6); break;
     case 'gate': if (futsu.q < 4) futsu.q++; SFX.gate(); break;
     case 'warp': tone(1200, .2, 'sine', .03, 600); break;
+    case 'stageHole': tone(1568, .12, 'triangle', .03, 400); break;
   }
 }
 
@@ -765,7 +846,7 @@ function hud() {
   const right = !!bonus || inSupport();
   $('rightArrow').hidden = !right || S.power >= 55;
   const m = $('mode');
-  const mt = bonus ? '大当たり中' : S.mode === 'rush' ? '花火RUSH' : S.mode === 'jitan' ? '夜店チャンス' : '通常';
+  const mt = bonus ? '大当たり' : S.mode === 'rush' ? '花火RUSH' : S.mode === 'jitan' ? '夜店チャンス' : '通常';
   if (m.textContent !== mt) { m.textContent = mt; m.className = 'mode ' + (bonus ? 'bonus' : S.mode === 'rush' ? 'rush' : S.mode === 'jitan' ? 'jitan' : ''); }
   // 持ち玉のグラフ（50玉ごと）
   if (Math.abs(S.stats.in - (S.graphIn || 0)) >= 50) { S.graphIn = S.stats.in; S.graph.push(S.balls); if (S.graph.length > 400) S.graph = S.graph.filter((_, i) => i % 2 === 0); drawGraph($('graph')); }
@@ -815,7 +896,7 @@ function placeOverlays() {
   const r = cv.getBoundingClientRect(), w = $('wrap').getBoundingClientRect();
   const p = $('push');
   p.style.left = (r.left - w.left + (LCD.x + LCD.w / 2) * scale) + 'px';
-  p.style.top = (r.top - w.top + (LCD.y + LCD.h + 40) * scale) + 'px';
+  p.style.top = (r.top - w.top + (LCD.y + LCD.h - 80) * scale) + 'px';
   const sz = Math.max(64, Math.min(110, 150 * scale));
   p.style.width = p.style.height = sz + 'px'; p.style.fontSize = sz * .3 + 'px';
 }
@@ -830,7 +911,7 @@ addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); } else last = performance.now(); });
 
 // テスト用の窓口
-window.__pk = { force(reach, hit, rush = true, color = 'red', yokoku = false) { holds.heso.push({ hit, rush, reach, color, yokoku }); }, W, get S() { return S; }, get spin() { return spin; }, get bonus() { return bonus; }, get holds() { return holds; }, RULE, setPower, setFire, start: () => $('startBtn').click(), tick };
+window.__pk = { force(reach, hit, rush = true, color = 'red', yokoku = false, gimm = false) { holds.heso.push({ hit, rush, reach, color, yokoku, kind: 'heso', gim: gimm }); }, W, get S() { return S; }, get spin() { return spin; }, get bonus() { return bonus; }, get holds() { return holds; }, RULE, setPower, setFire, start: () => $('startBtn').click(), tick };
 })();
 </script>
 </body>

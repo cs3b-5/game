@@ -5,5 +5,5 @@ let seed = 11; const rng = () => (seed = (seed * 16807) % 2147483647) / 21474836
 for (const p of ps) {
   const w = B.makeWorld(rng); let t = 0, shot = 0;
   while (shot < N || w.balls.length) { if (shot < N && t >= shot * .6) { w.launch(p); shot++; } w.step(1 / 60); t += 1 / 60; if (t > N * .6 + 60) break; }
-  const s = w.stats; console.log(p, 'heso', (s.heso / N * 100).toFixed(1) + '%', 'pocket', (s.pocket / N * 100).toFixed(1) + '%', 'warp', (s.warp / N * 100).toFixed(1) + '%', 'gate', (s.gate / N * 100).toFixed(1) + '%');
+  const s = w.stats; console.log(p, 'nudge', s.nudge, 'stuck', s.stuck, 'heso', (s.heso / N * 100).toFixed(1) + '%', 'pocket', (s.pocket / N * 100).toFixed(1) + '%', 'warp', (s.warp / N * 100).toFixed(1) + '%', 'gate', (s.gate / N * 100).toFixed(1) + '%');
 }
