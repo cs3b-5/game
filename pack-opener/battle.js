@@ -527,7 +527,8 @@ function css() {
 .bc .st.h.hurt { background: rgba(200,40,60,.95); }
 .bc .rent { position: absolute; left: 50%; top: 40%; transform: translateX(-50%) rotate(-12deg); font-size: .65em; font-weight: 900; background: #fff; color: #333; padding: .1em .4em; border-radius: .3em; opacity: .85; }
 .bc .zz { position: absolute; right: 4px; top: 2.1em; font-size: .8em; color: #9ad8ff; font-weight: 900; }
-.bc .kw { position: absolute; left: 50%; top: 2.4em; transform: translateX(-50%); font-size: 1.15em; line-height: 1.25; background: rgba(10,6,24,.82); border: 1px solid rgba(255,255,255,.35); border-radius: .6em; padding: .05em .3em; white-space: nowrap; letter-spacing: -.05em; box-shadow: 0 1px 4px rgba(0,0,0,.6); color: #fff; }
+.bc .kw { position: absolute; left: 3px; top: calc(2em + 7px); width: 2em; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #fff; pointer-events: none; }
+.bc .kw i { font-style: normal; display: grid; place-items: center; width: 1.75em; height: 1.75em; border-radius: 50%; font-size: .95em; line-height: 1; background: rgba(10,6,24,.82); border: 1px solid rgba(255,255,255,.4); box-shadow: 0 1px 3px rgba(0,0,0,.6); }
 .bc.frozen::after { content: '❄'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.6em; background: rgba(120,200,255,.28); color: #e8f8ff; text-shadow: 0 0 6px #4ab0ff; }
 .bc.guardc { outline: 2px solid rgba(160,220,255,.9); outline-offset: 1px; }
 .bc.can { box-shadow: 0 0 0 2px #7be39a, 0 0 14px rgba(123,227,154,.8); }
@@ -827,7 +828,7 @@ function cardEl(side, m, opts = {}) {
   return `<div class="${cls}" id="${opts.id || ''}" data-uid="${m.uid || ''}" data-no="${c.no}" style="--rc:${rc}">
     <img class="pic" data-no="${c.no}" src="images/${String(c.no).padStart(3, '0')}.jpg" alt="" onerror="window.__artFallback ? window.__artFallback(this) : (this.style.display='none')">
     <div class="shade"></div><div class="cost">${COST[c.r]}</div><div class="elb" style="background:${EL_C[c.el]}">${EL_NM[c.el]}</div>
-    ${t === 'M' && m.kw && Object.keys(m.kw).length ? `<span class="kw">${Object.keys(m.kw).map(x => KW[x].ic).join('')}</span>` : ''}
+    ${t === 'M' && m.kw && Object.keys(m.kw).length ? `<span class="kw">${Object.keys(m.kw).map(x => `<i title="${KW[x].nm}">${KW[x].ic}</i>`).join('')}</span>` : ''}
     <div class="nm">${A.esc(c.nm)}</div>${st}${m.rental ? '<span class="rent">レンタル</span>' : ''}${opts.zz ? '<span class="zz">zz</span>' : ''}</div>`;
 }
 function render() {
