@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>開封の儀</title>
+<title>けものの星</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Bebas+Neue&display=swap">
 <style>
@@ -59,6 +59,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 @keyframes sheen { from { background-position: 150% 0; } to { background-position: -100% 0; } }
 .pack .face { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; padding: 20px; }
 .pack .set { font-family: var(--num); font-size: 1rem; letter-spacing: .35em; opacity: .85; }
+.pack .glogo { font-weight: 900; font-size: 2rem; letter-spacing: .08em; line-height: 1; color: #ffe08a; text-shadow: 0 2px 0 #7a4a00, 0 0 14px rgba(255,200,80,.65), 0 4px 10px rgba(0,0,0,.6); -webkit-text-stroke: 1px rgba(90,50,0,.6); }
 .pack .ttl { font-weight: 900; font-size: 1.9rem; line-height: 1.1; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
 .pack .kind { font-family: var(--num); font-size: 1.5rem; letter-spacing: .12em; padding: 2px 14px; border: 2px solid currentColor; border-radius: 6px; }
 .pack .emb { width: 110px; height: 110px; }
@@ -210,7 +211,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 <body>
 <header class="top">
   <a class="tbtn home" href="../index.html" aria-label="ゲーム一覧へ戻る">←</a>
-  <div class="logo">開封の儀<small>OPEN THE PACK</small></div>
+  <div class="logo">けものの星<small>TRADING CARD GAME</small></div>
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>
   <button class="tbtn" id="binderBtn">図鑑</button>
@@ -332,7 +333,7 @@ function cardHTML(c, opts = {}) {
 // 第一弾・第二弾のパック（確率は同じ。5枚目はR以上）
 const RATES = { C: 60, U: 27, R: 10, SR: 2.5, UR: .45, SEC: .05 }, LAST = { R: 80, SR: 16, UR: 3.5, SEC: .5 };
 const PACKS = [
-  { id: 'set1', set: 1, nm: '第一弾パック', title: 'けものの星', price: 100, colors: ['#2a8cff', '#1a3a8a'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
+  { id: 'set1', set: 1, nm: '第一弾パック', title: '', price: 100, colors: ['#2a8cff', '#1a3a8a'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
   { id: 'set2', set: 2, nm: '第二弾パック', title: '夜汽車と異界の駅', price: 100, colors: ['#3a2a6a', '#0a0a1e'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
 ];
 const FREE_EVERY = 180;  // 無料パックは3分ごとに1つ（最大3つ）
@@ -437,15 +438,15 @@ addEventListener('resize', layout);
 //  ショップ
 // =============================================================
 function packFace(p, big) {
-  return `<div class="face" style="color:#fff"><div class="set">${esc(p.title)}・第${p.set}弾</div>
+  return `<div class="face" style="color:#fff"><div class="glogo">けものの星</div><div class="set">第${p.set}弾</div>
     <svg class="emb" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.6)" stroke-width="2"/><path d="M50 14 L57 43 L86 50 L57 57 L50 86 L43 57 L14 50 L43 43Z" fill="#fff" opacity=".9"/></svg>
-    <div class="ttl" style="${p.title.length > 6 ? 'font-size:.72em;white-space:nowrap' : ''}">${p.set === 2 ? '🚂 ' : ''}${esc(p.title)}</div><div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
+    ${p.title ? `<div class="ttl" style="${p.title.length > 6 ? 'font-size:1.35rem;white-space:nowrap' : ''}">${p.set === 2 ? '🚂 ' : ''}${esc(p.title)}</div>` : ''}<div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
 }
 function renderShop() {
   tickFree(); layout();
   const busy = state !== 'idle' && state !== 'done';
   let h = '';
-  if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title)}</small></span></button>`;
+  if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title || 'けものの星')}</small></span></button>`;
   else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="buy" disabled><div class="mini" style="background:#333"></div><b>無料パック</b><span class="free">${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}<small>3分ごとにもらえる</small></span></button>`; }
   for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
   $('shop').innerHTML = h;
