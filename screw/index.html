@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>ねじぬき工房</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&family=Bebas+Neue&display=swap">
+<style>
+:root { --ink: #2a2238; --mute: #7a7090; --panel: rgba(255,255,255,.86); --line: rgba(42,34,56,.12); color-scheme: light; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans JP", "Hiragino Sans", sans-serif; color: var(--ink); background: linear-gradient(180deg, #ffe9d6 0%, #f6d4e8 45%, #cfd8ff 100%); touch-action: none; user-select: none; -webkit-user-select: none; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+[hidden] { display: none !important; }
+/* 上：レベルと箱 */
+#top { position: fixed; left: 0; right: 0; top: 0; padding: calc(10px + env(safe-area-inset-top)) 12px 8px; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
+#bar { width: min(560px, 100%); display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
+#lv { font: 400 1.9rem "Bebas Neue", sans-serif; letter-spacing: .06em; }
+#lv small { font: 900 .78rem "Noto Sans JP"; color: var(--mute); margin-left: 6px; letter-spacing: 0; }
+.iconBtn { border: 0; background: var(--panel); width: 42px; height: 42px; border-radius: 14px; font-size: 1.2rem; box-shadow: 0 4px 12px rgba(80,40,90,.15); cursor: pointer; display: grid; place-items: center; color: var(--ink); text-decoration: none; }
+#boxes { display: flex; gap: 12px; }
+.box { position: relative; width: 132px; height: 70px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.18), 0 6px 14px rgba(60,30,80,.2); transition: transform .3s, opacity .3s; }
+.box.done { transform: translateY(-90px) scale(.8); opacity: 0; }
+.box.enter { transform: translateY(-60px); opacity: 0; transition: none; }
+.box .hole { width: 30px; height: 30px; border-radius: 50%; background: rgba(0,0,0,.28); box-shadow: inset 0 3px 4px rgba(0,0,0,.35); display: grid; place-items: center; }
+.box .lid { position: absolute; inset: auto 8px -10px; height: 14px; border-radius: 8px; background: rgba(255,255,255,.4); }
+.nut { width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(255,255,255,.85); box-shadow: 0 2px 4px rgba(0,0,0,.3); position: relative; }
+.nut::before, .nut::after { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 3px; background: rgba(0,0,0,.35); transform: translate(-50%,-50%); border-radius: 2px; }
+.nut::after { transform: translate(-50%,-50%) rotate(90deg); }
+.pop { animation: pop .25s ease-out; }
+@keyframes pop { from { transform: scale(1.6); } }
+#queue { font-size: .72rem; font-weight: 900; color: var(--mute); display: flex; gap: 4px; align-items: center; }
+#queue i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+/* 下：トレイと道具 */
+#bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 12px calc(12px + env(safe-area-inset-bottom)); display: grid; gap: 10px; justify-items: center; pointer-events: none; }
+#tray { pointer-events: auto; display: flex; gap: 6px; padding: 8px 10px; border-radius: 18px; background: var(--panel); box-shadow: 0 6px 16px rgba(60,30,80,.18); }
+#tray .slot { width: 38px; height: 38px; border-radius: 12px; background: rgba(42,34,56,.08); display: grid; place-items: center; box-shadow: inset 0 2px 4px rgba(0,0,0,.12); }
+#tray .slot.warn { background: rgba(255,80,80,.18); }
+#tray .slot.extra { outline: 2px dashed #ffb03a; }
+#tools { pointer-events: auto; display: flex; gap: 10px; }
+.tool { border: 0; background: var(--panel); border-radius: 14px; padding: 8px 14px; font: 900 .9rem "Noto Sans JP"; color: var(--ink); box-shadow: 0 4px 12px rgba(60,30,80,.15); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.tool b { background: #ffb03a; color: #fff; border-radius: 9px; padding: 0 7px; font-size: .8rem; }
+.tool:disabled { opacity: .45; }
+#msg { position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%); background: rgba(42,34,56,.82); color: #fff; padding: 8px 16px; border-radius: 12px; font-weight: 900; font-size: .95rem; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+#msg.on { opacity: 1; }
+.fly { position: fixed; z-index: 30; pointer-events: none; transition: transform .45s cubic-bezier(.3,.7,.3,1); }
+/* 画面 */
+.scr { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(40,24,60,.45); backdrop-filter: blur(4px); padding: 16px; }
+.card { width: min(360px, 100%); background: #fff; border-radius: 24px; padding: 24px 20px; display: grid; gap: 14px; justify-items: center; text-align: center; box-shadow: 0 20px 50px rgba(40,20,60,.35); }
+.card h1 { margin: 0; font: 400 3rem "Bebas Neue", sans-serif; letter-spacing: .04em; line-height: 1; }
+.card h2 { margin: 0; font-size: 1.5rem; }
+.card p { margin: 0; color: var(--mute); font-size: .9rem; line-height: 1.6; }
+.big { border: 0; width: 100%; padding: 14px; border-radius: 16px; font: 900 1.1rem "Noto Sans JP"; color: #fff; background: linear-gradient(180deg, #ff7aa8, #ff4a7a); box-shadow: 0 6px 0 #c8285a; cursor: pointer; }
+.big.sub { background: #ece6f4; color: var(--ink); box-shadow: 0 6px 0 #c8c0d8; }
+.big:active { transform: translateY(3px); box-shadow: 0 3px 0 #c8285a; }
+.logo { font: 900 2.2rem "Noto Sans JP"; letter-spacing: .06em; margin: 0; background: linear-gradient(180deg, #ff6aa0, #8a5aff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.home { color: var(--mute); font-weight: 900; font-size: .85rem; text-decoration: none; }
+@media (max-width: 420px) { .box { width: 112px; height: 60px; gap: 6px; } .box .hole { width: 26px; height: 26px; } .nut { width: 22px; height: 22px; } #tray .slot { width: 34px; height: 34px; } #lv { font-size: 1.6rem; } }
+@media (prefers-reduced-motion: reduce) { .box, .fly { transition: none; } .pop { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="ねじで留められた立体のパズル"></canvas>
+<div id="top">
+  <div id="bar">
+    <a class="iconBtn" href="../index.html" aria-label="ゲーム一覧へ戻る">⌂</a>
+    <div id="lv">LEVEL 1<small id="left"></small></div>
+    <button class="iconBtn" id="restart" aria-label="やり直す">↻</button>
+  </div>
+  <div id="boxes"></div>
+  <div id="queue"></div>
+</div>
+<div id="bottom">
+  <div id="tray" aria-label="予備のトレイ"></div>
+  <div id="tools">
+    <button class="tool" id="tHint">💡 ヒント <b id="nHint">3</b></button>
+    <button class="tool" id="tSlot">➕ 枠をふやす <b id="nSlot">1</b></button>
+  </div>
+</div>
+<div id="msg"></div>
+
+<section class="scr" id="sTitle">
+  <div class="card">
+    <p style="font-size:3rem;margin:0">🔩</p>
+    <h1 class="logo">ねじぬき工房</h1>
+    <p>ねじをタップして抜いて、<b>同じ色の箱</b>に3本ずつ入れよう。<br>ねじが全部ぬけた部品は落ちていく。<br>前に部品があるねじは抜けないから、<b>指でぐるっと回して</b>順番を考えよう。<br>色が合わないねじは下のトレイへ。いっぱいになったら失敗！</p>
+    <button class="big" id="bStart">はじめる</button>
+    <a class="home" href="../index.html">← ゲーム一覧へ戻る</a>
+  </div>
+</section>
+<section class="scr" id="sClear" hidden>
+  <div class="card">
+    <p style="font-size:3rem;margin:0">🎉</p>
+    <h1 id="clearTitle">CLEAR!</h1>
+    <p id="clearNote"></p>
+    <button class="big" id="bNext">次のレベルへ</button>
+  </div>
+</section>
+<section class="scr" id="sFail" hidden>
+  <div class="card">
+    <p style="font-size:3rem;margin:0">😵</p>
+    <h2>トレイがいっぱい！</h2>
+    <p>色の合う箱がないねじの置き場がなくなった。</p>
+    <button class="big" id="bCont">➕ 枠をふやしてつづける（<span id="nSlot2">0</span>）</button>
+    <button class="big sub" id="bRetry">やり直す</button>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const LS = 'screw-koubou-v1';
+  const S = Object.assign({ level: 1, hint: 3, slot: 1, best: 0 }, (() => { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) { return {}; } })());
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
+
+  // ねじの色
+  const COLORS = [
+    { n: 'あか', c: '#ff5a6a' }, { n: 'あお', c: '#3a8aff' }, { n: 'きいろ', c: '#ffc83a' }, { n: 'みどり', c: '#3ac87a' },
+    { n: 'むらさき', c: '#a05aff' }, { n: 'オレンジ', c: '#ff8a2a' }, { n: 'ピンク', c: '#ff7ad0' }, { n: 'みずいろ', c: '#3ad0e0' },
+  ];
+  // 部品の色（やさしい木とパステル）
+  const WOOD = [0xf2d3a8, 0xe8c08a, 0xf7e2c4, 0xd9b38c, 0xc9e4f2, 0xf2c9d9, 0xd9f2c9, 0xe6dcf5, 0xfff0b8];
+
+  // ================= 3D =================
+  const cv = $('cv');
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, .1, 200);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xd8c8e8, 1.05));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(5, 9, 6); scene.add(sun);
+  const back = new THREE.DirectionalLight(0xffe0f0, .45); back.position.set(-6, 3, -5); scene.add(back);
+  const world = new THREE.Group(); scene.add(world);
+  // 台
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.6, .3, 48), new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: .55 }));
+  scene.add(floor);
+  const cam = { th: .7, ph: 1.05, r: 14, tx: 0, ty: 1.5, tz: 0 };
+  function placeCam() {
+    cam.ph = Math.max(.25, Math.min(1.5, cam.ph));
+    camera.position.set(cam.tx + cam.r * Math.sin(cam.ph) * Math.sin(cam.th), cam.ty + cam.r * Math.cos(cam.ph), cam.tz + cam.r * Math.sin(cam.ph) * Math.cos(cam.th));
+    camera.lookAt(cam.tx, cam.ty, cam.tz);
+  }
+  function resize() {
+    const w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h;
+    camera.fov = w < h ? 46 : 36; camera.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize); resize();
+
+  // ================= 乱数 =================
+  function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // ================= 建物のひな形 =================
+  // 部品 = { p:[x,y,z], s:[幅,高さ,奥行], r:[x回転,y回転,z回転] }
+  const B = (x, y, z, w, h, d, r) => ({ p: [x, y, z], s: [w, h, d], r: r || [0, 0, 0] });
+  const TEMPLATES = {
+    tower(R, k) {
+      const out = [], fl = k <= 1 && R.first ? 1 : 1 + Math.min(3, k);
+      for (let i = 0; i < fl; i++) {
+        const y = i * 1.3;
+        out.push(B(0, y + .1, 0, 2.4, .2, 2.4));
+        for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) out.push(B(x, y + .7, z, .3, 1, .3));
+      }
+      out.push(B(0, fl * 1.3 + .1, 0, 2.4, .2, 2.4));
+      out.push(B(0, fl * 1.3 + .7, 0, 1, 1, 1));
+      return out;
+    },
+    house(R, k) {
+      const out = [B(0, .15, 0, 4, .3, 3)];
+      out.push(B(0, 1.25, 1.35, 3.6, 1.9, .2), B(0, 1.25, -1.35, 3.6, 1.9, .2), B(1.75, 1.25, 0, .2, 1.9, 2.5), B(-1.75, 1.25, 0, .2, 1.9, 2.5));
+      out.push(B(0, 2.35, 0, 3.8, .2, 2.9));
+      out.push(B(0, 3.0, .75, 4.1, .18, 1.9, [.6, 0, 0]), B(0, 3.0, -.75, 4.1, .18, 1.9, [-.6, 0, 0]));
+      out.push(B(1.1, 3.4, -.5, .5, 1, .5));
+      out.push(B(0, .95, 1.5, .8, 1.3, .1));
+      if (k > 1) out.push(B(-1.1, 1.5, 1.5, .8, .7, .1), B(1.1, 1.5, 1.5, .8, .7, .1));
+      return out;
+    },
+    car(R, k) {
+      const out = [B(0, .8, 0, 4.4, .7, 2.2), B(-.2, 1.5, 0, 2.4, .8, 1.9)];
+      for (const [x, z] of [[-1.4, 1.15], [1.4, 1.15], [-1.4, -1.15], [1.4, -1.15]]) out.push(B(x, .5, z, 1, 1, .4));
+      out.push(B(2.3, .7, 0, .25, .4, 2.3), B(-2.3, .7, 0, .25, .4, 2.3));
+      out.push(B(-.2, 1.95, 0, 2.2, .12, 1.8));
+      if (k > 1) out.push(B(-2.1, 1.6, 0, .4, .12, 2.0), B(-2.1, 1.35, 0, .12, .5, .3));
+      out.push(B(1.4, 1.17, 0, 1.4, .1, 1.9));
+      return out;
+    },
+    robot(R, k) {
+      const out = [B(-.55, .9, 0, .6, 1.8, .7), B(.55, .9, 0, .6, 1.8, .7), B(0, 2.0, 0, 1.9, .4, 1), B(0, 3.0, 0, 2.2, 1.6, 1.3)];
+      out.push(B(-1.45, 3.0, 0, .5, 1.5, .5), B(1.45, 3.0, 0, .5, 1.5, .5), B(0, 4.2, 0, 1.2, .9, 1), B(0, 4.85, 0, .12, .5, .12));
+      out.push(B(0, 3.1, .72, 1.2, .9, .12));
+      if (k > 1) out.push(B(-1.45, 2.05, 0, .6, .4, .6), B(1.45, 2.05, 0, .6, .4, .6));
+      return out;
+    },
+    tree(R, k) {
+      const out = [B(0, .15, 0, 2.6, .3, 2.6), B(0, 1.4, 0, .6, 2.4, .6)];
+      const n = 5 + k * 2;
+      for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, rr = .9 + R() * .4; out.push(B(Math.cos(a) * rr, 2.6 + R() * 1.2, Math.sin(a) * rr, .9, .9, .9, [0, R(), 0])); }
+      out.push(B(0, 3.9, 0, 1.2, 1.2, 1.2));
+      return out;
+    },
+    bridge(R, k) {
+      const out = [];
+      for (const x of [-2, 2]) out.push(B(x, 1, 0, .6, 2, 1.6));
+      out.push(B(0, 2.15, 0, 5.2, .3, 1.6));
+      for (let i = 0; i < 5; i++) out.push(B(-2 + i, 2.65, .65, .26, .7, .26), B(-2 + i, 2.65, -.65, .26, .7, .26));
+      out.push(B(0, 3.12, .65, 4.6, .24, .3), B(0, 3.12, -.65, 4.6, .24, .3));
+      if (k > 1) out.push(B(0, 1.2, 0, 3.4, .3, .3), B(0, .4, 0, 5.6, .3, 1.8));
+      return out;
+    },
+  };
+  const ORDER = ['tower', 'house', 'car', 'robot', 'tree', 'bridge'];
+
+  // ================= ステージを作る =================
+  let L = null;   // 今のステージ
+  const tmpV = new THREE.Vector3(), tmpM = new THREE.Matrix4();
+  function partMatrix(pt) { const o = new THREE.Object3D(); o.position.set(...pt.p); o.rotation.set(...pt.r); o.updateMatrix(); return o.matrix.clone(); }
+  function inside(pt, w) { const l = w.clone().applyMatrix4(pt.inv); return Math.abs(l.x) < pt.s[0] / 2 - .01 && Math.abs(l.y) < pt.s[1] / 2 - .01 && Math.abs(l.z) < pt.s[2] / 2 - .01; }
+
+  function buildLevel(level) {
+    for (let tries = 0; tries < 40; tries++) {
+      const R = rng(level * 7919 + tries * 104729 + 17);
+      R.first = level === 1;
+      const tname = level === 1 ? 'tower' : ORDER[(level - 1) % ORDER.length], k = Math.min(4, 1 + Math.floor(level / 4));
+      let parts = TEMPLATES[tname](R, k);
+      // 外側に板を足す（前をふさぐので、順番を考える必要が出る）
+      const cladN = level <= 2 ? 0 : Math.min(8, Math.floor(level / 2));
+      for (let i = 0; i < cladN; i++) {
+        const base = parts[Math.floor(R() * parts.length)], ax = Math.floor(R() * 3), sgn = R() < .5 ? -1 : 1;
+        if (base.r.some(v => v)) continue;
+        const s = base.s.slice(), p = base.p.slice();
+        if (s[ax] < .3 && ax !== 1) continue;
+        const t = .12; p[ax] += sgn * (s[ax] / 2 + t / 2); s[ax] = t;
+        for (let j = 0; j < 3; j++) if (j !== ax) s[j] = Math.max(.4, s[j] * (.6 + R() * .3));
+        parts.push(B(p[0], p[1], p[2], s[0], s[1], s[2]));
+      }
+      parts.forEach((pt, i) => { pt.id = i; pt.m = partMatrix(pt); pt.inv = pt.m.clone().invert(); pt.col = WOOD[Math.floor(R() * WOOD.length)]; });
+      // ねじの候補（面の上で、ほかの部品の中にうまっていない点）
+      const screws = [];
+      for (const pt of parts) {
+        const cands = [];
+        for (let ax = 0; ax < 3; ax++) for (const sg of [-1, 1]) {
+          if (ax === 1 && sg < 0 && pt.p[1] - pt.s[1] / 2 < .05) continue;   // 床に接する面はなし
+          const u = (ax + 1) % 3, v = (ax + 2) % 3, pts = [];
+          const nu = pt.s[u] > 1.6 ? 2 : 1, nv = pt.s[v] > 1.6 ? 2 : 1;
+          if (pt.s[u] < .2 || pt.s[v] < .2) continue;
+          for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+            const l = [0, 0, 0]; l[ax] = sg * pt.s[ax] / 2; l[u] = nu > 1 ? (i ? .28 : -.28) * pt.s[u] : 0; l[v] = nv > 1 ? (j ? .28 : -.28) * pt.s[v] : 0;
+            const n = [0, 0, 0]; n[ax] = sg;
+            const wp = new THREE.Vector3(...l).applyMatrix4(pt.m), wn = new THREE.Vector3(...n).transformDirection(pt.m);
+            const probe = wp.clone().addScaledVector(wn, .03);
+            if (parts.some(o => o !== pt && inside(o, probe))) continue;
+            if (probe.y < .05 || wn.y < -.5) continue;   // 下向きのねじはつけない（見えにくい）
+            pts.push({ p: wp, n: wn });
+          }
+          cands.push(...pts);
+        }
+        if (!cands.length) continue;
+        const thin = Math.min(...pt.s) < .25, want = thin ? 1 + (R() < .4 ? 1 : 0) : 2 + (R() < .5 ? 1 : 0);
+        for (let i = cands.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cands[i], cands[j]] = [cands[j], cands[i]]; }
+        pt.cands = cands;
+        for (const c of cands.slice(0, want)) { c.used = 1; screws.push({ part: pt.id, p: c.p, n: c.n }); }
+      }
+      // ねじが1本もない部品はなくす（落ちないので）
+      const keep = new Set(screws.map(s => s.part));
+      parts = parts.filter(p => keep.has(p.id));
+      // 解ける順番をさがす
+      const meshes = parts.map(pt => { const m = new THREE.Mesh(new THREE.BoxGeometry(...pt.s)); m.applyMatrix4(pt.m); m.updateMatrixWorld(true); m.userData.id = pt.id; return m; });
+      const ray = new THREE.Raycaster();
+      const blocked = (sc, alive) => { ray.set(sc.p.clone().addScaledVector(sc.n, .02), sc.n); ray.far = 30; return ray.intersectObjects(meshes.filter(m => alive.has(m.userData.id) && m.userData.id !== sc.part), false).length > 0; };
+      const alive = new Set(parts.map(p => p.id)), left = screws.slice(), order = [];
+      let ok = true;
+      while (left.length) {
+        const can = left.filter(s => !blocked(s, alive));
+        if (!can.length) {
+          // 行き詰まり：ふさがれたねじを、同じ部品の空いている場所に付けかえる
+          let fixed = false;
+          for (const s of left) {
+            const pt = parts.find(p => p.id === s.part), alt = (pt.cands || []).find(c => !c.used && !blocked({ part: s.part, p: c.p, n: c.n }, alive));
+            if (alt) { alt.used = 1; s.p = alt.p; s.n = alt.n; fixed = true; break; }
+          }
+          if (!fixed) { const s = left.find(x => left.filter(y => y.part === x.part).length > 1); if (s) { left.splice(left.indexOf(s), 1); fixed = true; } }
+          if (fixed) continue;
+          ok = false; break;
+        }
+        // 外側から順に（でもたまにランダム）
+        const s = can[Math.floor(R() * can.length)];
+        order.push(s); left.splice(left.indexOf(s), 1);
+        if (!left.some(x => x.part === s.part)) alive.delete(s.part);
+      }
+      if (!ok) { if (window.DBG) DBG.push(['stuck', tries, left.length, order.length]); continue; }
+      // 3の倍数にそろえる（あとのほうのねじを減らす。部品に2本以上あるものだけ）
+      while (order.length % 3) {
+        let idx = -1;
+        for (let i = order.length - 1; i >= 0; i--) if (order.filter(s => s.part === order[i].part).length > 1) { idx = i; break; }
+        if (idx < 0) break;
+        order.splice(idx, 1);
+      }
+      if (order.length % 3) { if (window.DBG) DBG.push(['mod3', tries, order.length]); continue; }
+      // 色：3本ずつのかたまりに色をつける。順番どおりに箱が出てくる
+      const nCol = Math.min(COLORS.length, 3 + Math.floor((level - 1) / 2)), groups = order.length / 3, queue = [];
+      let prev = -1;
+      for (let g = 0; g < groups; g++) { let c; do { c = Math.floor(R() * nCol); } while (c === prev && nCol > 1); prev = c; queue.push(c); }
+      // ねじに色をつける：同じ色の箱が近くにあるときに少しまぜる（むずかしくするため）
+      const colOf = [];
+      for (let g = 0; g < groups; g++) for (let j = 0; j < 3; j++) colOf.push(queue[g]);
+      const mix = Math.min(.5, level * .04);
+      for (let i = 0; i + 3 < colOf.length; i++) if (R() < mix) { const j = i + 3 + Math.floor(R() * 3); if (j < colOf.length) [colOf[i], colOf[j]] = [colOf[j], colOf[i]]; }
+      // 入れかえたあとも、トレイ5つで解けるか確かめる
+      order.forEach((s, i) => s.c = colOf[i]);
+      if (!checkSolvable(order, queue, 5)) { order.forEach((s, i) => s.c = queue[Math.floor(i / 3)]); }
+      return { parts, screws: order, queue, tname, meshes: null };
+    }
+    return null;
+  }
+  // 決めた順番どおりに抜いたとき、トレイがあふれないか
+  function checkSolvable(order, queue, trayN) {
+    let qi = 2, boxes = [{ c: queue[0], n: 0 }, queue.length > 1 ? { c: queue[1], n: 0 } : null], tray = [];
+    const settle = () => {
+      let moved = true;
+      while (moved) {
+        moved = false;
+        for (let b = 0; b < 2; b++) {
+          const bx = boxes[b]; if (!bx) continue;
+          if (bx.n >= 3) { boxes[b] = qi < queue.length ? { c: queue[qi++], n: 0 } : null; moved = true; continue; }
+          const k = tray.indexOf(bx.c); if (k >= 0) { tray.splice(k, 1); bx.n++; moved = true; }
+        }
+      }
+    };
+    for (const s of order) {
+      const b = boxes.find(x => x && x.c === s.c && x.n < 3);
+      if (b) b.n++; else { tray.push(s.c); if (tray.length > trayN) return false; }
+      settle();
+    }
+    return true;
+  }
+
+  // ================= 表示 =================
+  let parts3 = [], screws3 = [], falling = [], state = null;
+  const screwGeo = { head: new THREE.CylinderGeometry(.16, .16, .08, 20), shaft: new THREE.CylinderGeometry(.05, .05, .5, 10), slot: new THREE.BoxGeometry(.2, .03, .04) };
+  const shaftMat = new THREE.MeshLambertMaterial({ color: 0xb8b8c8 }), slotMat = new THREE.MeshBasicMaterial({ color: 0x2a2238 });
+  function clearScene() { while (world.children.length) world.remove(world.children[0]); parts3 = []; screws3 = []; falling = []; }
+  function startLevel() {
+    clearScene();
+    const lv = buildLevel(S.level);
+    L = lv;
+    // 部品
+    for (const pt of lv.parts) {
+      const mat = new THREE.MeshLambertMaterial({ color: pt.col });
+      const m = new THREE.Mesh(new THREE.BoxGeometry(...pt.s), mat);
+      m.applyMatrix4(pt.m);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: 0x6a5a7a, transparent: true, opacity: .35 }));
+      m.add(edges);
+      m.userData = { part: pt, alive: true, screws: 0 };
+      world.add(m); parts3.push(m);
+    }
+    // ねじ
+    for (const sc of lv.screws) {
+      const g = new THREE.Group();
+      const col = new THREE.Color(COLORS[sc.c].c);
+      const head = new THREE.Mesh(screwGeo.head, new THREE.MeshLambertMaterial({ color: col, emissive: col.clone().multiplyScalar(.12) }));
+      head.position.y = .04;
+      const s1 = new THREE.Mesh(screwGeo.slot, slotMat); s1.position.y = .085; const s2 = s1.clone(); s2.rotation.y = Math.PI / 2;
+      const shaft = new THREE.Mesh(screwGeo.shaft, shaftMat); shaft.position.y = -.25;
+      g.add(head, s1, s2, shaft);
+      g.position.copy(sc.p); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sc.n);
+      g.userData = { sc, alive: true, head };
+      head.userData.screw = g; s1.userData.screw = g; s2.userData.screw = g; shaft.userData.screw = g;
+      world.add(g); screws3.push(g);
+      const pm = parts3.find(m => m.userData.part.id === sc.part); pm.userData.screws++;
+    }
+    // カメラ
+    const box = new THREE.Box3(); parts3.forEach(m => box.expandByObject(m));
+    const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    cam.tx = c.x; cam.ty = c.y; cam.tz = c.z; cam.r = Math.max(sz.x, sz.y, sz.z) * (innerWidth < innerHeight ? 2.25 : 1.8) + 3.5; cam.th = .7; cam.ph = 1.05;
+    floor.position.set(c.x, -.15, c.z);
+    state = { qi: 2, boxes: [mkBox(lv.queue[0]), lv.queue.length > 1 ? mkBox(lv.queue[1]) : null], tray: [], trayN: 5, over: false, left: lv.screws.length, busy: 0, extraUsed: false };
+    renderBoxes(true); renderTray(); renderQueue(); updateHud();
+    if (S.level === 1) toast('ドラッグで回せるよ。ねじをタップ！', 2600);
+  }
+  const mkBox = c => ({ c, n: 0, id: Math.random() });
+  function updateHud() {
+    $('lv').firstChild.textContent = 'LEVEL ' + S.level;
+    $('left').textContent = `のこり ${state.left}本`;
+    $('nHint').textContent = S.hint; $('nSlot').textContent = S.slot; $('nSlot2').textContent = S.slot;
+    $('tHint').disabled = S.hint <= 0; $('tSlot').disabled = S.slot <= 0 || state.extraUsed;
+  }
+
+  // ---- 箱とトレイ（HTML） ----
+  function nutEl(c) { const e = document.createElement('div'); e.className = 'nut'; e.style.background = COLORS[c].c; return e; }
+  function renderBoxes(enter) {
+    const el = $('boxes'); el.innerHTML = '';
+    state.boxes.forEach((b, i) => {
+      const d = document.createElement('div'); d.className = 'box'; d.dataset.i = i;
+      if (!b) { d.style.visibility = 'hidden'; el.appendChild(d); return; }
+      d.style.background = COLORS[b.c].c;
+      for (let k = 0; k < 3; k++) { const h = document.createElement('div'); h.className = 'hole'; if (k < b.n) h.appendChild(nutEl(b.c)); d.appendChild(h); }
+      const lid = document.createElement('div'); lid.className = 'lid'; d.appendChild(lid);
+      if (enter && b.fresh) { d.classList.add('enter'); requestAnimationFrame(() => requestAnimationFrame(() => d.classList.remove('enter'))); b.fresh = false; }
+      el.appendChild(d);
+    });
+  }
+  function renderTray() {
+    const el = $('tray'); el.innerHTML = '';
+    for (let i = 0; i < state.trayN; i++) {
+      const d = document.createElement('div'); d.className = 'slot' + (i >= 5 ? ' extra' : '') + (state.tray.length >= state.trayN - 1 && i >= state.tray.length ? ' warn' : '');
+      if (state.tray[i] != null) d.appendChild(nutEl(state.tray[i]));
+      el.appendChild(d);
+    }
+  }
+  function renderQueue() {
+    const el = $('queue'), rest = L.queue.slice(state.qi);
+    el.innerHTML = rest.length ? 'つぎ ' + rest.slice(0, 6).map(c => `<i style="background:${COLORS[c].c}"></i>`).join('') + (rest.length > 6 ? ` +${rest.length - 6}` : '') : '';
+  }
+  function slotRect(kind, i, k) {
+    if (kind === 'box') { const b = $('boxes').children[i]; return b ? b.children[k].getBoundingClientRect() : null; }
+    const t = $('tray').children[i]; return t ? t.getBoundingClientRect() : null;
+  }
+
+  // ================= 操作 =================
+  const rc = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  let drag = null, pinch = null;
+  const pts = new Map();
+  cv.addEventListener('pointerdown', e => {
+    sfx.unlock(); cv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0, t: performance.now() };
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), r: cam.r }; drag = null; }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pts.size === 2) { const [a, b] = [...pts.values()]; cam.r = Math.max(6, Math.min(40, pinch.r * pinch.d / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)))); return; }
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+    drag.moved += Math.abs(dx) + Math.abs(dy);
+    cam.th -= dx * .008; cam.ph -= dy * .006;
+  });
+  const up = e => {
+    const d = drag; pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+    if (d && d.moved < 10 && performance.now() - d.t < 600) tap(e.clientX, e.clientY);
+    drag = null;
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', e => { pts.delete(e.pointerId); drag = null; pinch = null; });
+  cv.addEventListener('wheel', e => { e.preventDefault(); cam.r = Math.max(6, Math.min(40, cam.r * (1 + Math.sign(e.deltaY) * .08))); }, { passive: false });
+
+  function tap(x, y) {
+    if (!state || state.over) return;
+    ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+    rc.setFromCamera(ndc, camera);
+    const objs = [];
+    parts3.forEach(m => { if (m.userData.alive) objs.push(m); });
+    screws3.forEach(g => { if (g.userData.alive) g.children.forEach(c => objs.push(c)); });
+    const hits = rc.intersectObjects(objs, false);
+    // ねじを優先：一番手前のねじ（部品より手前、または部品のすぐ表面）
+    let pick = null;
+    for (const h of hits) {
+      if (h.object.userData.screw) { pick = h.object.userData.screw; break; }
+      const sc = hits.find(k => k.object.userData.screw && k.distance - h.distance < .25);
+      if (sc) { pick = sc.object.userData.screw; }
+      break;
+    }
+    if (!pick) {   // 少し外れていても、近くのねじを拾う（スマホ用）
+      let best = null, bd = 28;
+      for (const g of screws3) {
+        if (!g.userData.alive) continue;
+        const v = g.getWorldPosition(tmpV).project(camera), sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
+        const dd = Math.hypot(sx - x, sy - y);
+        if (dd < bd && facing(g)) { bd = dd; best = g; }
+      }
+      pick = best;
+    }
+    if (pick) pull(pick);
+  }
+  // そのねじがカメラのほうを向いていて、手前に部品がない
+  function facing(g) {
+    const sc = g.userData.sc, to = camera.position.clone().sub(sc.p).normalize();
+    if (to.dot(sc.n) < .05) return false;
+    rc.set(sc.p.clone().addScaledVector(sc.n, .1), to); rc.far = 100;
+    return !rc.intersectObjects(parts3.filter(m => m.userData.alive), false).length;
+  }
+  function blockedBy(g) {
+    const sc = g.userData.sc;
+    rc.set(sc.p.clone().addScaledVector(sc.n, .02), sc.n); rc.far = 30;
+    const h = rc.intersectObjects(parts3.filter(m => m.userData.alive && m.userData.part.id !== sc.part), false);
+    return h.length ? h[0].object : null;
+  }
+
+  // ねじを抜く
+  function pull(g) {
+    const b = blockedBy(g);
+    if (b) {   // ふさがれている
+      g.userData.shake = 1; sfx.no();
+      b.userData.flash = 1;
+      toast('前に部品があって抜けない！');
+      return;
+    }
+    const sc = g.userData.sc, c = sc.c;
+    // 行き先
+    let dest = null;
+    const bi = state.boxes.findIndex(x => x && x.c === c && x.n + (x.pending || 0) < 3);
+    if (bi >= 0) { const bx = state.boxes[bi]; dest = { kind: 'box', i: bi, k: bx.n + (bx.pending || 0), box: bx }; bx.pending = (bx.pending || 0) + 1; }
+    else {
+      const used = state.tray.length + (state.trayPending || 0);
+      if (used >= state.trayN) { fail(); return; }
+      dest = { kind: 'tray', i: used }; state.trayPending = (state.trayPending || 0) + 1;
+    }
+    g.userData.alive = false; state.left--; sfx.unscrew();
+    // 部品のねじを減らす
+    const pm = parts3.find(m => m.userData.part.id === sc.part);
+    pm.userData.screws--;
+    // ねじが回って抜けるアニメ → 箱へ飛ぶ
+    g.userData.out = { t: 0, dest, c };
+    if (pm.userData.screws <= 0) setTimeout(() => dropPart(pm), 260);
+    updateHud();
+  }
+  function arrive(g) {
+    const { dest, c } = g.userData.out;
+    world.remove(g);
+    const v = g.getWorldPosition(tmpV).project(camera);
+    const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
+    const r = dest.kind === 'box' ? slotRect('box', state.boxes.indexOf(dest.box), Math.min(2, dest.k)) : slotRect('tray', dest.i);
+    const el = nutEl(c); el.classList.add('fly'); el.style.left = (sx - 13) + 'px'; el.style.top = (sy - 13) + 'px'; document.body.appendChild(el);
+    requestAnimationFrame(() => { if (r) el.style.transform = `translate(${r.left + r.width / 2 - sx}px, ${r.top + r.height / 2 - sy}px)`; });
+    setTimeout(() => { el.remove(); land(dest, c); }, 460);
+  }
+  function land(dest, c) {
+    if (dest.kind === 'box') { const bx = dest.box; bx.pending--; bx.n++; sfx.click(bx.n); }
+    else { state.trayPending--; state.tray.push(c); sfx.click(0); }
+    settle();
+  }
+  // 箱がいっぱいなら次の箱へ、トレイから合う色を移す
+  function settle() {
+    renderBoxes(); renderTray();
+    let changed = false;
+    state.boxes.forEach((bx, i) => {
+      if (bx && bx.n >= 3 && !(bx.pending > 0) && !bx.leaving) {
+        bx.leaving = true; changed = true;
+        const el = $('boxes').children[i]; if (el) el.classList.add('done');
+        sfx.box();
+        setTimeout(() => {
+          state.boxes[i] = state.qi < L.queue.length ? Object.assign(mkBox(L.queue[state.qi++]), { fresh: true }) : null;
+          renderBoxes(true); renderQueue(); fromTray(); checkEnd();
+        }, 380);
+      }
+    });
+    if (!changed) { fromTray(); checkEnd(); }
+  }
+  function fromTray() {
+    let moved = false;
+    state.boxes.forEach((bx, i) => {
+      if (!bx || bx.leaving) return;
+      while (bx.n + (bx.pending || 0) < 3) {
+        const k = state.tray.indexOf(bx.c); if (k < 0) break;
+        state.tray.splice(k, 1); bx.n++; moved = true;
+      }
+    });
+    if (moved) { renderTray(); renderBoxes(); setTimeout(settle, 200); }
+  }
+  function checkEnd() {
+    if (state.over) return;
+    if (state.left === 0 && !state.boxes.some(b => b && !b.leaving && b.n > 0 && b.n < 3) && !state.tray.length) {
+      state.over = true;
+      setTimeout(clear, 900);
+    }
+  }
+  function dropPart(pm) {
+    pm.userData.alive = false;
+    pm.userData.fall = { vy: 0, vx: (Math.random() - .5) * .06, vz: (Math.random() - .5) * .06, rx: (Math.random() - .5) * .08, rz: (Math.random() - .5) * .08, t: 0 };
+    falling.push(pm); sfx.fall();
+  }
+
+  function clear() {
+    sfx.win();
+    const n = S.level;
+    S.level++; S.best = Math.max(S.best, n); S.hint++; if (n % 3 === 0) S.slot++;
+    save();
+    $('clearTitle').textContent = 'LEVEL ' + n + ' CLEAR!';
+    $('clearNote').textContent = `ヒント +1${n % 3 === 0 ? '・枠をふやす +1' : ''}`;
+    $('sClear').hidden = false;
+  }
+  function fail() {
+    if (state.over) return;
+    state.over = true; sfx.no();
+    $('bCont').disabled = S.slot <= 0 || state.extraUsed;
+    $('sFail').hidden = false;
+  }
+  $('bNext').onclick = () => { $('sClear').hidden = true; startLevel(); };
+  $('bRetry').onclick = () => { $('sFail').hidden = true; startLevel(); };
+  $('restart').onclick = () => { if (state && !state.over) startLevel(); };
+  $('bCont').onclick = () => { if (S.slot <= 0) return; useSlot(); $('sFail').hidden = true; state.over = false; };
+  $('bStart').onclick = () => { $('sTitle').hidden = true; sfx.unlock(); startLevel(); };
+  function useSlot() { if (S.slot <= 0 || state.extraUsed) return; S.slot--; state.extraUsed = true; state.trayN++; save(); renderTray(); updateHud(); toast('トレイの枠が1つふえた！'); }
+  $('tSlot').onclick = useSlot;
+  $('tHint').onclick = () => {
+    if (S.hint <= 0 || !state || state.over) return;
+    // 今の箱の色で、抜けるねじ
+    const want = state.boxes.filter(b => b && !b.leaving && b.n + (b.pending || 0) < 3).map(b => b.c);
+    let g = screws3.find(s => s.userData.alive && want.includes(s.userData.sc.c) && !blockedBy(s));
+    if (!g) g = screws3.find(s => s.userData.alive && !blockedBy(s));
+    if (!g) return;
+    S.hint--; save(); updateHud();
+    g.userData.hint = 180;
+    // そのねじが見える向きにカメラを回す
+    const n = g.userData.sc.n; cam.goal = { th: Math.atan2(n.x, n.z), ph: Math.max(.5, Math.min(1.4, Math.acos(Math.max(-1, Math.min(1, n.y))) || 1)) };
+    toast('光っているねじを抜こう');
+  };
+  let tt = null;
+  function toast(t, ms = 1400) { const m = $('msg'); m.textContent = t; m.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => m.classList.remove('on'), ms); }
+
+  // ================= ループ =================
+  let last = performance.now();
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(50, now - last) / 16.67; last = now;
+    if (cam.goal) { let d = cam.goal.th - cam.th; d = Math.atan2(Math.sin(d), Math.cos(d)); cam.th += d * .08; cam.ph += (cam.goal.ph - cam.ph) * .08; if (Math.abs(d) < .01) cam.goal = null; }
+    placeCam();
+    for (const g of screws3) {
+      const u = g.userData;
+      if (u.shake) { u.shake += dt; g.children.forEach(c => c.rotation.y = Math.sin(u.shake * 1.4) * .5); if (u.shake > 18) { u.shake = 0; g.children.forEach(c => c.rotation.y = 0); } }
+      if (u.hint > 0) { u.hint -= dt; const k = .5 + .5 * Math.sin(now / 90); u.head.material.emissive.setRGB(k, k, k * .6); if (u.hint <= 0) u.head.material.emissive.copy(new THREE.Color(COLORS[u.sc.c].c).multiplyScalar(.12)); }
+      if (u.out) {
+        u.out.t += dt;
+        const k = Math.min(1, u.out.t / 14);
+        g.position.copy(u.sc.p).addScaledVector(u.sc.n, k * .55);
+        g.rotateOnAxis(new THREE.Vector3(0, 1, 0), .5 * dt);
+        if (u.out.t >= 16 && !u.out.done) { u.out.done = true; arrive(g); }
+      }
+    }
+    for (const m of parts3) if (m.userData.flash) { m.userData.flash += dt; m.material.emissive.setRGB(.5 * Math.max(0, 1 - m.userData.flash / 30), 0, 0); if (m.userData.flash > 30) { m.userData.flash = 0; m.material.emissive.setRGB(0, 0, 0); } }
+    for (const m of falling) {
+      const f = m.userData.fall; f.t += dt; f.vy -= .012 * dt;
+      m.position.x += f.vx * dt; m.position.y += f.vy * dt; m.position.z += f.vz * dt; m.rotation.x += f.rx * dt; m.rotation.z += f.rz * dt;
+      if (f.t > 20) { m.material.transparent = true; m.material.opacity = Math.max(0, 1 - (f.t - 20) / 30); }
+      if (f.t > 50) { world.remove(m); f.gone = true; }
+    }
+    falling = falling.filter(m => !m.userData.fall.gone);
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(loop);
+
+  // ================= 効果音 =================
+  let ac = null;
+  function A() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return ac; }
+  function tone(f0, f1, dur, type = 'sine', v = .15, t = 0) { const a = A(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.setValueAtTime(f0, a.currentTime + t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), a.currentTime + t + dur); g.gain.setValueAtTime(v, a.currentTime + t); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + t + dur); o.connect(g).connect(a.destination); o.start(a.currentTime + t); o.stop(a.currentTime + t + dur + .02); }
+  const sfx = {
+    unlock() { const a = A(); if (a && a.state === 'suspended') a.resume(); },
+    unscrew() { for (let i = 0; i < 4; i++) tone(900 + i * 120, 700 + i * 120, .05, 'square', .04, i * .05); },
+    click(n) { tone(500 + n * 180, 420 + n * 180, .09, 'triangle', .18); },
+    box() { tone(520, 880, .18, 'triangle', .16); tone(880, 1320, .2, 'triangle', .12, .1); },
+    fall() { tone(260, 90, .35, 'sine', .14); },
+    no() { tone(200, 140, .18, 'square', .08); },
+    win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, .22, 'triangle', .15, i * .11)); },
+  };
+
+  // テスト用
+  window.SCREW = { get L() { return L; }, get state() { return state; }, S, buildLevel, checkSolvable, pull: g => pull(g), get screws() { return screws3; }, blockedBy, facing, screenOf: g => { const v = g.getWorldPosition(new THREE.Vector3()).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; } };
+  if (S.level > 1) $('bStart').textContent = `LEVEL ${S.level} から`;
+})();
+</script>
+</body>
+</html>
