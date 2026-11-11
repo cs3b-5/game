@@ -284,11 +284,60 @@ const D = [
   ["light", "SR", "S", "黄金の雨", 'glass', 'night', { k: 'pending' }, "空から、金貨が降ってくる。"],
   ["water", "SR", "S", "海の藻屑", 'neon', 'night', { k: 'pending' }, "深い海の底へ、まっさかさま。"],
   ["dark", "UR", "S", "ドクロの旗", 'real', 'night', { k: 'pending' }, "この旗を見たら、宝を置いて逃げろ。"],
+  // =========================================================
+  //  第六弾「一か八か」（No.259〜）絵は images/259.jpg〜。運とギャンブル
+  // =========================================================
+  ["fire", "C", "M", "サイコロネズミ", 'pixel', 'night', { k: 'pending' }, "ふたつのサイコロを、いつも転がしている。"],
+  ["fire", "C", "M", "チップかじりリス", 'comic', 'night', { k: 'pending' }, "カジノのチップを、どんぐりとまちがえている。"],
+  ["fire", "U", "M", "火吹きディーラー", 'paper', 'night', { k: 'pending' }, "カードを配るたびに、火花が散る。"],
+  ["fire", "R", "M", "ルーレットの火の玉", 'oil', 'night', { k: 'pending' }, "回るたびに、どこに落ちるかわからない。"],
+  ["fire", "SR", "M", "大当たりの火の鳥", 'real', 'night', { k: 'pending' }, "当たりの音が鳴ると、空いっぱいに火の粉が散る。"],
+  ["water", "C", "M", "コイントスのカワウソ", 'water', 'night', { k: 'pending' }, "表が出るまで、何度でも投げる。"],
+  ["water", "C", "M", "泡のスロットクラゲ", 'pixel', 'night', { k: 'pending' }, "さわると、泡のリールがくるくる回る。"],
+  ["water", "U", "M", "トランプ投げのアシカ", 'comic', 'night', { k: 'pending' }, "ボールのかわりに、トランプでジャグリング。"],
+  ["water", "R", "M", "イカサマ師のタコ", 'oil', 'night', { k: 'pending' }, "八本の腕のどれかに、エースをかくしている。"],
+  ["water", "SR", "M", "深海の賭博王シャチ", 'real', 'night', { k: 'pending' }, "海の底のカジノで、負けたことがない。"],
+  ["water", "UR", "M", "ポーカーフェイスの皇帝ペンギン", 'real', 'night', { k: 'pending' }, "何を考えているか、だれにもわからない。"],
+  ["leaf", "C", "M", "四つ葉ウサギ", 'water', 'night', { k: 'pending' }, "耳の先に、四つ葉がはえている。"],
+  ["leaf", "C", "M", "どんぐりダイス", 'paper', 'night', { k: 'pending' }, "どんぐりの帽子をかぶった、森のサイコロ。"],
+  ["leaf", "U", "M", "運まかせのカエル", 'comic', 'night', { k: 'pending' }, "跳ぶ方向は、いつもサイコロで決める。"],
+  ["leaf", "R", "M", "森の賭場のタヌキ", 'oil', 'night', { k: 'pending' }, "葉っぱのお金で、なんでも賭ける。"],
+  ["leaf", "SR", "M", "幸運の白い大鹿", 'real', 'night', { k: 'pending' }, "この鹿を見た日は、何をやってもうまくいく。"],
+  ["bolt", "C", "M", "スロットバチ", 'pixel', 'night', { k: 'pending' }, "しま模様が、スロットのリールになっている。"],
+  ["bolt", "C", "M", "ダイスモモンガ", 'comic', 'night', { k: 'pending' }, "サイコロをかかえて、雷雲から滑空する。"],
+  ["bolt", "U", "M", "一か八かのイタチ", 'paper', 'night', { k: 'pending' }, "勝つか負けるか、それが楽しい。"],
+  ["bolt", "R", "M", "雷のスロットマシン", 'oil', 'night', { k: 'pending' }, "雷が落ちると、勝手に回りだす。"],
+  ["bolt", "UR", "M", "億万長者の雷鳥", 'real', 'night', { k: 'pending' }, "雷のように、勝ちも負けも一瞬。"],
+  ["dark", "C", "M", "借金取りのカラス", 'sumi', 'night', { k: 'pending' }, "貸したコインは、かならず取り立てる。"],
+  ["dark", "C", "M", "ドクロのサイコロ", 'neon', 'night', { k: 'pending' }, "1の目が出ると、自分にかみつく。"],
+  ["dark", "U", "M", "悪運のヤモリ", 'comic', 'night', { k: 'pending' }, "何度落ちても、なぜか助かる。"],
+  ["dark", "R", "M", "闇カジノの支配人", 'oil', 'night', { k: 'pending' }, "このカジノでは、いつも胴元が勝つ。"],
+  ["dark", "SEC", "M", "すべてを賭けた悪魔", 'real', 'night', { k: 'pending' }, "賭けるのは、自分の命でもかまわない。"],
+  ["light", "C", "M", "ラッキーセブンの子猫", 'water', 'night', { k: 'pending' }, "7の数字が、なによりも好き。"],
+  ["light", "C", "M", "チップのハト", 'pixel', 'night', { k: 'pending' }, "平和のしるしに、チップを運ぶ。"],
+  ["light", "U", "M", "ディーラーのウサギ", 'paper', 'night', { k: 'pending' }, "どの手札も、にっこり笑って配る。"],
+  ["light", "R", "M", "勝利の女神フクロウ", 'oil', 'night', { k: 'pending' }, "このフクロウが鳴くと、運がこっちを向く。"],
+  ["light", "SR", "M", "ルーレットの天使", 'glass', 'night', { k: 'pending' }, "回る輪の上で、勝ちを数えている。"],
+  ["light", "SEC", "M", "ジャックポット・ドラゴン", 'real', 'night', { k: 'pending' }, "三つの7がそろったとき、空から舞い降りる。"],
+  ["leaf", "U", "I", "イカサマのサイコロ", 'lowpoly', 'night', { k: 'pending' }, "なぜか、いい目ばかり出る。"],
+  ["fire", "U", "I", "全額ベット", 'comic', 'night', { k: 'pending' }, "ぜんぶ、この一勝負に。"],
+  ["light", "U", "I", "ラッキーセブン", 'gold', 'night', { k: 'pending' }, "7が出たら最強。出なければ……。"],
+  ["water", "U", "I", "四つ葉のブローチ", 'glass', 'night', { k: 'pending' }, "持っていると、ちょっといいことがある。"],
+  ["dark", "R", "F", "地下カジノ", 'oil', 'night', { k: 'pending' }, "ここでは、ツキが少しだけこっちを向く。"],
+  ["fire", "R", "F", "ルーレット場", 'oil', 'night', { k: 'pending' }, "赤か黒か。それだけで、すべてが決まる。"],
+  ["water", "R", "F", "幸運の泉", 'water', 'night', { k: 'pending' }, "コインを投げこむと、願いがかなうらしい。"],
+  ["bolt", "R", "F", "スロット通り", 'neon', 'night', { k: 'pending' }, "ネオンと電子音が鳴りやまない。"],
+  ["fire", "SR", "S", "運命のルーレット", 'real', 'night', { k: 'pending' }, "赤なら攻め、黒なら自滅、緑なら……。"],
+  ["dark", "SR", "S", "オールイン", 'neon', 'night', { k: 'pending' }, "命を半分、テーブルに置く。"],
+  ["light", "SR", "S", "仕切り直し", 'glass', 'night', { k: 'pending' }, "さっきまでのことは、なかったことに。"],
+  ["water", "SR", "S", "すってんてん", 'comic', 'night', { k: 'pending' }, "ぜんぶ失って、また一から。"],
+  ["leaf", "UR", "S", "ダブルアップ", 'oil', 'night', { k: 'pending' }, "倍か、半分か。"],
+  ["bolt", "UR", "S", "大博打", 'real', 'night', { k: 'pending' }, "ゾロ目が出たら、伝説になる。"],
 ];
 const TYPE_NM = { M: 'モンスター', S: '魔法', F: 'フィールド', I: 'アイテム' };
 const seedOf = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 // 公開している弾（絵ができてから増やす）。バランス調整のツールは SHOW_ALL_SETS で全部の弾を読む
 const RELEASED_SET = 5;
-global.CARD_DEFS_ALL = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : i < 120 ? 2 : i < 166 ? 3 : i < 212 ? 4 : 5, evo: (d[6] && d[6].evo) || null, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
+global.CARD_DEFS_ALL = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : i < 120 ? 2 : i < 166 ? 3 : i < 212 ? 4 : i < 258 ? 5 : 6, evo: (d[6] && d[6].evo) || null, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
 global.CARD_DEFS = global.SHOW_ALL_SETS ? global.CARD_DEFS_ALL : global.CARD_DEFS_ALL.filter(c => c.set <= RELEASED_SET);
 })(window);
