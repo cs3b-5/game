@@ -1,5 +1,5 @@
 # パックの表の絵（Stable Diffusion 用・縦長 832x1216）
-# python pack_prompts.py → pack_prompts.txt
+# python pack_prompts.py → pack_prompts.txt（いちばん新しい弾の4パターンだけ）
 # シード 9001〜 = 第一弾、9101〜 = 第二弾、9201〜 = 第三弾、9301〜 = 第四弾（4パターンずつ）
 NEG = ('text, letters, words, numbers, title, logo, watermark, signature, frame, border, card frame, '
        'blurry, lowres, jpeg artifacts, deformed, bad anatomy, extra limbs, duplicate, people, person, human')
@@ -22,9 +22,12 @@ PACKS = {
         'fantasy trading card booster pack art, epic digital painting, vibrant colors, dramatic lighting, highly detailed'),
 }
 if __name__ == '__main__':
-    import os
+    # いちばん新しい弾のパックだけ書き出す（python pack_prompts.py 2 のように番号を指定すると、その弾）
+    import os, sys
+    want = [int(sys.argv[1])] if len(sys.argv) > 1 else [max(PACKS)]
     out = []
     for s, p in PACKS.items():
+        if s not in want: continue
         for k in range(1, 5):
             out.append(f'--prompt "{p}" --negative_prompt "{NEG}" --width 832 --height 1216 --seed {9000 + (s - 1) * 100 + k}')
     path = os.path.join(os.path.dirname(__file__), 'pack_prompts.txt')
