@@ -129,15 +129,23 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 @keyframes rl { 0% { transform: translate(-50%, 20px) scale(.6); opacity: 0; } 20% { transform: translate(-50%, 0) scale(1.08); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -30px); opacity: 0; } }
 
 /* ---------- ショップ ---------- */
-.shop { position: fixed; left: 0; right: 0; bottom: 0; height: 140px; display: flex; justify-content: center; align-items: center; gap: 16px; padding: 0 16px; background: linear-gradient(transparent, rgba(0,0,0,.45)); }
-.buy { display: grid; grid-template-columns: 54px auto; gap: 2px 12px; align-items: center; padding: 10px 18px 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.06); cursor: pointer; text-align: left; min-width: 210px; }
-.buy:hover:not(:disabled) { background: rgba(255,255,255,.12); transform: translateY(-2px); }
-.buy:disabled { opacity: .4; cursor: not-allowed; }
-.buy .mini { grid-row: 1 / span 2; width: 54px; height: 76px; border-radius: 6px; box-shadow: 0 6px 14px rgba(0,0,0,.4); }
-.buy b { font-weight: 900; font-size: 1.05rem; }
-.buy span { font-family: var(--num); font-size: 1.35rem; letter-spacing: .05em; color: var(--gold); }
-.buy span.free { color: #7be39a; }
-.buy small { display: block; font-family: var(--jp); font-size: .75rem; color: var(--muted); letter-spacing: 0; }
+.shop { position: fixed; left: 0; right: 0; bottom: 0; height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 0 16px 6px; background: linear-gradient(transparent, rgba(0,0,0,.5)); }
+.stabs { display: flex; gap: 6px; }
+.stab { display: flex; align-items: center; gap: 7px; padding: 5px 14px 5px 6px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); font-weight: 800; font-size: .88rem; cursor: pointer; color: var(--muted); }
+.stab i { width: 18px; height: 26px; border-radius: 3px; flex: none; }
+.stab.on { background: rgba(255,210,90,.16); border-color: var(--gold); color: #ffe08a; }
+.sacts { display: flex; gap: 10px; align-items: stretch; }
+.sinfo { display: flex; align-items: center; gap: 12px; padding-right: 8px; min-width: 0; }
+.sinfo .mini { width: 46px; height: 66px; border-radius: 6px; box-shadow: 0 6px 14px rgba(0,0,0,.4); flex: none; }
+.sinfo b { display: block; font-weight: 900; font-size: 1.05rem; }
+.sinfo small { display: block; font-size: .72rem; color: var(--muted); max-width: 210px; }
+.sbtn { display: grid; grid-template-rows: auto auto auto; justify-items: center; align-content: center; min-width: 118px; padding: 7px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.07); cursor: pointer; font-weight: 800; font-size: .85rem; line-height: 1.25; }
+.sbtn span { font-family: var(--num); font-size: 1.3rem; letter-spacing: .05em; color: var(--gold); }
+.sbtn small { font-size: .68rem; color: var(--muted); font-weight: 400; }
+.sbtn.free span { color: #7be39a; }
+.sbtn.ten { border-color: rgba(255,90,140,.5); background: rgba(255,60,120,.12); }
+.sbtn:hover:not(:disabled) { background: rgba(255,255,255,.13); transform: translateY(-2px); }
+.sbtn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---------- 結果 ---------- */
 .result { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -62%); z-index: 6; display: grid; gap: 14px; justify-items: center; text-align: center; }
@@ -170,8 +178,6 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .stkCount span { font-family: var(--num); }
 .stkHint { text-align: center; color: var(--muted); padding: 8px 0 calc(14px + env(safe-area-inset-bottom, 0px)); font-size: .9rem; }
 .flipAll { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; }
-.buy .mini { position: relative; }
-.buy .mini .x10 { position: absolute; right: -6px; bottom: -6px; font-style: normal; font-family: var(--num); font-size: .95rem; background: #ff3d6a; color: #fff; border-radius: 999px; padding: 0 6px; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
 .bulkWrap { overflow-y: auto; padding: 0 22px 40px; overscroll-behavior: contain; }
 .bulkSum { margin: 0 0 14px; line-height: 1.9; font-size: .95rem; }
 .bulkSum .nw { color: #7be39a; }
@@ -252,13 +258,15 @@ body.mob .hint { font-size: .8rem; padding: 0 12px; }
 body.mob .row { bottom: var(--rowB); gap: 8px; }
 body.mob .row .card { --w: var(--rowW); }
 body.mob .row .card .new { font-size: 1.6em; }
-body.mob .shop { height: var(--shopH); justify-content: flex-start; overflow-x: auto; overflow-y: hidden; gap: 10px; padding: 0 12px calc(env(safe-area-inset-bottom, 0px)); scroll-snap-type: x mandatory; scrollbar-width: none; background: rgba(0,0,0,.35); }
-body.mob .shop::-webkit-scrollbar { display: none; }
-body.mob .buy { min-width: 158px; padding: 8px 12px 8px 8px; grid-template-columns: 38px auto; gap: 1px 9px; scroll-snap-align: start; flex: none; }
-body.mob .buy .mini { width: 38px; height: 54px; }
-body.mob .buy b { font-size: .9rem; white-space: nowrap; }
-body.mob .buy span { font-size: 1.15rem; }
-body.mob .buy small { font-size: .65rem; }
+body.mob .shop { height: var(--shopH); gap: 7px; padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); background: rgba(0,0,0,.4); justify-content: flex-start; }
+body.mob .stabs { width: 100%; }
+body.mob .stab { flex: 1; justify-content: center; padding: 4px 6px; font-size: .8rem; gap: 5px; }
+body.mob .stab i { width: 14px; height: 20px; }
+body.mob .sacts { width: 100%; gap: 7px; }
+body.mob .sinfo { display: none; }
+body.mob .sbtn { flex: 1; min-width: 0; padding: 6px 4px; font-size: .78rem; border-radius: 12px; }
+body.mob .sbtn span { font-size: 1.12rem; }
+body.mob .sbtn small { font-size: .62rem; }
 body.mob.busy .shop { display: none; }
 body.mob .result { top: var(--resY); transform: translate(-50%, -50%); gap: 8px; width: calc(100vw - 24px); }
 body.mob .result h2 { font-size: 1.25rem; }
@@ -522,7 +530,7 @@ function layout() {
   document.body.classList.toggle('busy', busy);
   const st = document.documentElement.style;
   if (!mob) { $('stage').style.removeProperty('--ps'); return; }
-  const topH = 50, shopH = busy ? 0 : 92;
+  const topH = 50, shopH = busy ? 0 : 122;
   const avail = H - topH - shopH;
   const rowW = Math.max(52, Math.min(104, Math.floor((W - 24 - 4 * 8) / 5), Math.floor(avail * .3 / 1.4)));
   const rowH = (state === 'deck' || state === 'done' || state === 'tearing') ? rowW * 1.4 + 14 : 0;
@@ -545,14 +553,21 @@ function packFace(p, big) {
 function renderShop() {
   tickFree(); layout();
   const busy = state !== 'idle' && state !== 'done';
-  let h = '';
-  if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title || 'けものの星')}</small></span></button>`;
-  else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="buy" disabled><div class="mini" style="background:#333"></div><b>無料パック</b><span class="free">${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}<small>3分ごとにもらえる</small></span></button>`; }
-  for (const p of PACKS) h += `<button class="buy" data-bulk="${p.id}" ${busy || S.coins < p.price * BULK ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"><i class="x10">×${BULK}</i></div><b>${esc(p.nm)} ${BULK}パック</b><span>${(p.price * BULK).toLocaleString('ja-JP')}<small>${BULK * 5}枚まとめて開ける</small></span></button>`;
-  for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
+  const sp = PACKS.find(p => p.id === S.shopSet) || PACKS[PACKS.length - 1];
+  const mini = p => `background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})`;
+  // 弾を選ぶタブ
+  let h = `<div class="stabs">${PACKS.map(p => `<button class="stab ${p === sp ? 'on' : ''}" data-set="${p.id}"><i style="${mini(p)}"></i>${esc(p.nm.replace('パック', ''))}</button>`).join('')}</div>`;
+  // 選んだ弾の買い方：無料・1パック・10パック
+  h += `<div class="sacts"><div class="sinfo"><div class="mini" style="${mini(sp)}"></div><div><b>${esc(sp.nm)}</b><small>${esc(sp.title || 'けものの星')}・${esc(sp.sub)}</small></div></div>`;
+  if (S.free > 0) h += `<button class="sbtn free" data-pack="${sp.id}" data-free="1" ${busy ? 'disabled' : ''}>無料で開ける<span>FREE</span><small>のこり${S.free}</small></button>`;
+  else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="sbtn free" disabled>次の無料<span>${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}</span><small>3分ごと</small></button>`; }
+  h += `<button class="sbtn" data-pack="${sp.id}" ${busy || S.coins < sp.price ? 'disabled' : ''}>1パック<span>${sp.price.toLocaleString('ja-JP')}</span><small>5枚</small></button>`;
+  h += `<button class="sbtn ten" data-bulk="${sp.id}" ${busy || S.coins < sp.price * BULK ? 'disabled' : ''}>${BULK}パック<span>${(sp.price * BULK).toLocaleString('ja-JP')}</span><small>${BULK * 5}枚まとめて</small></button></div>`;
   $('shop').innerHTML = h;
 }
 $('shop').addEventListener('click', e => {
+  const tb = e.target.closest('button[data-set]');
+  if (tb) { S.shopSet = tb.dataset.set; save(); tone(520, .05, 'triangle', .03); renderShop(); return; }
   const bb = e.target.closest('button[data-bulk]');
   if (bb && !bb.disabled) { audio(); bulkOpen(PACKS.find(x => x.id === bb.dataset.bulk)); return; }
   const b = e.target.closest('button[data-pack]'); if (!b || b.disabled) return;
