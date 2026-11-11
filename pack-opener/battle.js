@@ -742,6 +742,13 @@ function css() {
 .foe small { color: var(--muted); font-size: .72rem; }
 .foe .rw { grid-row: span 2; font-family: var(--num); font-size: 1.2rem; color: var(--gold); }
 .btSheet .box.dkBox { width: min(100%, 980px); align-content: start; }
+.dkCode { margin: 6px 0 4px; font-size: .85rem; }
+.dkCode summary { cursor: pointer; color: var(--muted); }
+.dkCodeRow { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.dkCodeRow input { flex: 1; min-width: 12em; font: inherit; font-family: ui-monospace, monospace; font-size: .85rem; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line); background: rgba(0,0,0,.3); color: inherit; }
+.dkCodeRow .ghost { padding: 7px 12px; font-size: .8rem; }
+.dkCodeMsg { margin: 6px 0 0; font-size: .8rem; color: #7be39a; min-height: 1em; }
+.dkCodeMsg.err { color: #ff9a6a; }
 .dkTabs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 8px 0 2px; }
 .dkTabs .lb { font-size: .75rem; color: var(--muted); margin-right: 2px; }
 .dkTabs button { display: flex; align-items: baseline; gap: 5px; padding: 5px 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.04); font: inherit; font-size: .8rem; color: inherit; cursor: pointer; }
@@ -857,6 +864,11 @@ function shell() {
       <div class="btRow"><button class="bigbtn" id="dkAuto">おまかせで組む</button><button class="ghost" id="dkClear">全部はずす</button><button class="ghost" id="dkDone">決定</button></div>
     </div>
     <div class="dkTabs" id="dkTabs"></div>
+    <details class="dkCode" id="dkCode"><summary>デッキコード（友達と交換）</summary>
+      <div class="dkCodeRow"><button class="ghost" id="dkCodeMake">このデッキのコードを出す</button><input id="dkCodeOut" readonly placeholder="ここにコードが出る"><button class="ghost" id="dkCodeCopy">コピー</button></div>
+      <div class="dkCodeRow"><input id="dkCodeIn" placeholder="コードを貼りつける（KS1-…）" autocomplete="off"><button class="ghost" id="dkCodeLoad">読みこむ</button></div>
+      <p class="dkCodeMsg" id="dkCodeMsg"></p>
+    </details>
     <p id="dkNote"></p>
     <div class="dkList" id="dkList"></div>
     <details class="dkFilter" id="dkFilter">
@@ -936,6 +948,26 @@ function shell() {
   $('btDeck').onclick = openDeck;
   $('dkAuto').onclick = () => { A.S.deck = autoDeck(); A.S.deckEmpty = false; keepDeck(); renderDeck(); };
   $('dkClear').onclick = () => { A.S.deck = []; A.S.deckEmpty = true; keepDeck(); renderDeck(); };
+  const codeMsg = (t, err) => { $('dkCodeMsg').textContent = t; $('dkCodeMsg').classList.toggle('err', !!err); };
+  $('dkCodeMake').onclick = () => { const d = A.S.deck || []; if (!d.length) { codeMsg('デッキが空っぽ', true); return; } $('dkCodeOut').value = deckCode(d); codeMsg(`「${deckSlots()[A.S.deckSel].nm}」のコード。コピーして友達に送ろう`); };
+  $('dkCodeCopy').onclick = async () => {
+    const v = $('dkCodeOut').value || ((A.S.deck || []).length ? deckCode(A.S.deck) : ''); if (!v) { codeMsg('先に「コードを出す」を押してね', true); return; }
+    $('dkCodeOut').value = v;
+    try { await navigator.clipboard.writeText(v); codeMsg('コピーした！'); } catch (e) { $('dkCodeOut').select(); try { document.execCommand('copy'); codeMsg('コピーした！'); } catch (e2) { codeMsg('選択したので、長押しでコピーしてね', true); } }
+  };
+  $('dkCodeLoad').onclick = () => {
+    const raw = readDeckCode($('dkCodeIn').value);
+    if (!raw) { codeMsg('コードが読めなかった（KS1- ではじまるコードを貼りつけてね）', true); return; }
+    const cnt = {}, cards = [], bad = raw.filter(no => !(no >= 1 && no <= A.CARDS.length));
+    for (const no of raw) if (no >= 1 && no <= A.CARDS.length && (cnt[no] = (cnt[no] || 0) + 1) <= COPIES) cards.push(no);
+    const ds = deckSlots(); if (ds.length >= DECK_SLOTS) { codeMsg(`デッキは${DECK_SLOTS}個までなので、どれかを消してから読みこんでね`, true); return; }
+    keepDeck(); let k = 1; while (ds.some(d => d.nm === 'もらったデッキ' + (k > 1 ? k : ''))) k++;
+    ds.push({ nm: 'もらったデッキ' + (k > 1 ? k : ''), cards }); useDeck(ds.length - 1);
+    const lack = cards.filter((no, i) => cards.slice(0, i + 1).filter(x => x === no).length > ownedCount(no)).length;
+    $('dkCodeIn').value = '';
+    codeMsg(`読みこんだ！（${cards.length}枚）` + (lack ? `　持っていないカード${lack}枚は、バトルではレンタルカードになる` : '') + (bad.length ? `　まだ遊べないカード${bad.length}枚ははずした` : ''), false);
+    renderDeck();
+  };
   $('dkTabs').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const ds = deckSlots();
@@ -1583,8 +1615,23 @@ function deckSlots() {
   if (S.deck) S.deck = S.deck.filter(ok);
   return S.decks;
 }
+// ---- デッキコード：KS1- + base64url。1バイト目が形式（2＝カード番号を1バイトずつ、1＝2バイトずつ） ----
+function deckCode(cards) {
+  const nos = cards.slice().sort((x, y) => x - y), small = nos.every(no => no < 256);
+  const b = [small ? 2 : 1]; for (const no of nos) small ? b.push(no) : b.push(no >> 8, no & 255);
+  return 'KS1-' + btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function readDeckCode(code) {
+  const m = String(code || '').trim().match(/^KS1-([A-Za-z0-9_-]+)$/); if (!m) return null;
+  let bin; try { bin = atob(m[1].replace(/-/g, '+').replace(/_/g, '/')); } catch (e) { return null; }
+  const b = [...bin].map(ch => ch.charCodeAt(0)), out = [];
+  if (b[0] === 2) out.push(...b.slice(1));
+  else if (b[0] === 1 && b.length % 2 === 1) for (let i = 1; i < b.length; i += 2) out.push(b[i] * 256 + b[i + 1]);
+  else return null;
+  return out.length && out.length <= DECK ? out : null;
+}
 function keepDeck() { const ds = deckSlots(); ds[A.S.deckSel].cards = (A.S.deck || []).slice(); A.save(); }
-function useDeck(i) { const ds = deckSlots(); keepDeck(); A.S.deckSel = i; A.S.deck = ds[i].cards.slice(); A.S.deckEmpty = !A.S.deck.length; A.save(); }
+function useDeck(i) { const ds = deckSlots(); keepDeck(); A.S.deckSel = i; A.S.deck = ds[i].cards.slice(); A.S.deckEmpty = !A.S.deck.length; A.save(); const o = document.getElementById('dkCodeOut'); if (o) o.value = ''; }
 function deckTabsHTML(menu) {
   const ds = deckSlots();
   return ds.map((d, i) => `<button data-slot="${i}" class="${i === A.S.deckSel ? 'on' : ''}">${A.esc(d.nm)}<small>${d.cards.length}枚</small></button>`).join('')
