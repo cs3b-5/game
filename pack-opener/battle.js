@@ -647,8 +647,12 @@ function peerOpts() {
   if (h) { const [host, port] = h.split(':'); return { host, port: +port || 9000, path: '/', secure: false, debug: 0 }; }
   return { debug: 0, config: { iceServers: [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    // 中継サーバー（Metered の無料トライアル枠。学校のWi-Fiなどで直接つながらないときに使われる）
+    { urls: ['turn:jp.relay.metered.ca:80', 'turn:jp.relay.metered.ca:80?transport=tcp', 'turn:jp.relay.metered.ca:443', 'turns:jp.relay.metered.ca:443?transport=tcp'],
+      username: '31536e5ac7d5f21e26083726', credential: 'EbmwVyaEUzn4LKnD' },
     { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
-  ] } };
+  ], iceTransportPolicy: qp('relay') ? 'relay' : 'all' } };
 }
 // 部屋を作った側：スマホで別のアプリ（LINEなど）に切りかえると待ち合わせサーバーとの線が切れるので、つなぎ直して部屋を守る
 function keepRoom(peer, waitingMsg) {
