@@ -149,6 +149,27 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .over { position: fixed; inset: 0; z-index: 20; background: rgba(5,10,9,.86); backdrop-filter: blur(4px); display: grid; grid-template-rows: auto 1fr; }
 .over .bar { display: flex; align-items: center; gap: 14px; padding: 16px 22px; flex-wrap: wrap; }
 .over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
+.tbtn.news { position: relative; padding-left: 12px; padding-right: 12px; }
+.tbtn .ndot { position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: #ff3d6a; box-shadow: 0 0 0 2px var(--bg, #0c1412); }
+.newsBody { overflow-y: auto; padding: 4px 22px 40px; overscroll-behavior: contain; }
+.newsList { display: grid; gap: 12px; max-width: 720px; margin: 0 auto; }
+.nItem { display: grid; grid-template-columns: 92px 1fr; gap: 14px; align-items: center; text-align: left; padding: 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.05); cursor: pointer; color: inherit; font: inherit; }
+.nItem:hover { background: rgba(255,255,255,.09); }
+.nItem img { width: 92px; height: 134px; object-fit: cover; border-radius: 8px; box-shadow: 0 6px 14px rgba(0,0,0,.4); }
+.nItem .meta { display: flex; gap: 8px; align-items: center; font-size: .78rem; color: var(--muted); margin-bottom: 6px; }
+.nItem .tag, .nArt .tag { font-size: .72rem; font-weight: 900; padding: 2px 8px; border-radius: 999px; background: var(--gold, #ffc94a); color: #2a1a00; }
+.nItem .new { font-size: .7rem; font-weight: 900; color: #ff3d6a; }
+.nItem b { display: block; font-weight: 900; font-size: 1.05rem; line-height: 1.4; }
+.nArt { max-width: 680px; margin: 0 auto; }
+.nArt .hero { position: relative; height: min(46vh, 380px); border-radius: 16px; overflow: hidden; background-size: cover; background-position: center 35%; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+.nArt .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 45%, rgba(0,0,0,.85)); }
+.nArt .hero .ht { position: absolute; left: 18px; right: 18px; bottom: 16px; z-index: 1; }
+.nArt .hero .gl { font-weight: 900; color: #ffe08a; letter-spacing: .08em; text-shadow: 0 2px 0 #7a4a00, 0 0 10px rgba(255,200,80,.6); font-size: .95rem; }
+.nArt h3 { margin: 6px 0 0; font-weight: 900; font-size: 1.45rem; line-height: 1.35; text-shadow: 0 2px 6px #000; }
+.nArt .meta { display: flex; gap: 8px; align-items: center; font-size: .8rem; color: var(--muted); margin: 14px 0 6px; }
+.nArt p { margin: 0 0 1em; line-height: 1.95; font-size: .98rem; color: #e8e4da; }
+.nArt p b { color: #ffe08a; }
+.nArt .ok { display: block; margin: 20px auto 0; }
 .filters { display: flex; gap: 6px; flex-wrap: wrap; }
 .filters button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-weight: 700; font-size: .85rem; }
 .filters button.on { background: var(--ink); color: #111; }
@@ -182,7 +203,10 @@ body.mob .coin { width: 15px; height: 15px; }
 body.mob .tbtn { padding: 7px 11px; font-size: .85rem; white-space: nowrap; }
 body.mob .stage { inset: var(--topH) 0 var(--stageB); }
 body.mob .hint { font-size: .8rem; padding: 0 12px; }
-@media (max-width: 400px) { body.mob .comp { display: none; } body.mob .top { gap: 6px; padding-left: 8px; padding-right: 8px; } body.mob .tbtn { padding: 7px 9px; } body.mob .logo { font-size: .95rem; } }
+#binderBtn .ic { display: none; }
+@media (max-width: 480px) { body.mob .comp { display: none; } body.mob .coins { font-size: 1.15rem; } body.mob .logo { font-size: .9rem; } body.mob .top { gap: 6px; } }
+@media (max-width: 360px) { body.mob .logo { display: none; } }
+@media (max-width: 400px) { #binderBtn .ic { display: inline; } #binderBtn .lb { display: none; } body.mob .tbtn.news, body.mob #binderBtn { padding-left: 7px; padding-right: 7px; } body.mob .comp { display: none; } body.mob .top { gap: 6px; padding-left: 8px; padding-right: 8px; } body.mob .tbtn { padding: 7px 9px; } body.mob .logo { font-size: .95rem; } }
 body.mob .row { bottom: var(--rowB); gap: 8px; }
 body.mob .row .card { --w: var(--rowW); }
 body.mob .row .card .new { font-size: 1.6em; }
@@ -203,6 +227,13 @@ body.mob .ghost { padding: 9px 16px; font-size: .9rem; }
 body.mob .rlabel { font-size: 2.4rem; }
 body.mob .over .bar { padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; gap: 8px; }
 body.mob .over h2 { font-size: 1.2rem; }
+body.mob .newsBody { padding: 4px 12px 30px; }
+body.mob .nItem { grid-template-columns: 70px 1fr; gap: 10px; }
+body.mob .nItem img { width: 70px; height: 102px; }
+body.mob .nItem b { font-size: .95rem; }
+body.mob .nArt h3 { font-size: 1.2rem; }
+body.mob .nArt p { font-size: .92rem; line-height: 1.85; }
+body.mob .tbtn.news { padding-left: 9px; padding-right: 9px; }
 body.mob .filters button { padding: 6px 10px; }
 body.mob .binder { grid-template-columns: repeat(auto-fill, 100px); gap: 14px 10px; padding: 6px 10px calc(30px + env(safe-area-inset-bottom, 0px)); }
 body.mob .slot { width: 100px; height: 140px; }
@@ -220,7 +251,8 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="logo">けものの星<small>TRADING CARD GAME</small></div>
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>
-  <button class="tbtn" id="binderBtn">図鑑</button>
+  <button class="tbtn news" id="newsBtn" aria-label="お知らせ">📢<i class="ndot" id="newsDot" hidden></i></button>
+  <button class="tbtn" id="binderBtn" aria-label="図鑑"><span class="ic">📖</span><span class="lb">図鑑</span></button>
   <button class="tbtn battle" id="battleBtn">バトル</button>
   <div class="coins"><i class="coin"></i><span id="coins">0</span></div>
 </header>
@@ -240,8 +272,13 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="bar"><h2>図鑑</h2><span class="comp" id="comp2"></span><div class="filters" id="filters"></div><span class="sp" style="flex:1"></span><button class="ghost" id="closeBinder">閉じる</button></div>
   <div class="binder" id="binder"></div>
 </section>
+<section class="over newsOv" id="newsOv" hidden>
+  <div class="bar"><button class="ghost" id="newsBack" hidden>← 一覧</button><h2>お知らせ</h2><span class="sp" style="flex:1"></span><button class="ghost" id="closeNews">閉じる</button></div>
+  <div class="newsBody" id="newsBody"></div>
+</section>
 <div class="inspect" id="inspect" hidden><div id="inspectCard"></div><div class="rule" id="inspectRule"></div><div class="cap">マウスを動かすと傾く・クリックで閉じる</div></div>
 
+<script src="news.js"></script>
 <script src="art.js"></script>
 <script src="cards.js"></script>
 <script src="battle.js"></script>
@@ -663,6 +700,37 @@ function renderBinder() {
   $('binder').innerHTML = list.map(c => S.owned[c.no] ? `<div class="slot" data-no="${c.no}">${cardHTML(c)}${S.owned[c.no] > 1 ? `<span class="cnt">×${S.owned[c.no]}</span>` : ''}</div>` : `<div class="slot empty">${String(c.no).padStart(3, '0')}</div>`).join('');
   $('comp2').textContent = `第${set}弾 ${got} / ${inSet.length}・全体 ${ownedKinds()} / ${TOTAL}`;
 }
+// =============================================================
+//  お知らせ
+// =============================================================
+const NEWS = window.NEWS || [];
+const newsHTML = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const unreadNews = () => NEWS.filter(n => !(S.newsRead || []).includes(n.id));
+function newsDot() { $('newsDot').hidden = !unreadNews().length; }
+function openNews(id) {
+  $('newsOv').hidden = false;
+  if (!id) {
+    $('newsBack').hidden = true;
+    $('newsBody').innerHTML = `<div class="newsList">${NEWS.map(n => `<button class="nItem" data-id="${n.id}">${n.img ? `<img src="${n.img}" alt="">` : '<span></span>'}<span><span class="meta"><span class="tag">${esc(n.tag)}</span>${esc(n.date.replace(/-/g, '.'))}${(S.newsRead || []).includes(n.id) ? '' : '<span class="new">NEW</span>'}</span><b>${esc(n.title)}</b></span></button>`).join('')}</div>`;
+  } else {
+    const n = NEWS.find(x => x.id === id); if (!n) return openNews();
+    $('newsBack').hidden = false;
+    $('newsBody').innerHTML = `<article class="nArt">${n.img ? `<div class="hero" style="background-image:url(${n.img})"><div class="ht"><div class="gl">けものの星</div><h3>${esc(n.title)}</h3></div></div>` : `<h3>${esc(n.title)}</h3>`}
+      <div class="meta"><span class="tag">${esc(n.tag)}</span>${esc(n.date.replace(/-/g, '.'))}</div>${n.body.map(p => `<p>${newsHTML(p)}</p>`).join('')}
+      <button class="bigbtn ok" id="newsOk">${unreadNews().filter(x => x.id !== id).length ? '次のお知らせへ' : 'とじる'}</button></article>`;
+    S.newsRead = [...new Set([...(S.newsRead || []), id])]; save(); newsDot();
+    $('newsBody').scrollTop = 0;
+    $('newsOk').onclick = () => { const u2 = unreadNews(), next = u2[u2.length - 1]; if (next) openNews(next.id); else $('newsOv').hidden = true; };
+  }
+}
+$('newsBtn').addEventListener('click', () => { audio(); openNews(); });
+$('closeNews').addEventListener('click', () => { $('newsOv').hidden = true; });
+$('newsBack').addEventListener('click', () => openNews());
+$('newsBody').addEventListener('click', e => { const b = e.target.closest('.nItem'); if (b) openNews(b.dataset.id); });
+newsDot();
+// 読んでいないお知らせがあれば、はじめに1回だけ出す（古い順：リリース→第二弾）
+setTimeout(() => { const u = unreadNews(); if (u.length && $('newsOv').hidden) openNews(u[u.length - 1].id); }, 500);
+
 $('binderBtn').addEventListener('click', () => { filter = 'all'; renderBinder(); $('binderOv').hidden = false; });
 $('closeBinder').addEventListener('click', () => { $('binderOv').hidden = true; });
 $('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.s) binSet = b.dataset.s; else filter = b.dataset.f; renderBinder(); });
