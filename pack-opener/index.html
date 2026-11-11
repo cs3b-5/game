@@ -159,12 +159,34 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .over .bar { display: flex; align-items: center; gap: 14px; padding: 16px 22px; flex-wrap: wrap; }
 .over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
 .tbtn.news { position: relative; padding-left: 12px; padding-right: 12px; }
-.volPop { position: fixed; z-index: 60; width: 250px; padding: 12px 14px 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(20,24,30,.97); box-shadow: 0 14px 36px rgba(0,0,0,.55); display: grid; gap: 10px; }
-.volPop[hidden] { display: none; }
-.volPop label { display: grid; grid-template-columns: 4.6em 1fr 2.2em; align-items: center; gap: 8px; font-weight: 800; font-size: .85rem; }
-.volPop input { width: 100%; accent-color: var(--gold, #ffc94a); }
-.volPop b { font-family: var(--num); text-align: right; color: var(--gold); }
-.volPop small { font-size: .7rem; color: var(--muted); text-align: right; }
+.accb .av { display: block; font-size: 1.15rem; line-height: 20px; width: 20px; text-align: center; }
+.accBody { overflow-y: auto; padding: 4px 22px 40px; overscroll-behavior: contain; }
+.accBody > * { max-width: 560px; margin-left: auto; margin-right: auto; }
+.accBody h3 { margin: 18px auto 8px; font-size: .95rem; color: var(--muted); }
+.accCard { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.05); display: grid; gap: 10px; }
+.accTop { display: flex; align-items: center; gap: 14px; }
+.accAv { width: 64px; height: 64px; flex: none; border-radius: 50%; font-size: 2.2rem; border: 2px solid var(--gold, #ffc94a); background: rgba(255,210,90,.12); cursor: pointer; }
+.accWho { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.accWho input { font: inherit; font-weight: 900; font-size: 1.15rem; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line); background: rgba(0,0,0,.3); color: inherit; width: 100%; box-sizing: border-box; }
+.accWho small { color: var(--muted); font-family: ui-monospace, monospace; font-size: .78rem; }
+.accIcons { display: flex; flex-wrap: wrap; gap: 6px; }
+.accIcons[hidden] { display: none; }
+.accIcons button { width: 42px; height: 42px; border-radius: 50%; font-size: 1.4rem; border: 1px solid var(--line); background: rgba(255,255,255,.05); cursor: pointer; }
+.accIcons button.on { border-color: var(--gold); background: rgba(255,210,90,.18); }
+.accStats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; }
+.accStats div { padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.25); font-size: .75rem; color: var(--muted); }
+.accStats b { display: block; font-family: var(--num); font-size: 1.25rem; color: #fff; letter-spacing: .03em; }
+.accCard.vol label { display: grid; grid-template-columns: 5.2em 1fr 2.4em; align-items: center; gap: 8px; font-weight: 800; font-size: .88rem; }
+.accCard.vol input { width: 100%; accent-color: var(--gold, #ffc94a); }
+.accCard.vol b { font-family: var(--num); text-align: right; color: var(--gold); }
+.accCard small { font-size: .72rem; color: var(--muted); }
+.accHow { margin: 0; font-size: .82rem; line-height: 1.7; color: #d8d4ca; }
+.accHow b { color: #ffe08a; }
+.accRow { display: flex; gap: 8px; flex-wrap: wrap; }
+.accRow .ghost { padding: 8px 14px; font-size: .85rem; }
+.accCard textarea { font: inherit; font-family: ui-monospace, monospace; font-size: .75rem; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: rgba(0,0,0,.3); color: inherit; resize: vertical; word-break: break-all; }
+.accMsg { margin: 0; font-size: .82rem; color: #7be39a; min-height: 1em; }
+.accMsg.err { color: #ff9a6a; }
 .bgmb .off { display: none; }
 .bgmb.muted .off { display: inline; }
 .bgmb.muted { opacity: .55; }
@@ -314,7 +336,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="logo">けものの星<small>TRADING CARD GAME</small></div>
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>
-  <button class="tbtn news bgmb" id="bgmBtn" aria-label="音量" title="音量"><svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/><path class="off" d="M3 3l18 18"/></svg></button>
+  <button class="tbtn news accb" id="accBtn" aria-label="アカウント" title="アカウント・音量・引き継ぎ"><span class="av" id="accIcon">🦊</span></button>
   <button class="tbtn news" id="newsBtn" aria-label="お知らせ"><svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16V11a6 6 0 0 0-12 0v5l-2 2h16z"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M12 3v2"/></svg><i class="ndot" id="newsDot" hidden></i></button>
   <button class="tbtn" id="binderBtn" aria-label="図鑑"><svg class="ic bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/></svg><span class="lb">図鑑</span></button>
   <button class="tbtn battle" id="battleBtn">バトル</button>
@@ -345,11 +367,32 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="bar"><h2>まとめて開けた！</h2><span class="sp" style="flex:1"></span><button class="bigbtn" id="bulkAgain"></button><button class="ghost" id="closeBulk">閉じる</button></div>
   <div class="bulkWrap"><p class="bulkSum" id="bulkSum"></p><div class="bulkGrid" id="bulkGrid"></div></div>
 </section>
-<div class="volPop" id="volPop" hidden>
-  <label><span>♪ BGM</span><input type="range" id="volBgm" min="0" max="100" step="5"><b id="volBgmN"></b></label>
-  <label><span>🔔 効果音</span><input type="range" id="volSe" min="0" max="100" step="5"><b id="volSeN"></b></label>
-  <small>0にするとオフ</small>
-</div>
+<section class="over accOv" id="accOv" hidden>
+  <div class="bar"><h2>アカウント</h2><span class="sp" style="flex:1"></span><button class="ghost" id="closeAcc">閉じる</button></div>
+  <div class="accBody">
+    <div class="accCard">
+      <div class="accTop"><button class="accAv" id="accAv" title="アイコンを変える"></button><div class="accWho"><input id="accName" maxlength="10" placeholder="名前（10文字まで）" autocomplete="off"><small id="accId"></small></div></div>
+      <div class="accIcons" id="accIcons" hidden></div>
+      <div class="accStats" id="accStats"></div>
+    </div>
+    <h3>音量</h3>
+    <div class="accCard vol">
+      <label><span>♪ BGM</span><input type="range" id="volBgm" min="0" max="100" step="5"><b id="volBgmN"></b></label>
+      <label><span>🔔 効果音</span><input type="range" id="volSe" min="0" max="100" step="5"><b id="volSeN"></b></label>
+      <small>0にするとオフ</small>
+    </div>
+    <h3>引き継ぎ</h3>
+    <div class="accCard">
+      <p class="accHow">機種変更や、別のスマホ・パソコンで続きを遊ぶときに使います。<b>引き継ぎコード</b>には、カード・コイン・デッキ・戦績などが全部入っています。</p>
+      <div class="accRow"><button class="ghost" id="xferMake">引き継ぎコードを出す</button><button class="ghost" id="xferCopy">コピー</button></div>
+      <textarea id="xferOut" readonly rows="3" placeholder="ここにコードが出る"></textarea>
+      <p class="accHow">別の端末で：コードを貼りつけて「読みこむ」。<b>その端末のいまのデータは、コードのデータに置きかわります。</b></p>
+      <textarea id="xferIn" rows="3" placeholder="引き継ぎコードを貼りつける（KSD1-…）"></textarea>
+      <div class="accRow"><button class="ghost" id="xferLoad">読みこむ</button></div>
+      <p class="accMsg" id="xferMsg"></p>
+    </div>
+  </div>
+</section>
 <section class="over newsOv" id="newsOv" hidden>
   <div class="bar"><button class="ghost" id="newsBack" hidden>← 一覧</button><h2>お知らせ</h2><span class="sp" style="flex:1"></span><button class="ghost" id="closeNews">閉じる</button></div>
   <div class="newsBody" id="newsBody"></div>
@@ -995,17 +1038,68 @@ function openNews(id) {
     $('newsOk').onclick = () => { const u2 = unreadNews(), next = u2[u2.length - 1]; if (next) openNews(next.id); else $('newsOv').hidden = true; };
   }
 }
-function bgmBtn() { $('bgmBtn').classList.toggle('muted', !bgmVol()); }
-function volUI() { $('volBgm').value = bgmVol(); $('volSe').value = seVol(); $('volBgmN').textContent = bgmVol(); $('volSeN').textContent = seVol(); bgmBtn(); }
-$('bgmBtn').addEventListener('click', e => { e.stopPropagation(); audio(); const pop = $('volPop'); pop.hidden = !pop.hidden; if (!pop.hidden) { const r = $('bgmBtn').getBoundingClientRect(); pop.style.top = (r.bottom + 8) + 'px'; pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left + r.width / 2 - pop.offsetWidth / 2)) + 'px'; volUI(); } });
-document.addEventListener('pointerdown', e => { if (!$('volPop').hidden && !e.target.closest('#volPop') && !e.target.closest('#bgmBtn')) $('volPop').hidden = true; });
+// ---- アカウント：名前・アイコン・プレイヤーID・音量・引き継ぎ ----
+const ICONS = ['🦊', '🐉', '🐱', '🐟', '🦉', '🐺', '🐇', '🐢', '🦌', '🐦', '🐍', '🦄', '🐸', '🐙', '🦋', '🐝', '🌙', '⭐', '🔥', '⚡', '🌸', '🍀', '🚂', '🎆'];
+if (!S.pid) { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let id = ''; for (let i = 0; i < 8; i++) id += c[Math.floor(Math.random() * c.length)]; S.pid = id.slice(0, 4) + '-' + id.slice(4); S.icon = S.icon || ICONS[Math.floor(Math.random() * 8)]; save(); }
+function accHead() { $('accIcon').textContent = S.icon || '🦊'; }
+function volUI() { $('volBgm').value = bgmVol(); $('volSe').value = seVol(); $('volBgmN').textContent = bgmVol(); $('volSeN').textContent = seVol(); }
+function accUI() {
+  $('accAv').textContent = S.icon || '🦊'; $('accName').value = S.name || ''; $('accId').textContent = 'プレイヤーID：' + S.pid;
+  $('accIcons').innerHTML = ICONS.map(ic => `<button data-ic="${ic}" class="${ic === S.icon ? 'on' : ''}">${ic}</button>`).join('');
+  const bt = S.battle || {}, on = S.online || {};
+  $('accStats').innerHTML = [['図鑑', `${ownedKinds()}/${TOTAL}`], ['開けたパック', S.opened || 0], ['コイン', (S.coins || 0).toLocaleString('ja-JP')], ['CPU戦', `${bt.wins || 0}勝${bt.losses || 0}敗`], ['オンライン', `${on.wins || 0}勝${on.losses || 0}敗`], ['倒した相手', `${bt.cleared || 0}/5人`]].map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
+  volUI();
+}
+$('accBtn').addEventListener('click', () => { audio(); accUI(); $('xferOut').value = ''; $('xferMsg').textContent = ''; $('accIcons').hidden = true; $('accOv').hidden = false; });
+$('closeAcc').addEventListener('click', () => { $('accOv').hidden = true; });
+$('accAv').addEventListener('click', () => { $('accIcons').hidden = !$('accIcons').hidden; });
+$('accIcons').addEventListener('click', e => { const b = e.target.closest('button[data-ic]'); if (!b) return; S.icon = b.dataset.ic; save(); accUI(); accHead(); tone(880, .06); });
+$('accName').addEventListener('change', e => { S.name = e.target.value.trim().slice(0, 10); save(); const n = document.getElementById('onName'); if (n) n.value = S.name; });
 $('volBgm').addEventListener('input', e => {
   const was = bgmVol(); S.bgmVol = +e.target.value; S.bgm = S.bgmVol > 0; save(); volUI(); audio();
   if (window.BGM) { if (S.bgmVol > 0) { BGM.start(AC); BGM.setVolume(S.bgmVol / 100); if (!was) BGM.setOn(true); bgmScene(); } else BGM.setOn(false); }
 });
 $('volSe').addEventListener('input', e => { S.seVol = +e.target.value; save(); volUI(); audio(); });
 $('volSe').addEventListener('change', () => tone(880, .1, 'triangle', .06));   // 試しに鳴らす
-bgmBtn();
+// 引き継ぎコード：KSD1- + base64url(deflate(JSON))。圧縮できないブラウザでは KSD0-（そのまま）
+const b64u = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0));
+async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+async function makeXfer() {
+  const json = new TextEncoder().encode(JSON.stringify(Object.assign({}, S, { xferAt: Date.now() })));
+  if (window.CompressionStream) { try { return 'KSD1-' + b64u(await pipe(json, new CompressionStream('deflate-raw'))); } catch (e) {} }
+  return 'KSD0-' + b64u(json);
+}
+async function readXfer(code) {
+  const m = String(code || '').replace(/\s+/g, '').match(/^KSD([01])-([A-Za-z0-9_-]+)$/); if (!m) return null;
+  try {
+    let bytes = unb64u(m[2]);
+    if (m[1] === '1') { if (!window.DecompressionStream) return 'old'; bytes = await pipe(bytes, new DecompressionStream('deflate-raw')); }
+    const d = JSON.parse(new TextDecoder().decode(bytes));
+    return d && typeof d === 'object' && d.owned && typeof d.coins === 'number' ? d : null;
+  } catch (e) { return null; }
+}
+const xferMsg = (t, err) => { $('xferMsg').textContent = t; $('xferMsg').classList.toggle('err', !!err); };
+$('xferMake').addEventListener('click', async () => { save(); $('xferOut').value = await makeXfer(); xferMsg(`コードができた（${$('xferOut').value.length}文字）。コピーして、別の端末で読みこんでね`); });
+$('xferCopy').addEventListener('click', async () => {
+  if (!$('xferOut').value) $('xferOut').value = await makeXfer();
+  try { await navigator.clipboard.writeText($('xferOut').value); xferMsg('コピーした！'); } catch (e) { $('xferOut').select(); try { document.execCommand('copy'); xferMsg('コピーした！'); } catch (e2) { xferMsg('選択したので、長押しでコピーしてね', true); } }
+});
+let xferPending = null;
+$('xferLoad').addEventListener('click', async () => {
+  const d = await readXfer($('xferIn').value);
+  if (d === 'old') { xferMsg('このブラウザでは読みこめないコードです。ブラウザを新しくしてみてね', true); return; }
+  if (!d) { xferMsg('コードが読めなかった（KSD1- ではじまるコードを全部貼りつけてね）', true); return; }
+  if (xferPending !== $('xferIn').value) {   // 1回目：中身を見せて確認
+    xferPending = $('xferIn').value;
+    const kinds = Object.keys(d.owned).filter(k => d.owned[k] > 0).length;
+    xferMsg(`${d.icon || ''}${d.name || 'ななし'}（ID ${d.pid || '?'}）・カード${kinds}種・コイン${(d.coins || 0).toLocaleString('ja-JP')}。いまのデータは消えます。よければもう一度「読みこむ」を押してね`, true);
+    $('xferLoad').textContent = '本当に読みこむ'; return;
+  }
+  delete d.xferAt; S = d; save(); xferMsg('読みこんだ！ 画面を読みなおすね'); setTimeout(() => location.reload(), 900);
+});
+$('xferIn').addEventListener('input', () => { xferPending = null; $('xferLoad').textContent = '読みこむ'; });
+accHead();
 $('newsBtn').addEventListener('click', () => { audio(); newsTab = !unreadNews().length && unreadPatch().length ? 'patch' : 'news'; openNews(); });
 $('closeNews').addEventListener('click', () => { $('newsOv').hidden = true; });
 $('newsBack').addEventListener('click', () => openNews());
