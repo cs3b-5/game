@@ -356,6 +356,7 @@
         case 'clash': parts.push({ x, y, life: 16, max: 16, kind: 'ring', col: '#ffd040', r: 60 }); SFX.hit(1); break;
         case 'super': superBanner = { nm: e.nm, lv: e.lv, i: e.i, t: 0 }; SFX.super(); break;
         case 'di': SFX.di(); break;
+        case 'taunt': texts.push({ t: '♪ DRIVE UP', x: e.i ? VW - 240 : 240, y: 300, col: '#5affb0', life: 50 }); SFX.parry(false); break;
         case 'rush': SFX.rush(); break;
         case 'parryOn': SFX.whoosh(0); break;
         case 'whoosh': SFX.whoosh(e.str); break;

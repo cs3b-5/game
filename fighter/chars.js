@@ -72,16 +72,16 @@
   // lvl: mid=中段 low=下段 high=上段（立ちガードのみ） str: ヒットストップの強さ 0〜3 cx: キャンセル（chain=弱連打 sp=必殺技）
   function N(o) { return Object.assign({ lvl: 'mid', str: 0, cx: '', pb: 6 }, o); }
   const NORMALS = {
-    lp: N({ st: 4, act: 2, rec: 7, dmg: 300, hs: 12, bs: 9, hb: [20, 118, 66, 150], cx: 'chain sp', pose: flow('stand', 'lp0', 'lp1', 4, 2, 7) }),
+    lp: N({ st: 4, act: 2, rec: 7, dmg: 300, hs: 12, bs: 9, hb: [20, 118, 70, 150], cx: 'chain sp', pb: 4, pose: flow('stand', 'lp0', 'lp1', 4, 2, 7) }),
     mp: N({ st: 6, act: 3, rec: 11, dmg: 600, hs: 17, bs: 14, hb: [24, 112, 74, 146], cx: 'sp', str: 1, pose: flow('stand', 'mp0', 'mp1', 6, 3, 11) }),
     hp: N({ st: 10, act: 4, rec: 18, dmg: 800, hs: 21, bs: 17, hb: [30, 108, 86, 146], cx: 'sp', str: 2, pb: 9, pose: flow('stand', 'hp0', 'hp1', 10, 4, 18) }),
     lk: N({ st: 5, act: 3, rec: 10, dmg: 300, hs: 13, bs: 9, hb: [24, 28, 76, 70], cx: 'chain', pose: flow('stand', 'lk0', 'lk1', 5, 3, 10) }),
     mk: N({ st: 8, act: 3, rec: 16, dmg: 700, hs: 18, bs: 14, hb: [36, 70, 98, 104], cx: 'sp', str: 1, pose: flow('stand', 'mk0', 'mk1', 8, 3, 16) }),
     hk: N({ st: 12, act: 4, rec: 20, dmg: 900, hs: 22, bs: 18, hb: [30, 112, 92, 152], str: 2, pb: 10, pose: flow('stand', 'hk0', 'hk1', 12, 4, 20) }),
-    clp: N({ st: 4, act: 2, rec: 7, dmg: 300, hs: 12, bs: 9, hb: [20, 60, 66, 88], cx: 'chain sp', crouch: 1, pose: flow('crouch', 'crouch', 'clp1', 4, 2, 7) }),
+    clp: N({ st: 4, act: 2, rec: 7, dmg: 300, hs: 12, bs: 9, hb: [20, 60, 70, 88], cx: 'chain sp', pb: 4, crouch: 1, pose: flow('crouch', 'crouch', 'clp1', 4, 2, 7) }),
     cmp: N({ st: 6, act: 3, rec: 10, dmg: 600, hs: 16, bs: 13, hb: [24, 58, 74, 88], cx: 'sp', str: 1, crouch: 1, pose: flow('crouch', 'crouch', 'cmp1', 6, 3, 10) }),
     chp: N({ st: 7, act: 5, rec: 22, dmg: 900, hs: 22, bs: 18, hb: [6, 100, 50, 196], cx: 'sp', str: 2, crouch: 1, aa: 1, launch: [-2, 11], pose: flow('crouch', 'dp0', 'chp1', 7, 5, 22) }),
-    clk: N({ st: 5, act: 2, rec: 9, dmg: 200, hs: 12, bs: 8, hb: [20, 0, 74, 26], lvl: 'low', cx: 'chain sp', crouch: 1, pose: flow('crouch', 'crouch', 'clk1', 5, 2, 9) }),
+    clk: N({ st: 5, act: 2, rec: 9, dmg: 200, hs: 12, bs: 8, hb: [20, 0, 74, 26], lvl: 'low', cx: 'chain sp', pb: 4, crouch: 1, pose: flow('crouch', 'crouch', 'clk1', 5, 2, 9) }),
     cmk: N({ st: 8, act: 3, rec: 17, dmg: 500, hs: 17, bs: 13, hb: [30, 0, 98, 24], lvl: 'low', cx: 'sp', str: 1, crouch: 1, pose: flow('crouch', 'crouch', 'cmk1', 8, 3, 17) }),
     chk: N({ st: 9, act: 3, rec: 26, dmg: 900, hs: 30, bs: 14, hb: [30, 0, 106, 22], lvl: 'low', str: 2, crouch: 1, kd: 1, pose: flow('crouch', 'crouch', 'chk1', 9, 3, 26) }),
     jlp: N({ st: 4, act: 6, rec: 30, dmg: 400, hs: 14, bs: 12, hb: [10, 30, 64, 80], lvl: 'high', air: 1, pose: flow('air', 'air', 'jlp1', 4, 6, 30) }),
@@ -93,6 +93,7 @@
   };
   // 共通の技（投げ・ドライブインパクト・ドライブリバーサル）
   const COMMON = {
+    taunt: { st: 99, act: 0, rec: 0, total: 60, taunt: 1, pose: [[0, 'stand'], [10, 'win'], [48, 'win'], [60, 'stand']] },
     throw: { st: 5, act: 3, rec: 23, throw: 1, pose: [[0, 'stand'], [3, 'grab'], [8, 'grab'], [31, 'stand']] },
     di: { st: 26, act: 2, rec: 35, dmg: 800, hs: 30, bs: 24, hb: [20, 70, 100, 150], str: 3, armor: 2, di: 1, pb: 14,
       pose: [[0, 'stand'], [6, 'di0'], [24, 'di0'], [26, 'di1'], [40, 'di1'], [63, 'stand']] },
@@ -108,6 +109,7 @@
       nm: 'ホムラ', en: 'HOMURA', title: '炎の拳士', hp: 10000, walk: [3.4, 2.7], jump: [15.5, 4.2],
       colors: { skin: '#e8b48a', gi: '#c8282c', gi2: '#8a1418', belt: '#1a1a1a', band: '#f4f1ea', hair: '#2a1a14', glove: '#f0e6d8', aura: '#ff7a2a' },
       modern: { n: 'hado', f: 'shoryu', d: 'tatsu', b: 'tatsu' },
+      assist: { L: ['clp', 'clp', 'lp', 'tatsu0'], M: ['mp', 'hp', 'hado1'], H: ['hp', 'hado2', 'SA'] },
       sp: {
         hado: { nm: '焔弾', in: [2, 3, 6], btn: 'P', proj: 1,
           v: [{ st: 13, spd: 6 }, { st: 13, spd: 8 }, { st: 13, spd: 10.5 }, { st: 11, spd: 11, hits: 2 }],
@@ -145,6 +147,7 @@
       nm: 'ライカ', en: 'RAIKA', title: '雷の蹴り姫', hp: 9600, walk: [3.9, 3.0], jump: [15, 4.6], kickRange: 8, dmgMul: .95,
       colors: { skin: '#f0c49c', gi: '#2a56c8', gi2: '#162a6a', belt: '#ffd23a', band: '#ffd23a', hair: '#f4f1ea', glove: '#1a1a24', aura: '#7fdcff', pony: 1 },
       modern: { n: 'rkick', f: 'flip', d: 'flash', b: 'flash', air: 'dive' },
+      assist: { L: ['clp', 'clp', 'lk', 'rkick0'], M: ['mp', 'mk', 'rkick1'], H: ['hp', 'rkick2', 'SA'] },
       sp: {
         rkick: { nm: '迅雷脚', in: [2, 3, 6], btn: 'K',
           v: [{ st: 12, vx: 7, dmg: 800, bs: 16 }, { st: 14, vx: 9, dmg: 900, bs: 15 }, { st: 16, vx: 11, dmg: 1000, bs: 14 }, { st: 12, vx: 11, dmg: 600, hits: 2, bs: 20 }],

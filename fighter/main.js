@@ -13,14 +13,16 @@
   // ================= 入力 =================
   const down = new Set();
   const KEYS = {
-    classic: { KeyU: BT.LP, KeyI: BT.MP, KeyO: BT.HP, KeyJ: BT.LK, KeyK: BT.MK, KeyL: BT.HK, KeyH: BT.LP | BT.LK, KeyP: BT.PA, Semicolon: BT.DI },
-    modern: { KeyJ: BT.LP, KeyK: BT.MP, KeyL: BT.HP, KeyI: BT.SP, KeyO: BT.DI, KeyU: BT.PA, KeyH: BT.LP | BT.MP },
+    // クラシック：U I O＝P、J K L＝K、H＝投げ、Y＝インパクト、P＝パリィ、スペース＝パーソナルアクション
+    classic: { KeyU: BT.LP, KeyI: BT.MP, KeyO: BT.HP, KeyJ: BT.LK, KeyK: BT.MK, KeyL: BT.HK, KeyH: BT.LP | BT.LK, KeyY: BT.DI, KeyP: BT.PA, Semicolon: BT.DI, Space: BT.TA },
+    // モダン（スト6のPC初期配置）：U＝弱 J＝中 K＝強 I＝SP Y＝DI O＝DP H＝投げ L＝AUTO スペース＝♪
+    modern: { KeyU: BT.LP, KeyJ: BT.MP, KeyK: BT.HP, KeyI: BT.SP, KeyY: BT.DI, KeyO: BT.PA, KeyH: BT.LP | BT.MP, KeyL: BT.AU, Space: BT.TA },
   };
-  const MOVE = { KeyW: BT.U, KeyS: BT.D, KeyA: BT.L, KeyD: BT.R, ArrowUp: BT.U, ArrowDown: BT.D, ArrowLeft: BT.L, ArrowRight: BT.R, Space: BT.U };
+  const MOVE = { KeyW: BT.U, KeyS: BT.D, KeyA: BT.L, KeyD: BT.R, ArrowUp: BT.U, ArrowDown: BT.D, ArrowLeft: BT.L, ArrowRight: BT.R };
   // ゲームパッド（標準配置）
   const PAD = {
     classic: { 2: BT.LP, 3: BT.MP, 5: BT.HP, 0: BT.LK, 1: BT.MK, 7: BT.HK, 4: BT.PA, 6: BT.DI },
-    modern: { 2: BT.LP, 0: BT.MP, 1: BT.HP, 3: BT.SP, 5: BT.DI, 4: BT.PA, 7: BT.SP | BT.HP },
+    modern: { 2: BT.LP, 0: BT.MP, 1: BT.HP, 3: BT.SP, 5: BT.DI, 4: BT.PA, 7: BT.AU, 6: BT.LP | BT.MP, 8: BT.TA },
   };
   function localInput(ctl) {
     let b = 0;
@@ -127,15 +129,16 @@
     const k = (...a) => a.map(x => `<kbd>${x}</kbd>`).join('');
     const rows = ctl === 'classic' ? [
       ['移動・ジャンプ・しゃがみ', k('W', 'A', 'S', 'D') + ' / 矢印'], ['弱P・中P・強P', k('U', 'I', 'O')], ['弱K・中K・強K', k('J', 'K', 'L')],
-      ['投げ（弱P＋弱K）', k('H')], ['ドライブパリィ（中P＋中K）', k('P') + '（押しっぱなし）'], ['ドライブインパクト（強P＋強K）', k(';')],
-      ['ドライブラッシュ', 'パリィ中に 前'], ['ドライブリバーサル', 'ガード中に 前＋' + k(';')], ['ダッシュ／バックステップ', '前前／後ろ後ろ'], ['ポーズ', k('Esc')], ['トレーニングで位置リセット', k('R')],
+      ['投げ（弱P＋弱K）', k('H')], ['ドライブパリィ（中P＋中K）', k('P') + '（押しっぱなし）'], ['ドライブインパクト（強P＋強K）', k('Y') + ' か ' + k(';')],
+      ['ドライブラッシュ', 'パリィ中に 前'], ['ドライブリバーサル', 'ガード中に 前＋' + k('Y')], ['パーソナルアクション', k('スペース')], ['ダッシュ／バックステップ', '前前／後ろ後ろ'], ['ポーズ', k('Esc')], ['トレーニングで位置リセット', k('R')],
     ] : [
-      ['移動・ジャンプ・しゃがみ', k('W', 'A', 'S', 'D') + ' / 矢印'], ['弱・中・強', k('J', 'K', 'L')], ['アシスト必殺技（SP）', k('I') + '＋方向'],
-      ['OD必殺技', k('I') + '＋' + k('K') + '＋方向'], ['スーパーアーツ', k('I') + '＋' + k('L') + '（前でLv2、下でLv3）'],
-      ['投げ（弱＋中）', k('H')], ['ドライブパリィ', k('U') + '（押しっぱなし）'], ['ドライブインパクト', k('O')],
-      ['ドライブラッシュ', 'パリィ中に 前'], ['ダッシュ／バックステップ', '前前／後ろ後ろ'], ['ポーズ', k('Esc')],
+      ['移動・ジャンプ・しゃがみ', k('W', 'A', 'S', 'D') + ' / 矢印'], ['弱・中・強', k('U') + ' ' + k('J') + ' ' + k('K')], ['アシスト必殺技（SP）', k('I') + '＋方向'],
+      ['OD必殺技', k('I') + '＋' + k('J') + '（中）＋方向'], ['スーパーアーツ', k('I') + '＋' + k('K') + '（強）　前でLv2、下でLv3'],
+      ['アシストコンボ（AUTO）', k('L') + 'を押しながら 弱・中・強 を連打'],
+      ['投げ', k('H')], ['ドライブパリィ（DP）', k('O') + '（押しっぱなし）'], ['ドライブインパクト（DI）', k('Y')],
+      ['ドライブラッシュ', 'パリィ中に 前'], ['ドライブリバーサル', 'ガード中に 前＋' + k('Y')], ['パーソナルアクション（♪）', k('スペース')], ['ダッシュ／バックステップ', '前前／後ろ後ろ'], ['ポーズ', k('Esc')],
     ];
-    $('keyTable').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '<tr><td colspan="2" class="note" style="text-align:left">ゲームパッドもつかえます（Xbox配置：X/Y/RB＝P、A/B/RT＝K、LB＝パリィ、LT＝インパクト）</td></tr>';
+    $('keyTable').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '<tr><td colspan="2" class="note" style="text-align:left">ゲームパッドもつかえます（クラシック：X/Y/RB＝P、A/B/RT＝K、LB＝パリィ、LT＝インパクト。モダン：X/A/B＝弱中強、Y＝SP、RB＝DI、LB＝DP、RT＝AUTO、LT＝投げ）</td></tr>';
     const arrow = { 1: '↙', 2: '↓', 3: '↘', 4: '←', 6: '→', 7: '↖', 8: '↑', 9: '↗' };
     let h = '';
     for (const id in FG.CHARS) {
@@ -205,7 +208,7 @@
   }
   const ARW = { 1: '↙', 2: '↓', 3: '↘', 4: '←', 5: '・', 6: '→', 7: '↖', 8: '↑', 9: '↗' };
   function btnTxt(b, ctl) {
-    const L = ctl === 'modern' ? [[BT.LP, 'L'], [BT.MP, 'M'], [BT.HP, 'H'], [BT.SP, 'SP'], [BT.DI, 'DI'], [BT.PA, 'DP']] : [[BT.LP, 'LP'], [BT.MP, 'MP'], [BT.HP, 'HP'], [BT.LK, 'LK'], [BT.MK, 'MK'], [BT.HK, 'HK'], [BT.DI, 'DI'], [BT.PA, 'DP']];
+    const L = ctl === 'modern' ? [[BT.LP, 'L'], [BT.MP, 'M'], [BT.HP, 'H'], [BT.SP, 'SP'], [BT.DI, 'DI'], [BT.PA, 'DP'], [BT.AU, 'AUTO'], [BT.TA, '♪']] : [[BT.LP, 'LP'], [BT.MP, 'MP'], [BT.HP, 'HP'], [BT.LK, 'LK'], [BT.MK, 'MK'], [BT.HK, 'HK'], [BT.DI, 'DI'], [BT.PA, 'DP']];
     return L.filter(([m]) => b & m).map(([, t]) => t).join('+');
   }
   function trainingDraw(cx, o) {

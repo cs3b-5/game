@@ -6,7 +6,7 @@
 // =============================================================
 (function () {
   const FG = window.FG = window.FG || {};
-  const BT = FG.BT = { U: 1, D: 2, L: 4, R: 8, LP: 16, MP: 32, HP: 64, LK: 128, MK: 256, HK: 512, SP: 1024, DI: 2048, PA: 4096 };
+  const BT = FG.BT = { U: 1, D: 2, L: 4, R: 8, LP: 16, MP: 32, HP: 64, LK: 128, MK: 256, HK: 512, SP: 1024, DI: 2048, PA: 4096, AU: 8192, TA: 16384 };
   const STAGE = FG.STAGE = { W: 1400, WALL: 40, MAXD: 560, VIEW: 800 };
   const GRAV = .8, HIST = 48, DRIVE_MAX = 60000, SA_MAX = 30000, BAR = 10000;
   const STOP = [7, 9, 11, 13];                                   // ヒットストップ（強さ別）
@@ -107,6 +107,12 @@
       if (pm & BT.DI) return drive && f.drive >= BAR ? { id: 'di' } : null;
       if (pm & BT.PA) return drive ? { id: 'parry' } : null;
       if (ctx === 'cancel') return null;
+      if ((pm & BT.TA) && ctx === 'ground') return { id: 'taunt' };
+      // アシストコンボ（AUTO＋弱・中・強）
+      if (cur & BT.AU) {
+        const ab = pm & BT.HP ? 'H' : pm & BT.MP ? 'M' : pm & BT.LP ? 'L' : null;
+        if (ab) return { id: C.assist[ab][0], ast: { b: ab, i: 0 } };
+      }
       const c = isDown(d), b = pm & BT.HP ? 'H' : pm & BT.MP ? 'M' : pm & BT.LP ? 'L' : null;
       if (!b) return null;
       return { id: c ? { L: 'clk', M: 'cmk', H: 'chp' }[b] : { L: 'lp', M: 'mk', H: 'hp' }[b] };
@@ -136,6 +142,7 @@
     if (both(BT.HP, BT.HK) || (pm & BT.DI)) return drive && f.drive >= BAR ? { id: 'di' } : null;
     if (both(BT.MP, BT.MK) || (pm & BT.PA)) return drive ? { id: 'parry' } : null;
     if (ctx === 'cancel') return null;
+    if ((pm & BT.TA) && ctx === 'ground') return { id: 'taunt' };
     const b = pm & BT.HK ? 'hk' : pm & BT.HP ? 'hp' : pm & BT.MK ? 'mk' : pm & BT.MP ? 'mp' : pm & BT.LK ? 'lk' : pm & BT.LP ? 'lp' : null;
     if (!b) return null;
     return { id: isDown(d) ? 'c' + b : b };
@@ -155,7 +162,7 @@
       G.ev.push({ k: 'super', i: f.i, lv: m.saLv, nm: f.ca ? 'クリティカルアーツ ' + m.nm : m.nm });
     }
     f.rushB = f.st === 'rush' ? 1 : 0;
-    setSt(f, 'move'); f.mv = id; f.mt = 0; f.hitW = []; f.conn = 0; f.buf = null; f.armor = m.armor || 0; f.modSp = extra && extra.mod ? 1 : 0;
+    setSt(f, 'move'); f.mv = id; f.mt = 0; f.hitW = []; f.conn = 0; f.buf = null; f.armor = m.armor || 0; f.modSp = extra && extra.mod ? 1 : 0; f.ast = extra && extra.ast ? extra.ast : null;
     if (!m.air && !m.airMove && !f.air) f.vx = 0;
     if (m.air || m.airMove) f.airAtk = 1;
     f.cons = G.f;
@@ -444,6 +451,17 @@
     if (m.follow && ctl && f.mt >= m.follow.from && f.mt <= m.follow.to && (pressedMask(G, f) & (P3 | BT.SP))) { startMove(G, f, m.follow.mv); return; }
     // キャンセル
     const lastWin = m.win.length ? m.win[m.win.length - 1][1] : m.st + m.act;
+    // アシストコンボ：当たったら同じボタンで次の技へ
+    if (ctl && f.ast && f.conn && !f.air && f.mt <= lastWin + 12 && (f.hist[0] & BT.AU)) {
+      const bit = { L: BT.LP, M: BT.MP, H: BT.HP }[f.ast.b];
+      if (pressedMask(G, f, 10) & bit) {
+        let nx = C.assist[f.ast.b][f.ast.i + 1];
+        if (nx === 'SA') nx = f.sa >= BAR ? 'sa1' : null;
+        if (nx && C.moves[nx]) { const M = C.moves[nx], o = other(G, f), gap = Math.abs(o.x - f.x) - 72; if (gap > 0) f.x += f.face * Math.min(gap, 24); startMove(G, f, nx, { mod: M.sp || M.saLv ? 1 : 0, ast: { b: f.ast.b, i: f.ast.i + 1 } }); return; }
+      }
+    }
+    // パーソナルアクション：ドライブゲージが少し回復
+    if (m.taunt && f.mt === 30) { f.drive = Math.min(DRIVE_MAX, f.drive + 5000); G.ev.push({ k: 'taunt', i: f.i }); }
     // 先行入力：当たる前に入れた必殺技・SAは、当たったら出す
     if (ctl && !f.conn && !f.air && f.mt <= lastWin && (m.cx.includes('sp') || m.sp)) {
       const a = readAction(G, f, 'cancel');
@@ -570,6 +588,7 @@
       const saveCa = A.ca; A.ca = p.ca;
       const r = resolveHit(G, A, V, m, { proj: p });
       A.ca = saveCa;
+      { const am = mvOf(A); if (A.st === 'move' && am && am.spawn && (r === 'hit' || r === 'block')) A.conn = r === 'hit' ? 1 : 2; }
       p.hits--; p.cd = p.gap || 99;
       if (r === 'parry' && !p.sa) p.hits = 0;
       if (p.sa) G.hitstop = Math.min(G.hitstop, 4);
