@@ -20,17 +20,16 @@ function deck(set, mix) {
   }
   return d;
 }
-// 第三弾：レア度の配分どおりに引いて、進化カードの進化前を（同じ枚数ぶん）入れかえで入れる
+// 第三弾：進化の系統を2〜3本（進化前2・2段階目2・3段階目1）入れて、残りはレア度の配分どおり（進化カード以外）
+const LINES = CARDS.filter(c => c.evo && !CARDS.some(x => x.evo === c.no)).map(top => { const l = [top.no]; let e = top.evo; while (e) { l.unshift(e); e = CARDS[e - 1].evo; } return l; });
 function deck3(mix) {
-  const d = deck(3, mix), need = [];
-  for (const no of d) { let e = CARDS[no - 1].evo; while (e) { need.push(e); e = CARDS[e - 1].evo; } }
-  const out = d.slice();
-  for (const b of need) {
-    if (out.includes(b)) continue;
-    const i = out.findIndex(no => { const c = CARDS[no - 1]; return !c.evo && !need.includes(no) && (c.r === 'C' || c.r === 'U'); });
-    if (i < 0) break; out[i] = b;
-  }
-  return out;
+  const out = [], n = 2 + (Math.random() < .5 ? 1 : 0);
+  const ls = LINES.slice().sort(() => Math.random() - .5).slice(0, n);
+  for (const l of ls) l.forEach((no, k) => { const m = k === l.length - 1 && l.length > 2 ? 1 : 2; for (let i = 0; i < m; i++) out.push(no); });
+  const rest = deck(Math.random() < .5 ? 1 : 3, mix).filter(no => !CARDS[no - 1].evo);
+  while (out.length < 20 && rest.length) out.push(rest.shift());
+  while (out.length < 20) out.push(pick(CARDS.filter(c => c.set === 3 && c.r === 'C')).no);
+  return out.slice(0, 20);
 }
 (async () => {
   for (const vs of [1, 2]) for (const mix of MIX) {
