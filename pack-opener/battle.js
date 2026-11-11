@@ -645,7 +645,26 @@ function qp(k) { try { return new URLSearchParams(location.search).get(k); } cat
 function peerOpts() {
   const h = qp('peerhost');    // テスト用：自分で立てたサーバーにつなぐ
   if (h) { const [host, port] = h.split(':'); return { host, port: +port || 9000, path: '/', secure: false, debug: 0 }; }
-  return { debug: 0 };
+  return { debug: 0, config: { iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+    { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  ] } };
+}
+// 部屋を作った側：スマホで別のアプリ（LINEなど）に切りかえると待ち合わせサーバーとの線が切れるので、つなぎ直して部屋を守る
+function keepRoom(peer, waitingMsg) {
+  const alive = () => NET && NET.peer === peer && !peer.destroyed;
+  let tm = null;
+  const fix = () => {
+    clearTimeout(tm);
+    if (!alive() || !peer.disconnected) return;
+    if (!NET.conn) netStatus('つなぎ直しています…');
+    try { peer.reconnect(); } catch (e) {}
+    tm = setTimeout(fix, 2500);
+  };
+  peer.on('disconnected', () => { if (alive()) tm = setTimeout(fix, 400); });
+  peer.on('open', () => { clearTimeout(tm); if (alive() && !NET.conn) netStatus(waitingMsg); });
+  const vis = () => { if (!alive()) return document.removeEventListener('visibilitychange', vis); if (!document.hidden) fix(); };
+  document.addEventListener('visibilitychange', vis);
 }
 function loadPeerJS() {
   if (window.Peer) return Promise.resolve();
@@ -666,16 +685,19 @@ function openPeer(id) {
   });
 }
 // 相手につないで、ホストから「OK」が来たらつながったことにする
+let lastFail = '';
 function tryConnect(peer, id, ms = 3500) {
+  lastFail = 'timeout';
   return new Promise(res => {
     let done = false;
     const fin = v => { if (done) return; done = true; peer.off('error', onErr); clearTimeout(t); res(v); };
-    const onErr = e => { if (e.type === 'peer-unavailable') fin(null); };
+    const onErr = e => { if (e.type === 'peer-unavailable') { lastFail = 'unavail'; fin(null); } };
     peer.on('error', onErr);
     const c = peer.connect(id, { reliable: true });
-    const t = setTimeout(() => { try { c.close(); } catch (e) {} fin(null); }, ms);
+    // 時間切れ：相手から返事（answer）が来ていれば「部屋はある、回線の問題」、来てなければ「部屋がない」
+    const t = setTimeout(() => { const pc = c && c.peerConnection; lastFail = pc && pc.remoteDescription ? 'timeout' : 'unavail'; try { c.close(); } catch (e) {} fin(null); }, ms);
     c.on('open', () => c.send({ t: 'knock', v: NET_VER }));
-    c.on('data', d => { if (d && d.t === 'welcome') fin(c); else if (d && d.t === 'busy') { try { c.close(); } catch (e) {} fin(null); } });
+    c.on('data', d => { if (d && d.t === 'welcome') fin(c); else if (d && d.t === 'busy') { lastFail = 'busy'; try { c.close(); } catch (e) {} fin(null); } });
     c.on('error', () => fin(null));
   });
 }
@@ -692,6 +714,7 @@ function tryConnectAny(peer, ids, ms = 3500) {
     }
   });
 }
+window.__net = () => NET;
 function myName() { return (A.S.name || '').trim() || 'ななしの金魚'; }
 function netStatus(t, err) { const el = $('onStatus'); if (el) { el.textContent = t; el.style.color = err ? '#ff8aa0' : ''; } }
 function netClose(reason) {
@@ -715,9 +738,11 @@ async function hostRoom() {
       const peer = await openPeer(PREFIX + 'room-' + code);
       NET = { role: 'host', peer, conn: null, code };
       peer.on('connection', acceptConn);
-      peer.on('error', e => { if (!NET || NET.peer !== peer) return; if (e.type !== 'peer-unavailable') netStatus('通信エラー：' + e.type, true); });
+      peer.on('error', e => { if (!NET || NET.peer !== peer) return; if (!['peer-unavailable', 'network', 'disconnected', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) netStatus('通信エラー：' + e.type, true); });
+      const msg = '友達にこの番号を教えて、待っててね（番号を送ったら、この画面にもどってきてね）';
+      keepRoom(peer, msg);
       $('onCode').textContent = code; $('onCodeBox').hidden = false;
-      netStatus('友達にこの番号を教えて、待っててね');
+      netStatus(msg);
       return;
     } catch (e) { if (e.type !== 'unavailable-id') { netStatus('つなげなかった（' + (e.type || e.message) + '）', true); return; } }
   }
@@ -731,8 +756,23 @@ async function joinRoom(code) {
   try {
     const peer = await openPeer(null);
     NET = { role: 'guest', peer, conn: null };
-    const c = await tryConnect(peer, PREFIX + 'room-' + code, 8000);
-    if (!c || !NET) { netClose(); netStatus('部屋が見つからない（番号を確かめてね）', true); return; }
+    const until = Date.now() + 35000; let c = null, slow = 0;
+    while (NET && NET.peer === peer && Date.now() < until) {
+      c = await tryConnect(peer, PREFIX + 'room-' + code, slow ? 15000 : 8000);
+      if (c || !NET || NET.peer !== peer) break;
+      if (lastFail === 'busy') break;
+      if (lastFail === 'timeout') { slow++; netStatus(`部屋 ${code} は見つかった。つないでいます…（回線によっては少し時間がかかるよ）`); }
+      else netStatus(`部屋 ${code} をさがしています…（相手には、ゲームの画面を開いたままにしてもらってね）`);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    if (!NET || NET.peer !== peer) return;
+    if (!c) {
+      netClose();
+      netStatus(lastFail === 'busy' ? 'その部屋はもう対戦中みたい'
+        : slow ? 'つなげなかった。回線の相性かも（片方がWi-Fiなら、モバイル回線に切りかえると直ることがあるよ）'
+        : '部屋が見つからない。番号があってるか、相手がゲームの画面を開いたままか確かめてね', true);
+      return;
+    }
     asGuest(c);
   } catch (e) { netClose(); netStatus('つなげなかった（' + (e.type || e.message) + '）', true); }
 }
@@ -752,6 +792,7 @@ async function randomMatch() {
         const hp = await openPeer(PREFIX + 'rand-' + k);
         NET = { role: 'host', peer: hp, conn: null, slot: k, random: true };
         hp.on('connection', acceptConn);
+        keepRoom(hp, '相手が来るのを待っています…（そのまま待っててね）');
         netStatus('相手が来るのを待っています…（そのまま待っててね）');
         // 自分より前の場所でだれか待っていたら、そっちに入る（すれちがい防止）
         if (k > 0) NET.probe = setInterval(probe, 3500), setTimeout(probe, 600);
