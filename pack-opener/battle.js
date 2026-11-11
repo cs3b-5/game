@@ -25,7 +25,8 @@ const EL_C = { fire: '#ff5a2a', water: '#2a8cff', leaf: '#2fb35a', bolt: '#f2b80
 const TOTAL = { C: 5, U: 7, R: 8, SR: 10, UR: 12, SEC: 13 };
 // 進化：何段階目か（進化前がいなければ1）。進化したモンスターは、進化前を育てた分だけ強い
 function evoStage(c) { let n = 1, e = c.evo; const L = (typeof A !== 'undefined' && A && A.CARDS) || window.CARD_DEFS || []; while (e && n < 5) { n++; e = L[e - 1] && L[e - 1].evo; } return n; }
-let EVO_BONUS = { 2: 4, 3: 6 };   // 進化したときのATK+HPの上乗せ
+let EVO_TOTAL = { 2: 12, 3: 15 };  // 進化したモンスターのATK+HPの合計（レア度ではなく段階で決まる）
+let EVO_R = { SR: 1, UR: 1, SEC: 2 };   // レア度が高いと少しだけ上乗せ
 let EVO_COST = { 2: 1, 3: 2 };    // 進化にかかるちから（レア度ではなく段階で決まる。UR・SECは+1）
 let EVO_DRAW = 1;                 // 進化したらカードを1枚引く（2枚で1体になる分のおぎない）
 // カードごとのちから（書いていないものはレア度どおり）。魔法・フィールド・アイテムは強さに合わせて決める
@@ -41,7 +42,7 @@ function costOf(c) {
   return COST[c.r];
 }
 function power(c) {
-  const t = TOTAL[c.r] + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) + (c.evo ? EVO_BONUS[evoStage(c)] || 0 : 0);   // カードによって少しちがう（森の大物は少しタフ）
+  const t = (c.evo ? EVO_TOTAL[evoStage(c)] + (EVO_R[c.r] || 0) : TOTAL[c.r]) + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) ;   // カードによって少しちがう（森の大物は少しタフ）
   const share = .38 + ((Math.floor(c.seed / 7) % 7) / 6) * .26;  // ATK寄りか、HP寄りか
   const atk = Math.max(1, Math.round(t * share));
   return { atk, hp: Math.max(1, t - atk) };
@@ -1596,7 +1597,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.bonus) EVO_BONUS = o.bonus; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
+  get state() { return B; }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });
