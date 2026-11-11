@@ -1,6 +1,6 @@
 # パックの表の絵（Stable Diffusion 用・縦長 832x1216）
 # python pack_prompts.py → pack_prompts.txt（いちばん新しい弾の4パターンだけ）
-# シード 9001〜 = 第一弾、9101〜 = 第二弾、9201〜 = 第三弾、9301〜 = 第四弾（4パターンずつ）
+# シード 9001〜 = 第一弾、9101〜 = 第二弾、9201〜 = 第三弾、9301〜 = 第四弾、9401〜 = 第五弾（4パターンずつ）
 NEG = ('text, letters, words, numbers, title, logo, watermark, signature, frame, border, card frame, '
        'blurry, lowres, jpeg artifacts, deformed, bad anatomy, extra limbs, duplicate, people, person, human')
 PACKS = {
@@ -19,6 +19,10 @@ PACKS = {
     4: ('a colossal titan of molten rock and cracks facing a giant golden clockwork guardian holding a balance scale, '
         'a ruined city split in two between them, red fire and destruction on one side, white gold light and order on the other, '
         'vertical composition, main figures in the center, dark empty sky at the top and bottom, '
+        'fantasy trading card booster pack art, epic digital painting, vibrant colors, dramatic lighting, highly detailed'),
+    5: ('a grand pirate ship with golden sails crossing a stormy sea toward a glowing treasure island, '
+        'a cat pirate captain at the bow, a giant open treasure chest overflowing with gold coins and jewels, seagulls, '
+        'vertical composition, main subjects in the center, dark empty sky at the top and bottom, '
         'fantasy trading card booster pack art, epic digital painting, vibrant colors, dramatic lighting, highly detailed'),
 }
 if __name__ == '__main__':

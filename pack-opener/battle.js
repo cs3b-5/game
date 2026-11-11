@@ -25,7 +25,9 @@ const EL_C = { fire: '#ff5a2a', water: '#2a8cff', leaf: '#2fb35a', bolt: '#f2b80
 const TOTAL = { C: 5, U: 7, R: 8, SR: 10, UR: 12, SEC: 13 };
 // 進化：何段階目か（進化前がいなければ1）。進化したモンスターは、進化前を育てた分だけ強い
 function evoStage(c) { let n = 1, e = c.evo; const L = (typeof A !== 'undefined' && A && A.CARDS) || window.CARD_DEFS || []; while (e && n < 5) { n++; e = L[e - 1] && L[e - 1].evo; } return n; }
-let COUNTER_MINUS = { R: 1, SR: 1, UR: 1, SEC: 1 };              // 第四弾はカウンター能力がある分、元の強さを少し低く
+let COUNTER_MINUS = { R: 1, SR: 1, UR: 1, SEC: 1 };
+// 弾ごとに、能力がある分だけ元の強さを下げる（第四弾＝カウンター能力、第五弾＝宝の能力）
+let SET_MINUS = { 4: COUNTER_MINUS, 5: { U: 1, R: 1 } };              // 第四弾はカウンター能力がある分、元の強さを少し低く
 let EVO_TOTAL = { 2: 12, 3: 15 };  // 進化したモンスターのATK+HPの合計（レア度ではなく段階で決まる）
 let EVO_R = { SR: 1, UR: 1, SEC: 2 };   // レア度が高いと少しだけ上乗せ
 let EVO_COST = { 2: 1, 3: 2 };    // 進化にかかるちから（レア度ではなく段階で決まる。UR・SECは+1）
@@ -39,6 +41,8 @@ let CARD_COST = {
   // 第四弾：相手しだいで効くカウンターなので軽め
   199: 1, 201: 1, 202: 1, 203: 1, 200: 2,
   208: 4, 210: 2, 211: 2, 209: 4, 212: 5,
+  // 第五弾：宝がたまっていないと弱いので軽め。海の藻屑は強いので重め
+  254: 1, 256: 2, 255: 2, 257: 5, 245: 1, 246: 1,
 };
 function costOf(c) {
   if (CARD_COST[c.no] != null) return CARD_COST[c.no];
@@ -46,7 +50,7 @@ function costOf(c) {
   return COST[c.r];
 }
 function power(c) {
-  const t = (c.evo ? EVO_TOTAL[evoStage(c)] + (EVO_R[c.r] || 0) : TOTAL[c.r]) + (c.seed % 3 === 0 && !(c.set === 4 && c.r === 'C') ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) - (c.set === 4 && c.type === 'M' ? COUNTER_MINUS[c.r] || 0 : 0);   // カードによって少しちがう（森の大物は少しタフ）
+  const t = (c.evo ? EVO_TOTAL[evoStage(c)] + (EVO_R[c.r] || 0) : TOTAL[c.r]) + (c.seed % 3 === 0 && !(c.set >= 4 && c.r === 'C') ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) - (c.type === 'M' && SET_MINUS[c.set] ? SET_MINUS[c.set][c.r] || 0 : 0);   // カードによって少しちがう（森の大物は少しタフ）
   const share = .38 + ((Math.floor(c.seed / 7) % 7) / 6) * .26;  // ATK寄りか、HP寄りか
   const atk = Math.max(1, Math.round(t * share));
   return { atk, hp: Math.max(1, t - atk) };
@@ -70,11 +74,36 @@ const KW = {
   order: { ic: '⚖', nm: '天秤', txt: '自分よりレア度が高いモンスターとの戦いでは、与えるダメージ2倍' },
   cutoff: { ic: '✂', nm: '分断', txt: 'この場にいるかぎり、相手の🔗連結が働かず、相手の🌱進化はちから+1' },
   ward: { ic: '💠', nm: '結界', txt: '魔法のダメージ・凍結・効果を受けない' },
+  loot: { ic: '🏴', nm: '略奪', txt: '相手のライフにダメージを与えると、🪙宝+1' },
+  hoard: { ic: '💰', nm: '財宝', txt: '🪙宝の数だけATKアップ' },
+  dig: { ic: '🪙', nm: '宝拾い', txt: '出たとき、🪙宝を手に入れる' },
+  spend: { ic: '💎', nm: '宝使い', txt: '出たとき、🪙宝を使って追加効果' },
   evo: { ic: '🌱', nm: '進化', txt: '進化前のモンスターに重ねて出せる（ちからは差の分だけ・すぐ攻撃できる）' },
 };
 const EL_KW = { bolt: 'haste', water: 'guard', leaf: 'regen', dark: 'drain', fire: 'spark', light: 'bless' };
 // 第四弾のモンスター（C・Uも）は、属性ごとのカウンター能力を持つ
 const COUNTER_KW = { fire: 'break', bolt: 'pierce', water: 'seal', dark: 'nullheal', light: 'order', leaf: 'cutoff' };
+// ---- 第五弾「海賊と宝島」：🪙宝（最大10）----
+//  loot: 🏴略奪 / hoard: 💰財宝（最大のATKアップ） / dig: 🪙出たとき宝+N / spend: 💎出たとき宝をn使って fx
+const TREASURE_MAX = 10;
+const T5 = {
+  213: { loot: 1 }, 214: { dig: 1 }, 215: { spend: { n: 2, fx: 'aoe', v: 1 } }, 216: { loot: 1, spend: { n: 3, fx: 'snipe', v: 4 } }, 217: { hoard: 4, loot: 1 },
+  218: { dig: 1 }, 219: { loot: 1 }, 220: { spend: { n: 2, fx: 'draw', v: 2 } }, 221: { loot: 1, spend: { n: 2, fx: 'buff', v: 2 } }, 222: { hoard: 4 }, 223: { dig: 3, hoard: 3 },
+  224: { dig: 1 }, 225: { loot: 1 }, 226: { loot: 1 }, 227: { spend: { n: 2, fx: 'heal', v: 5 } }, 228: { dig: 2 },
+  229: { loot: 1 }, 230: { dig: 1 }, 231: { spend: { n: 2, fx: 'haste', v: 2 } }, 232: { loot: 1, spend: { n: 3, fx: 'aoe', v: 2 } },
+  233: { loot: 1 }, 234: { dig: 1 }, 235: { loot: 1 }, 236: { hoard: 3 }, 237: { hoard: 5, spend: { n: 0, fx: 'curse', v: 2 } },
+  238: { dig: 1 }, 239: { loot: 1 }, 240: { spend: { n: 2, fx: 'healdraw', v: 4 } }, 241: { hoard: 3 }, 242: { spend: { n: 3, fx: 'kill' } }, 243: { dig: 3, loot: 1 }, 244: { hoard: 4, loot: 1, spend: { n: 5, fx: 'aoe', v: 3 } },
+};
+function spendText(sp) {
+  const t = { aoe: `敵モンスター全員に${sp.v}ダメージ`, snipe: `敵モンスター1体に${sp.v}ダメージ`, draw: `カードを${sp.v}枚引く`, buff: `このモンスターのATK+${sp.v}・HP+${sp.v}`, heal: `ライフ+${sp.v}`,
+    haste: `このモンスターのATK+${sp.v}、すぐ攻撃できる`, healdraw: `ライフ+${sp.v}、カードを1枚引く`, kill: '敵モンスター1体を倒す', curse: `🪙宝を全部使って、1つにつき敵モンスター1体に${sp.v}ダメージ` }[sp.fx];
+  return sp.n ? `出たとき🪙宝が${sp.n}以上あれば、${sp.n}使って${t}` : `出たとき${t}`;
+}
+function gainT(side, n, why) {
+  if (!n) return; const before = side.treasure || 0; side.treasure = Math.min(TREASURE_MAX, before + n);
+  const got = side.treasure - before; if (got > 0) { floatAt(side === B.me ? 'meFace' : 'foeFace', '🪙+' + got, '#ffd25a'); if (why) log(`${why}で🪙宝+${got}（${side.treasure}）`, side); }
+}
+function hoardN(side, m) { return m.kw && m.kw.hoard ? Math.min(m.kw.hoard, side.treasure || 0) : 0; }
 function hasKw(side, k) { return !!side && side.field.some(m => m && m.kw && m.kw[k]); }
 const R_RANK = { C: 0, U: 1, R: 2, SR: 3, UR: 4, SEC: 5 };
 function traits(c) {
@@ -82,6 +111,7 @@ function traits(c) {
   if (isTrain(c)) k.link = 1;                                  // 第二弾の電車はみんな連結（C・Uも）
   if (c.type === 'M' && evoOf(c)) k.evo = 1;                   // 第三弾の進化カード
   if (c.type === 'M' && c.set === 4) k[COUNTER_KW[c.el]] = 1;   // 第四弾のカウンター能力
+  if (c.type === 'M' && T5[c.no]) { const t = T5[c.no]; if (t.loot) k.loot = 1; if (t.hoard) k.hoard = t.hoard; if (t.dig) k.dig = t.dig; if (t.spend) k.spend = 1; }   // 第五弾
   if (c.type !== 'M' || c.r === 'C' || c.r === 'U') return k;
   k[EL_KW[c.el]] = 1;
   if (c.no === 73) k.guard = 1;                                // 始祖ネコ：祝福＋守り
@@ -98,7 +128,7 @@ function linkText() { return LINK_CAP === 1 ? `自分の場にほかの電車が
 function evoCostOf(c, base, side) { const foe = side && B ? other(side) : null; return Math.max(0, costOf(c) - (side && side.land && EVO_LAND.includes(side.land.c.no) ? 1 : 0)) + (foe && (hasKw(foe, 'cutoff') || landIs(foe, 206)) ? 1 : 0); }
 const EVO_LAND = [161, 162, 163];
 // 第四弾のフィールドのおまけ
-const LAND_EXTRA = { 204: '出たとき、相手のフィールドも壊す', 205: '相手のモンスターは、出たときの能力が働かない', 206: '相手の🌱進化はちから+1', 207: '相手の🔗連結が働かない' };
+const LAND_EXTRA = { 250: 'ターンのはじめに🪙宝+1', 251: '🏴略奪で手に入る🪙宝+1', 252: '味方のモンスターが倒れると🪙宝+1', 253: '🪙宝が5以上あると、味方全員ATK+1', 204: '出たとき、相手のフィールドも壊す', 205: '相手のモンスターは、出たときの能力が働かない', 206: '相手の🌱進化はちから+1', 207: '相手の🔗連結が働かない' };
 const landIs = (side, no) => !!(side && side.land && side.land.c.no === no);   // 進化のちからが1少なくなるフィールド
 function evoText(c) { const b = A && A.CARDS ? A.CARDS[evoOf(c) - 1] : null; return b ? `場の「${b.nm}」に重ねて進化する（進化前がいないと出せない）。進化するとHPが全回復して、そのターンにすぐ攻撃できる` : KW.evo.txt; }
 function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).join(' '); }
@@ -121,6 +151,11 @@ const ITEM_NO = {
   158: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2' },                                    // 骨つき肉
   159: { atk: 0, hp: 3, kw: null, txt: 'HP+3。HPが全回復' },                                // 海のミルク
   160: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2。ライフ+3' },                          // 進化のお守り
+  245: { atk: 1, hp: 1, kw: null, txt: 'ATK+1・HP+1。🪙宝+2' },                            // 金貨の袋
+  246: { atk: 3, hp: 0, kw: 'loot', txt: 'ATK+3・🏴略奪がつく' },                           // 海賊のカトラス
+  247: { atk: 1, hp: 2, kw: 'hoard', txt: 'ATK+1・HP+2・💰財宝がつく（最大+3）' },            // 船長の帽子
+  248: { atk: 0, hp: 3, kw: 'guard', txt: 'HP+3・🛡守りがつく' },                            // 船の錨
+  249: { atk: 1, hp: 0, kw: null, txt: 'ATK+1。🪙宝+1、カードを1枚引く' },                   // 海賊の望遠鏡
   199: { atk: 3, hp: 0, kw: 'pierce', txt: 'ATK+3・🗡貫通がつく' },                         // 破城槌
   200: { atk: 1, hp: 3, kw: 'ward', txt: 'ATK+1・HP+3・💠結界がつく' },                            // 秩序の盾
   201: { atk: 1, hp: 2, kw: null, txt: 'ATK+1・HP+2。相手モンスター1体の能力をすべて消す' },  // 封印の鎖
@@ -144,6 +179,11 @@ const SPELL_NO = {
   164: { txt: '味方モンスター全員のATK+2・HP+2' },                                                    // 急成長
   165: { txt: '敵モンスター1体を進化前の姿にもどす（進化前がなければ手札にもどす）。カードを1枚引く', tgt: 'mon' },      // 先祖返り
   166: { txt: '味方モンスター1体を、山札の進化カードですぐ進化させる（ちから0）。なければATK+2・HP+2。どちらでもカードを1枚引く', tgt: 'mine' },  // 突然変異
+  254: { txt: '🪙宝+2。カードを1枚引く' },                                                            // 宝の地図
+  255: { txt: '敵モンスター全員に1ダメージ。🪙宝を3まで使い、1つにつきさらに1ダメージ' },                // 一斉砲撃
+  256: { txt: 'ライフ+3。さらに🪙宝を全部使い、1つにつきライフ+2。カードを2枚引く' },                                   // 黄金の雨
+  257: { txt: '敵モンスター1体を倒す。🪙宝が3以上あれば3使って、カードを2枚引く', tgt: 'mon' },          // 海の藻屑
+  258: { txt: '相手の🪙宝を全部うばう。うばえなかったら、敵モンスター全員に2ダメージ' },                  // ドクロの旗
   208: { txt: '敵モンスター全員の能力をすべて消して、1ダメージ。カードを1枚引く' },                                                  // 沈黙の鐘
   209: { txt: '敵モンスターのうち、レア度がいちばん高い1体を倒す' },                                   // 天秤の裁き
   210: { txt: '相手は次のターン、魔法を使えない。カードを2枚引く' },                                   // 鎖の結界
@@ -152,7 +192,7 @@ const SPELL_NO = {
 };
 const spellOf = c => SPELL_NO[c.no] || SPELL[c.el];
 function rulesText(c) {
-  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : x === 'link' ? linkText() : x === 'evo' ? evoText(c) : KW[x].txt}`).join(''); }
+  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : x === 'link' ? linkText() : x === 'evo' ? evoText(c) : x === 'hoard' ? `🪙宝の数だけATK+（最大+${k.hoard}）` : x === 'dig' ? `出たとき、🪙宝+${k.dig}` : x === 'spend' ? spendText(T5[c.no].spend) : KW[x].txt}`).join(''); }
   if (c.type === 'S') return spellOf(c).txt;
   if (c.type === 'F') return `味方の${EL_NM[c.el]}のモンスターのATK+${LAND_FX.same[0]}・HP+${LAND_FX.same[1]}。出たときカードを1枚引く（場に1枚）${EVO_LAND.includes(c.no) ? '。進化のちから-1' : ''}${LAND_EXTRA[c.no] ? '。' + LAND_EXTRA[c.no] : ''}`;
   return `味方モンスター1体に：${itemOf(c).txt}（${EL_NM[c.el]}のモンスターならさらに+1/+1）`;
@@ -252,7 +292,7 @@ function linkN(side, m) { if (B && (hasKw(other(side), 'cutoff') || landIs(other
 let LINK_PER = 1, LINK_CAP = 1;
 let LAND_FX = { same: [2, 2], other: [0, 0] }, LAND_DRAW = 1;   // フィールド：同じ属性 [ATK, HP]・ほかの属性 [ATK, HP]
 function landFx(side, m) { return side.land ? (side.land.c.el === m.c.el ? LAND_FX.same : LAND_FX.other) : [0, 0]; }
-function atkOf(side, m) { return m.atk + m.buff + landFx(side, m)[0] + linkN(side, m); }
+function atkOf(side, m) { return m.atk + m.buff + landFx(side, m)[0] + linkN(side, m) + hoardN(side, m) + (landIs(side, 253) && (side.treasure || 0) >= 5 ? 1 : 0); }
 function hpBonus(side, m) { return landFx(side, m)[1] + (LINK_HP ? linkN(side, m) : 0); }
 let LINK_HP = false;
 let TRAIN_MINUS = { C: 1, U: 1, R: 1, SR: 1, UR: 1, SEC: 1 };   // 電車は連結がある分、元の強さを少し低く
@@ -294,7 +334,7 @@ function damage(side, m, n) {
 }
 function cleanupQuiet() { if (B) cleanup(); }
 function cleanup() {
-  for (const side of [B.me, B.foe]) side.field = side.field.map(m => (m && hpOf(side, m) <= 0) ? (killFx(m), null) : m);
+  for (const side of [B.me, B.foe]) side.field = side.field.map(m => (m && hpOf(side, m) <= 0) ? (killFx(m), landIs(side, 252) && gainT(side, 1, '幽霊船'), null) : m);
 }
 function killFx(m) {
   emit({ k: 'kill', id: 'u' + m.uid });
@@ -322,7 +362,8 @@ function canPlay(side, card) {
     if (card.c.no === 164 || card.c.no === 166) return mine.length > 0;
     if (card.c.no === 165) return foes.length > 0;
     if (card.c.no === 103) return foes.length > 0 || mine.some(m => m.kw.link);
-    if (card.c.no === 208 || card.c.no === 209) return foes.length > 0;
+    if (card.c.no === 208 || card.c.no === 209 || card.c.no === 257) return foes.length > 0;
+    if ([254, 255, 256, 258].includes(card.c.no)) return true;
     if (card.c.no === 210) return true;
     if (card.c.no === 211 || card.c.no === 212) return foes.length > 0 || !!other(side).land;
     if (card.c.el === 'water' || card.c.el === 'dark' || card.c.el === 'fire') return foes.length > 0;
@@ -370,6 +411,9 @@ async function play(side, card, target) {
     if (card.c.no === 157) { const k = side.deck.findIndex(x => evoOf(x.c) === m.no); if (k >= 0 && side.hand.length < HAND_MAX) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); log(`進化カード「${e.c.nm}」を手札に加えた`, side); } }
     if (card.c.no === 159) m.hp = m.maxHp;
     if (card.c.no === 160) heal(side, 3, '進化のお守り');
+    if (card.c.no === 245) gainT(side, 2, '金貨の袋');
+    if (card.c.no === 249) { gainT(side, 1, '海賊の望遠鏡'); draw(side, 1); }
+    if (card.c.no === 247) m.kw.hoard = Math.max(m.kw.hoard || 0, 3);
     if (card.c.no === 201) { const t = sealTarget(foe); if (t) { sealMon(t); log(`⛓「${t.c.nm}」の能力を封印した`, side); } }
     if (card.c.no === 203) { m.frozen = 0; m.iced = false; if (m.sealed) { m.sealed = false; m.kw = Object.assign(traits(m.c), m.kw); } m.hp = m.maxHp; log(`「${m.c.nm}」の凍りと封印がとけた`, side); }
   } else if (t === 'S') {
@@ -390,6 +434,11 @@ async function play(side, card, target) {
           if (k >= 0) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); cleanup(); await evolve(side, e, m, true); }
           else { m.buff += 2; m.hp += 2; m.maxHp += 2; log(`「${m.c.nm}」のATK+2・HP+2`, side); } }
         draw(side, 1); break; }
+      case 254: gainT(side, 2, '宝の地図'); draw(side, 1); break;
+      case 255: { const k = Math.min(3, side.treasure || 0); side.treasure = (side.treasure || 0) - k; for (const m of foes) damage(foe, m, 1 + k); log(`敵モンスター全員に${1 + k}ダメージ${k ? `（🪙宝を${k}使った）` : ''}`, side); break; }
+      case 256: { const k = side.treasure || 0; side.treasure = 0; heal(side, 3 + k * 2, '黄金の雨'); draw(side, 2); break; }
+      case 257: { const m = pickT() || best(foes, m => threat(foe, m)); if (m) { m.hp = -99; log(`「${m.c.nm}」は海の藻屑になった`, side); } if ((side.treasure || 0) >= 3) { side.treasure -= 3; draw(side, 2); log(`🪙宝を3使って、カードを2枚引いた`, side); } break; }
+      case 258: { const k = foe.treasure || 0; if (k) { foe.treasure = 0; gainT(side, k, 'ドクロの旗'); } else { for (const m of foes) damage(foe, m, 2); log(`敵モンスター全員に2ダメージ`, side); } break; }
       case 208: for (const m of foes) { sealMon(m); damage(foe, m, 1); } log(`🔔敵モンスター${foes.length}体の能力が消えた`, side); draw(side, 1); break;
       case 209: { const m = best(foes, m => R_RANK[m.c.r] * 100 + threat(foe, m)); if (m) { m.hp = -99; log(`⚖「${m.c.nm}」は天秤に裁かれた`, side); } break; }
       case 210: foe.lockTurn = B.turn + 1; log(`⛓${sideNm(foe)}は次のターン、魔法を使えない`, side); draw(side, 2); break;
@@ -441,6 +490,26 @@ function stripItems(side, m) {   // アイテムの強化をはずす（受け�
 function sealMon(m) { m.kw = {}; m.sealed = true; floatAt('u' + m.uid, '封印', '#6ad0ff'); }
 function breakLand(side, by) { if (!side.land) return false; log(`🔨「${side.land.c.nm}」は壊された`, by); side.land = null; return true; }
 function sealTarget(foe) { return best(foe.field.filter(m => m && Object.keys(m.kw || {}).length), m => threat(foe, m) + Object.keys(m.kw).length * 3); }
+async function spendFx(side, card, sp) {
+  const foe = other(side), foes = () => foe.field.filter(m => m && !(m.kw && m.kw.ward));
+  if (sp.n && (side.treasure || 0) < sp.n) return;
+  let spent = sp.n;
+  if (sp.fx === 'curse') { spent = side.treasure || 0; if (!spent) return; }
+  side.treasure -= spent; floatAt(side === B.me ? 'meFace' : 'foeFace', '🪙-' + spent, '#ffd25a');
+  const head = `💎🪙宝を${spent}使った：`;
+  switch (sp.fx) {
+    case 'aoe': for (const m of foes()) damage(foe, m, sp.v); log(head + `敵モンスター全員に${sp.v}ダメージ`, side); break;
+    case 'snipe': { const t = best(foes(), m => threat(foe, m)); if (t) { damage(foe, t, sp.v); log(head + `「${t.c.nm}」に${sp.v}ダメージ`, side); } break; }
+    case 'kill': { const t = best(foes(), m => threat(foe, m)); if (t) { t.hp = -99; log(head + `「${t.c.nm}」を倒した`, side); } break; }
+    case 'draw': draw(side, sp.v); log(head + `カードを${sp.v}枚引いた`, side); break;
+    case 'buff': card.buff += sp.v; card.hp += sp.v; card.maxHp += sp.v; log(head + `「${card.c.nm}」のATK+${sp.v}・HP+${sp.v}`, side); break;
+    case 'haste': card.buff += sp.v; card.sleep = false; log(head + `「${card.c.nm}」のATK+${sp.v}、すぐ攻撃できる`, side); break;
+    case 'heal': heal(side, sp.v, '💎宝使い'); break;
+    case 'healdraw': heal(side, sp.v, '💎宝使い'); draw(side, 1); break;
+    case 'curse': { for (let i = 0; i < spent; i++) { const fs = foes().filter(m => hpOf(foe, m) > 0); if (!fs.length) break; damage(foe, pick(fs), sp.v); } log(head + `敵モンスターに${sp.v}ダメージを${spent}回`, side); break; }
+  }
+  await wait(250); cleanup();
+}
 async function onEnter(side, card) {
   const foe = other(side);
   if (landIs(foe, 205)) { if (Object.keys(card.kw).some(k => ['spark', 'banish', 'starlight', 'bless', 'break', 'seal'].includes(k))) log(`静寂の神殿で「${card.c.nm}」の能力は働かない`, side); return; }
@@ -448,6 +517,8 @@ async function onEnter(side, card) {
     if (!breakLand(foe, side)) { const t = best(foe.field.filter(m => m && (m.items || m.buff)), m => m.items * 3 + m.buff); if (t) { stripItems(foe, t); floatAt('u' + t.uid, '破壊', '#ff8a4a'); log(`🔨「${t.c.nm}」のアイテムの強化をはずした`, side); } }
   }
   if (card.kw.seal) { const t = sealTarget(foe); if (t) { sealMon(t); log(`⛓「${t.c.nm}」の能力を封印した`, side); } }
+  if (card.kw.dig) gainT(side, card.kw.dig, '🪙宝拾い');
+  if (card.kw.spend && T5[card.c.no] && T5[card.c.no].spend) await spendFx(side, card, T5[card.c.no].spend);
     if (card.kw.spark) {
     const foes = foe.field.filter(Boolean);
     if (foes.length) { for (const m of foes) damage(foe, m, card.kw.spark); log(`🔥火の粉！ 敵モンスター全員に${card.kw.spark}ダメージ`, side); await wait(300); cleanup(); }
@@ -471,6 +542,7 @@ async function attack(side, m, target) {
   await lunge('u' + m.uid, target ? 'u' + target.uid : (foe === B.me ? 'meFace' : 'foeFace'));
   if (!target) {
     hurtFace(foe, a); log(`「${m.c.nm}」が${sideNm(foe)}に攻撃！ ライフに${a}ダメージ`, side, 'hit');
+    if (m.kw.loot && a > 0) gainT(side, 1 + (landIs(side, 251) ? 1 : 0), '🏴略奪');
     A.tone(140, .15, 'square', .05, -40);
     if (m.kw.drain) heal(side, Math.ceil(a / 2), '吸血');
   } else {
@@ -487,6 +559,7 @@ async function attack(side, m, target) {
 }
 // ターンのはじめ：再生
 function onTurnStart(side) {
+  if (landIs(side, 250)) gainT(side, 1, '宝島');
   for (const m of side.field) if (m && m.kw.nightmare) {
     const foe = other(side), t = pick(foe.field.filter(Boolean));
     if (t) { damage(foe, t, 2); log(`🐒「次は…」悪夢の放送で「${t.c.nm}」に2ダメージ`, side); }
@@ -562,6 +635,11 @@ function spellPlan(side, card) {
   if (card.c.no === 164) return mine.length >= 2 ? true : null;
   if (card.c.no === 165) { const t = best(foes, m => threat(foe, m) + (evoOf(m.c) ? 6 : 0)); return t && (evoOf(t.c) || threat(foe, t) >= 12) ? t : null; }
   if (card.c.no === 166) { const t = best(mine, m => side.deck.some(x => evoOf(x.c) === m.no) ? 10 + cost(m) : -1); return t && side.deck.some(x => evoOf(x.c) === t.no) ? t : (mine.length ? best(mine, m => threat(side, m)) : null); }
+  if (card.c.no === 254) return true;
+  if (card.c.no === 255) { const d = 1 + Math.min(3, side.treasure || 0); const kills = foes.filter(m => hpOf(foe, m) <= d).length; return kills >= 1 || foes.length >= 2 ? true : null; }
+  if (card.c.no === 256) return side.lp <= side.maxLp - 6 || side.hand.length <= 2 ? true : null;
+  if (card.c.no === 257) return top && threat(foe, top) >= 10 ? top : null;
+  if (card.c.no === 258) return (foe.treasure || 0) >= 2 || foes.filter(m => hpOf(foe, m) <= 2).length >= 2 ? true : null;
   if (card.c.no === 208) { const k = foes.reduce((n, m) => n + Object.keys(m.kw || {}).length, 0) + foes.filter(m => hpOf(foe, m) <= 1).length * 2; return k >= 2 ? true : null; }
   if (card.c.no === 209) { const t = best(foes, m => R_RANK[m.c.r] * 100 + threat(foe, m)); return t && R_RANK[t.c.r] >= 3 ? true : null; }
   if (card.c.no === 210) return true;
@@ -1073,8 +1151,8 @@ function render() {
   $('foeIc').textContent = B.online ? '🧑' : FOES[B.lv].icon;
   if (B.online && !B.done) $('btTurn').textContent = `ターン ${Math.ceil(B.turn / 2)}・のこり${Math.max(0, Math.ceil(TURN_LIMIT - (Date.now() - B.turnAt) / 1000))}秒`;
   $('foeLp').textContent = foe.lp; $('meLp').textContent = me.lp;
-  $('foeMeta').textContent = `${foe.nm}・手札${foe.hand.length}・山札${foe.deck.length}`;
-  $('meMeta').textContent = `${B.online ? myName() + '・' : ''}山札${me.deck.length}`;
+  $('foeMeta').textContent = `${foe.nm}・手札${foe.hand.length}・山札${foe.deck.length}${foe.treasure ? `・🪙${foe.treasure}` : ''}`;
+  $('meMeta').textContent = `${B.online ? myName() + '・' : ''}山札${me.deck.length}${me.treasure ? `・🪙宝${me.treasure}` : ''}`;
   const gems = s => Array.from({ length: Math.max(s.maxMana, 1) }, (_, i) => `<i class="${i < s.mana ? 'on' : ''}"></i>`).join('');
   $('foeMana').innerHTML = gems(foe); $('meMana').innerHTML = gems(me);
   const fieldHTML = (side, isMe) => {
@@ -1651,7 +1729,7 @@ function chipsHTML() {
   const one = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k] === v ? 'on' : ''}">${nm}</button>`).join('');
   const many = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k].includes(v) ? 'on' : ''}">${nm}</button>`).join('');
   return {
-    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾'], ['4', '第四弾']].slice(0, 1 + Math.max(...A.CARDS.map(c => c.set || 1)))),
+    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾'], ['4', '第四弾'], ['5', '第五弾']].slice(0, 1 + Math.max(...A.CARDS.map(c => c.set || 1)))),
     el: '<span class="lb">属性</span>' + one('el', [['all', 'すべて'], ...Object.keys(EL_NM).map(e => [e, EL_NM[e]])]),
     type: '<span class="lb">種類</span>' + one('type', [['all', 'すべて'], ['M', 'モンスター'], ['S', '魔法'], ['F', 'フィールド'], ['I', 'アイテム']]),
     r: '<span class="lb">レア</span>' + many('r', R_ORDER.map(r => [r, r])),
@@ -1713,7 +1791,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, setCounterMinus(n) { COUNTER_MINUS = n; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
+  get state() { return B; }, setCounterMinus(n) { COUNTER_MINUS = n; SET_MINUS[4] = n; }, setSetMinus(set, o) { SET_MINUS[set] = o; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });

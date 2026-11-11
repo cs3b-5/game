@@ -235,11 +235,60 @@ const D = [
   ["water", "SR", "S", "鎖の結界", 'glass', 'night', { k: 'pending' }, "しばらくのあいだ、だれも呪文を唱えられない。"],
   ["leaf", "SR", "S", "大地の均し", 'water', 'night', { k: 'pending' }, "盛りあがった土も、へこんだ土も、たいらに。"],
   ["fire", "UR", "S", "大崩落", 'real', 'night', { k: 'pending' }, "空から、街ごと崩れおちる。"],
+  // =========================================================
+  //  第五弾「海賊と宝島」（No.213〜）絵は images/213.jpg〜。新しい資源「🪙宝」
+  // =========================================================
+  ["fire", "C", "M", "カヤクザル", 'comic', 'night', { k: 'pending' }, "たるの火薬で、なんでも吹き飛ばしたがる。"],
+  ["fire", "C", "M", "タルばくだんネズミ", 'pixel', 'night', { k: 'pending' }, "中身は火薬か、ラム酒か。"],
+  ["fire", "U", "M", "大砲うちのクマ", 'paper', 'night', { k: 'pending' }, "砲弾も、片手で軽々と運ぶ。"],
+  ["fire", "R", "M", "ひげの砲撃長", 'oil', 'night', { k: 'pending' }, "自慢のひげは、火薬で少しこげている。"],
+  ["fire", "SR", "M", "炎の海賊船長", 'real', 'night', { k: 'pending' }, "燃える帆の船で、七つの海を駆ける。"],
+  ["water", "C", "M", "カモメの見張り番", 'water', 'night', { k: 'pending' }, "マストのてっぺんで、いつも宝をさがしている。"],
+  ["water", "C", "M", "イルカの水夫", 'pixel', 'night', { k: 'pending' }, "泳ぎなら、どんな海賊にも負けない。"],
+  ["water", "U", "M", "セイレーン", 'oil', 'night', { k: 'pending' }, "歌声で、船をまよわせる。"],
+  ["water", "R", "M", "海賊ザメ", 'comic', 'night', { k: 'pending' }, "金の歯を光らせて、船ごとかじる。"],
+  ["water", "SR", "M", "嵐を呼ぶ大海賊", 'real', 'night', { k: 'pending' }, "この男の船が来ると、海が荒れる。"],
+  ["water", "UR", "M", "黄金のガレオン船", 'real', 'night', { k: 'pending' }, "船底まで、金貨でうまっている。"],
+  ["leaf", "C", "M", "ヤシガニ", 'paper', 'night', { k: 'pending' }, "島のヤシの実は、ぜんぶこいつのもの。"],
+  ["leaf", "C", "M", "宝島のオウム", 'water', 'night', { k: 'pending' }, "宝のありかを、知っているらしい。"],
+  ["leaf", "U", "M", "ジャングルのワニ", 'comic', 'night', { k: 'pending' }, "宝箱のふたを、あごで開ける。"],
+  ["leaf", "R", "M", "島の守り神トーテム", 'oil', 'night', { k: 'pending' }, "宝をねらう者を、じっと見ている。"],
+  ["leaf", "SR", "M", "宝島の主", 'real', 'night', { k: 'pending' }, "島そのものが、この大猿の宝物。"],
+  ["bolt", "C", "M", "イナズマトビウオ", 'pixel', 'night', { k: 'pending' }, "雷をまとって、波の上を跳ぶ。"],
+  ["bolt", "C", "M", "マストのぼりのテナガザル", 'comic', 'night', { k: 'pending' }, "帆を張るのは、いちばん速い。"],
+  ["bolt", "U", "M", "嵐の航海士ペンギン", 'paper', 'night', { k: 'pending' }, "羅針盤が雷で回っても、迷わない。"],
+  ["bolt", "R", "M", "稲妻のカジキ剣士", 'oil', 'night', { k: 'pending' }, "鼻先の剣で、雷ごと切りさく。"],
+  ["dark", "C", "M", "ガイコツ水夫", 'sumi', 'night', { k: 'pending' }, "骨になっても、まだ宝をさがしている。"],
+  ["dark", "C", "M", "のろいの金貨ガエル", 'neon', 'night', { k: 'pending' }, "さわった金貨が、カエルになった。"],
+  ["dark", "U", "M", "幽霊船のコウモリ", 'comic', 'night', { k: 'pending' }, "やぶれた帆に、ぶらさがって眠る。"],
+  ["dark", "R", "M", "幽霊船長", 'oil', 'night', { k: 'pending' }, "百年前に沈んだ宝を、いまも数えている。"],
+  ["dark", "SEC", "M", "呪われた財宝の王", 'real', 'night', { k: 'pending' }, "王の宝にふれた者は、ひとり残らず消えた。"],
+  ["light", "C", "M", "金貨ハムスター", 'water', 'night', { k: 'pending' }, "ほっぺの中は、いつも金貨でいっぱい。"],
+  ["light", "C", "M", "宝石カナリア", 'pixel', 'night', { k: 'pending' }, "宝石の色で、きれいな声が変わる。"],
+  ["light", "U", "M", "王冠のペリカン", 'paper', 'night', { k: 'pending' }, "くちばしの中に、王冠をしまっている。"],
+  ["light", "R", "M", "黄金郷の番人", 'gold', 'night', { k: 'pending' }, "金の毛皮は、本物の金でできている。"],
+  ["light", "SR", "M", "黄金の大鷲", 'real', 'night', { k: 'pending' }, "ひと羽ばたきで、金の羽根が雨のように降る。"],
+  ["light", "UR", "M", "太陽の財宝神", 'gold', 'night', { k: 'pending' }, "島の太陽は、この神の首飾り。"],
+  ["light", "SEC", "M", "大海賊キャプテン・ネコ", 'real', 'night', { k: 'pending' }, "この世の宝は、ぜんぶ吾輩のものだ。"],
+  ["light", "U", "I", "金貨の袋", 'oil', 'night', { k: 'pending' }, "ずっしり重い。それだけで心強い。"],
+  ["fire", "U", "I", "海賊のカトラス", 'oil', 'night', { k: 'pending' }, "略奪には、これがいちばん。"],
+  ["dark", "U", "I", "船長の帽子", 'oil', 'night', { k: 'pending' }, "かぶると、宝のにおいがわかる。"],
+  ["water", "U", "I", "船の錨", 'lowpoly', 'night', { k: 'pending' }, "どんな嵐でも、ここから動かない。"],
+  ["bolt", "U", "I", "海賊の望遠鏡", 'lowpoly', 'night', { k: 'pending' }, "水平線の向こうの宝まで見える。"],
+  ["leaf", "R", "F", "宝島", 'oil', 'night', { k: 'pending' }, "地図の×印の場所。"],
+  ["water", "R", "F", "海賊船の甲板", 'oil', 'night', { k: 'pending' }, "旗をかかげて、いざ出航。"],
+  ["dark", "R", "F", "幽霊船", 'oil', 'night', { k: 'pending' }, "霧の中から、音もなくあらわれる。"],
+  ["light", "R", "F", "黄金郷", 'gold', 'night', { k: 'pending' }, "すべてが金でできた、まぼろしの都。"],
+  ["leaf", "SR", "S", "宝の地図", 'water', 'night', { k: 'pending' }, "×印の下を、掘ってみよう。"],
+  ["fire", "SR", "S", "一斉砲撃", 'real', 'night', { k: 'pending' }, "撃て！ 全砲門、ひらけ！"],
+  ["light", "SR", "S", "黄金の雨", 'glass', 'night', { k: 'pending' }, "空から、金貨が降ってくる。"],
+  ["water", "SR", "S", "海の藻屑", 'neon', 'night', { k: 'pending' }, "深い海の底へ、まっさかさま。"],
+  ["dark", "UR", "S", "ドクロの旗", 'real', 'night', { k: 'pending' }, "この旗を見たら、宝を置いて逃げろ。"],
 ];
 const TYPE_NM = { M: 'モンスター', S: '魔法', F: 'フィールド', I: 'アイテム' };
 const seedOf = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 // 公開している弾（絵ができてから増やす）。バランス調整のツールは SHOW_ALL_SETS で全部の弾を読む
 const RELEASED_SET = 4;
-global.CARD_DEFS_ALL = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : i < 120 ? 2 : i < 166 ? 3 : 4, evo: (d[6] && d[6].evo) || null, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
+global.CARD_DEFS_ALL = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : i < 120 ? 2 : i < 166 ? 3 : i < 212 ? 4 : 5, evo: (d[6] && d[6].evo) || null, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
 global.CARD_DEFS = global.SHOW_ALL_SETS ? global.CARD_DEFS_ALL : global.CARD_DEFS_ALL.filter(c => c.set <= RELEASED_SET);
 })(window);

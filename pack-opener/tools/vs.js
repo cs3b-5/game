@@ -10,6 +10,7 @@ eval(fs.readFileSync(path.join(dir, 'battle.js'), 'utf8'));
 const CARDS = window.CARD_DEFS, PB = window.PackBattle;
 PB.init({ S: { owned: {} }, CARDS, tone() {}, chime() {}, esc: s => s });
 if (process.env.CM) PB.setCounterMinus(JSON.parse(process.env.CM));
+if (process.env.SM) { const [st, o] = JSON.parse(process.env.SM); PB.setSetMinus(st, o); }
 const [SA, SB] = [+process.argv[2] || 4, +process.argv[3] || 1], N = +process.argv[4] || 1000;
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const MIX = [{ C: 10, U: 6, R: 3, SR: 1 }, { C: 6, U: 7, R: 4, SR: 2, UR: 1 }, { C: 4, U: 6, R: 5, SR: 3, UR: 1, SEC: 1 }];
