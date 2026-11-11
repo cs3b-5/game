@@ -566,6 +566,43 @@ function css() {
 .foe b { font-weight: 900; }
 .foe small { color: var(--muted); font-size: .72rem; }
 .foe .rw { grid-row: span 2; font-family: var(--num); font-size: 1.2rem; color: var(--gold); }
+.btSheet .box.dkBox { width: min(100%, 980px); align-content: start; }
+.dkHead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
+.dkList { display: flex; flex-wrap: wrap; gap: 5px; }
+.dkList button { display: flex; align-items: center; gap: 5px; padding: 4px 9px 4px 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); font: inherit; font-size: .76rem; color: inherit; cursor: pointer; }
+.dkList button:hover { background: rgba(255,80,110,.18); }
+.dkList .c { font-family: var(--num); width: 1.5em; height: 1.5em; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 35%, #fff, #46e0ff 60%, #1a6a90); color: #001a2a; font-size: .9rem; }
+.dkList .el { width: 8px; height: 8px; border-radius: 50%; }
+.dkList .x { color: var(--gold); font-family: var(--num); }
+.dkList .empty { color: var(--muted); font-size: .8rem; }
+.dkFilter { border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
+.dkFilter summary { cursor: pointer; padding: 9px 12px; font-weight: 900; font-size: .9rem; list-style: none; }
+.dkFilter summary::-webkit-details-marker { display: none; }
+.dkFilter summary::before { content: '▸ '; } .dkFilter[open] summary::before { content: '▾ '; }
+.dkFilter summary span { color: var(--muted); font-weight: 700; font-size: .78rem; margin-left: 6px; }
+.dkF { display: grid; gap: 7px; padding: 0 12px 12px; }
+.dkF input[type=search] { font: inherit; font-size: 16px; color: inherit; background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.chips .lb { font-size: .72rem; color: var(--muted); width: 3.4em; white-space: nowrap; }
+.chips button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.chips button.on { background: var(--ink, #f4f1ea); color: #111; border-color: transparent; }
+.dkRow2 { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .82rem; }
+.dkRow2 select { font: inherit; color: inherit; background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+.dkRow2 .chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.deckGrid .item .own { position: absolute; left: -2px; bottom: -6px; z-index: 2; font-size: .62rem; font-weight: 700; color: var(--muted); background: #171431; padding: 0 5px; border-radius: 999px; }
+.dkNote .how, #dkNote .how { color: var(--muted); }
+@media (max-width: 760px) {
+  .btSheet .box.dkBox { padding: 12px; gap: 8px; }
+  .dkHead h2 { font-size: 1.15rem; }
+  .dkHead .btRow { gap: 6px; }
+  .dkHead .bigbtn, .dkHead .ghost { padding: 7px 12px; font-size: .8rem; }
+  #dkNote { font-size: .76rem; line-height: 1.5; }
+  .dkList { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .dkList button { flex: none; }
+  .chips button { padding: 4px 8px; font-size: .74rem; }
+  .chips .lb { width: 3.2em; }
+}
+.dkEmpty { grid-column: 1 / -1; color: var(--muted); font-size: .85rem; padding: 12px 0; }
 .deckGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; --bw: 78px; }
 .deckGrid .item { position: relative; }
 .deckGrid .item .n { position: absolute; right: -4px; top: -6px; z-index: 2; font-family: var(--num); background: var(--gold); color: #2a1a00; border-radius: 999px; padding: 0 7px; font-size: 1rem; }
@@ -629,10 +666,27 @@ function shell() {
   document.body.appendChild(menu);
   const deck = document.createElement('div');
   deck.className = 'btSheet'; deck.id = 'btDeckSheet'; deck.hidden = true;
-  deck.innerHTML = `<div class="box">
-    <h2>デッキ <span id="dkCount" style="font-family:var(--num);font-weight:400"></span></h2>
+  deck.innerHTML = `<div class="box dkBox">
+    <div class="dkHead">
+      <h2>デッキ <span id="dkCount" style="font-family:var(--num);font-weight:400"></span></h2>
+      <div class="btRow"><button class="bigbtn" id="dkAuto">おまかせで組む</button><button class="ghost" id="dkClear">全部はずす</button><button class="ghost" id="dkDone">決定</button></div>
+    </div>
     <p id="dkNote"></p>
-    <div class="btRow"><button class="bigbtn" id="dkAuto">おまかせで組む</button><button class="ghost" id="dkClear">全部はずす</button><button class="ghost" id="dkDone">決定</button></div>
+    <div class="dkList" id="dkList"></div>
+    <details class="dkFilter" id="dkFilter">
+      <summary>絞りこみ・並べかえ <span id="dkShown"></span></summary>
+      <div class="dkF">
+        <input id="dkQ" type="search" placeholder="名前でさがす" autocomplete="off">
+        <div class="chips" data-k="set"></div>
+        <div class="chips" data-k="el"></div>
+        <div class="chips" data-k="type"></div>
+        <div class="chips" data-k="r"></div>
+        <div class="chips" data-k="cost"></div>
+        <div class="dkRow2"><label class="chk"><input type="checkbox" id="dkIn"> デッキに入っているカードだけ</label>
+          <label>並び <select id="dkSort"><option value="no">番号順</option><option value="cost">ちから順</option><option value="r">レア順</option><option value="atk">ATKが高い順</option><option value="hp">HPが高い順</option></select></label>
+          <button class="ghost" id="dkReset">条件をリセット</button></div>
+      </div>
+    </details>
     <div class="deckGrid" id="dkGrid"></div>
   </div>`;
   document.body.appendChild(deck);
@@ -695,6 +749,21 @@ function shell() {
   $('dkAuto').onclick = () => { A.S.deck = autoDeck(); A.save(); renderDeck(); };
   $('dkClear').onclick = () => { A.S.deck = []; A.S.deckEmpty = true; A.save(); renderDeck(); };
   $('dkDone').onclick = () => { $('btDeckSheet').hidden = true; renderMenu(); };
+  $('dkList').addEventListener('click', e => {
+    const b = e.target.closest('button[data-no]'); if (!b) return;
+    const d = A.S.deck || [], i = d.lastIndexOf(+b.dataset.no); if (i >= 0) d.splice(i, 1);
+    A.save(); renderDeck();
+  });
+  $('dkFilter').addEventListener('click', e => {
+    const b = e.target.closest('.chips button'); if (!b) return;
+    const k = b.dataset.k, v = b.dataset.v;
+    if (Array.isArray(DF[k])) DF[k] = DF[k].includes(v) ? DF[k].filter(x => x !== v) : [...DF[k], v]; else DF[k] = v;
+    renderDeck();
+  });
+  $('dkQ').addEventListener('input', e => { DF.q = e.target.value; renderDeck(); });
+  $('dkIn').addEventListener('change', e => { DF.inDeck = e.target.checked; renderDeck(); });
+  $('dkSort').addEventListener('change', e => { DF.sort = e.target.value; renderDeck(); });
+  $('dkReset').addEventListener('click', () => { DF = Object.assign({}, DF0, { r: [], cost: [] }); renderDeck(); });
   $('dkGrid').addEventListener('click', e => {
     const it = e.target.closest('.item'); if (!it) return;
     const no = +it.dataset.no, d = A.S.deck || (A.S.deck = []);
@@ -1276,7 +1345,32 @@ function renderMenu() {
 function openMenu() { css(); shell(); renderMenu(); $('btMenu').hidden = false; }
 function openDeck() {
   if (!A.S.deck && !A.S.deckEmpty) A.S.deck = autoDeck();
+  $('dkFilter').open = innerWidth >= 760;
   renderDeck(); $('btDeckSheet').hidden = false;
+}
+// デッキ画面の絞りこみ（開いている間だけ覚える）
+const DF0 = { q: '', set: 'all', el: 'all', type: 'all', r: [], cost: [], inDeck: false, sort: 'no' };
+let DF = Object.assign({}, DF0, { r: [], cost: [] });
+const R_ORDER = ['C', 'U', 'R', 'SR', 'UR', 'SEC'];
+function chipsHTML() {
+  const one = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k] === v ? 'on' : ''}">${nm}</button>`).join('');
+  const many = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k].includes(v) ? 'on' : ''}">${nm}</button>`).join('');
+  return {
+    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾']]),
+    el: '<span class="lb">属性</span>' + one('el', [['all', 'すべて'], ...Object.keys(EL_NM).map(e => [e, EL_NM[e]])]),
+    type: '<span class="lb">種類</span>' + one('type', [['all', 'すべて'], ['M', 'モンスター'], ['S', '魔法'], ['F', 'フィールド'], ['I', 'アイテム']]),
+    r: '<span class="lb">レア</span>' + many('r', R_ORDER.map(r => [r, r])),
+    cost: '<span class="lb">ちから</span>' + many('cost', [1, 2, 3, 4, 6, 7].map(n => [String(n), String(n)])),
+  };
+}
+function deckFiltered(have, d) {
+  const q = DF.q.trim();
+  let list = have.filter(c => (DF.set === 'all' || String(c.set || 1) === DF.set) && (DF.el === 'all' || c.el === DF.el) && (DF.type === 'all' || c.type === DF.type)
+    && (!DF.r.length || DF.r.includes(c.r)) && (!DF.cost.length || DF.cost.includes(String(COST[c.r]))) && (!DF.inDeck || d.includes(c.no)) && (!q || c.nm.includes(q)));
+  const P = c => c.type === 'M' ? power(c) : { atk: -1, hp: -1 };
+  const by = { no: (a, b) => a.no - b.no, cost: (a, b) => COST[a.r] - COST[b.r] || a.no - b.no, r: (a, b) => R_ORDER.indexOf(b.r) - R_ORDER.indexOf(a.r) || a.no - b.no,
+    atk: (a, b) => P(b).atk - P(a).atk || a.no - b.no, hp: (a, b) => P(b).hp - P(a).hp || a.no - b.no }[DF.sort];
+  return list.sort(by);
 }
 function renderDeck() {
   const d = A.S.deck || [];
@@ -1285,8 +1379,20 @@ function renderDeck() {
   const cs = d.map(no => A.CARDS[no - 1]), n = t => cs.filter(c => c.type === t).length;
   const avg = cs.length ? (cs.reduce((a, c) => a + COST[c.r], 0) / cs.length).toFixed(1) : '-';
   const curve = [1, 2, 3, 4, 6, 7].map(k => `${k}:${cs.filter(c => COST[c.r] === k).length}`).join(' ');
-  $('dkNote').innerHTML = have.length ? `カードをタップで入れる・もう一度タップで外す（同じカードは${COPIES}枚まで）。長押しで効果を見る。足りない分はレンタルカードが入る。<br><b>モンスター${n('M')}・魔法${n('S')}・フィールド${n('F')}・アイテム${n('I')}</b>　平均ちから${avg}<br><small>ちからごとの枚数　${curve}</small>` : 'まだカードを持っていない。パックを開けよう！（今はレンタルカードだけで戦える）';
-  $('dkGrid').innerHTML = have.map(c => { const n = d.filter(x => x === c.no).length; return `<div class="item ${n ? '' : 'out'}" data-no="${c.no}">${n ? `<span class="n">×${n}</span>` : ''}${cardEl(null, { c, uid: 0, ...power(c) })}</div>`; }).join('');
+  $('dkNote').innerHTML = have.length ? `<b>モンスター${n('M')}・魔法${n('S')}・フィールド${n('F')}・アイテム${n('I')}</b>　平均ちから${avg}　<small>ちからごとの枚数　${curve}</small><br><small class="how">タップで入れる・もう一度タップで外す（同じカードは${COPIES}枚まで）・長押しで効果。足りない分はレンタルカード</small>` : 'まだカードを持っていない。パックを開けよう！（今はレンタルカードだけで戦える）';
+  // いまのデッキ（ちから順、タップで1枚はずす）
+  const uniq = [...new Set(d)].map(no => A.CARDS[no - 1]).sort((a, b) => COST[a.r] - COST[b.r] || a.no - b.no);
+  $('dkList').innerHTML = uniq.length ? uniq.map(c => `<button data-no="${c.no}" title="タップで1枚はずす"><span class="c">${COST[c.r]}</span><span class="el" style="background:${EL_C[c.el]}"></span>${A.esc(c.nm)}${d.filter(x => x === c.no).length > 1 ? `<span class="x">×${d.filter(x => x === c.no).length}</span>` : ''}</button>`).join('') : '<span class="empty">デッキは空っぽ。下のカードをタップして入れよう</span>';
+  // 絞りこみ
+  const ch = chipsHTML();
+  document.querySelectorAll('#dkFilter .chips').forEach(el => { el.innerHTML = ch[el.dataset.k]; });
+  if ($('dkQ').value !== DF.q) $('dkQ').value = DF.q;
+  $('dkIn').checked = DF.inDeck; $('dkSort').value = DF.sort;
+  const list = deckFiltered(have, d);
+  const filtered = JSON.stringify(Object.assign({}, DF, { sort: 'no' })) !== JSON.stringify(Object.assign({}, DF0, { sort: 'no' }));
+  $('dkShown').textContent = filtered ? `${list.length} / ${have.length}種を表示中` : `${have.length}種`;
+  $('dkGrid').innerHTML = list.map(c => { const k = d.filter(x => x === c.no).length; return `<div class="item ${k ? '' : 'out'}" data-no="${c.no}">${k ? `<span class="n">×${k}</span>` : ''}<span class="own">持っている${ownedCount(c.no)}</span>${cardEl(null, { c, uid: 0, ...power(c), kw: traits(c) })}</div>`; }).join('')
+    || `<div class="dkEmpty">${have.length ? '条件に合うカードがない。条件をゆるめてみよう' : ''}</div>`;
 }
 function startBattle(lv) {
   const { deck, rental } = playerDeck();
