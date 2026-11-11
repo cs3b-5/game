@@ -150,6 +150,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .over .bar { display: flex; align-items: center; gap: 14px; padding: 16px 22px; flex-wrap: wrap; }
 .over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
 .tbtn.news { position: relative; padding-left: 12px; padding-right: 12px; }
+.tbtn .bell { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tbtn .ndot { position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: #ff3d6a; box-shadow: 0 0 0 2px var(--bg, #0c1412); }
 .newsBody { overflow-y: auto; padding: 4px 22px 40px; overscroll-behavior: contain; }
 .newsList { display: grid; gap: 12px; max-width: 720px; margin: 0 auto; }
@@ -206,7 +207,7 @@ body.mob .hint { font-size: .8rem; padding: 0 12px; }
 #binderBtn .ic { display: none; }
 @media (max-width: 480px) { body.mob .comp { display: none; } body.mob .coins { font-size: 1.15rem; } body.mob .logo { font-size: .9rem; } body.mob .top { gap: 6px; } }
 @media (max-width: 360px) { body.mob .logo { display: none; } }
-@media (max-width: 400px) { #binderBtn .ic { display: inline; } #binderBtn .lb { display: none; } body.mob .tbtn.news, body.mob #binderBtn { padding-left: 7px; padding-right: 7px; } body.mob .comp { display: none; } body.mob .top { gap: 6px; padding-left: 8px; padding-right: 8px; } body.mob .tbtn { padding: 7px 9px; } body.mob .logo { font-size: .95rem; } }
+@media (max-width: 400px) { #binderBtn .ic { display: block; } #binderBtn .lb { display: none; } body.mob .tbtn.news, body.mob #binderBtn { padding-left: 7px; padding-right: 7px; } body.mob .comp { display: none; } body.mob .top { gap: 6px; padding-left: 8px; padding-right: 8px; } body.mob .tbtn { padding: 7px 9px; } body.mob .logo { font-size: .95rem; } }
 body.mob .row { bottom: var(--rowB); gap: 8px; }
 body.mob .row .card { --w: var(--rowW); }
 body.mob .row .card .new { font-size: 1.6em; }
@@ -251,8 +252,8 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="logo">けものの星<small>TRADING CARD GAME</small></div>
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>
-  <button class="tbtn news" id="newsBtn" aria-label="お知らせ">📢<i class="ndot" id="newsDot" hidden></i></button>
-  <button class="tbtn" id="binderBtn" aria-label="図鑑"><span class="ic">📖</span><span class="lb">図鑑</span></button>
+  <button class="tbtn news" id="newsBtn" aria-label="お知らせ"><svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16V11a6 6 0 0 0-12 0v5l-2 2h16z"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M12 3v2"/></svg><i class="ndot" id="newsDot" hidden></i></button>
+  <button class="tbtn" id="binderBtn" aria-label="図鑑"><svg class="ic bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/></svg><span class="lb">図鑑</span></button>
   <button class="tbtn battle" id="battleBtn">バトル</button>
   <div class="coins"><i class="coin"></i><span id="coins">0</span></div>
 </header>
