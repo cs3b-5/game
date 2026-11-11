@@ -111,7 +111,7 @@
       // アシストコンボ（AUTO＋弱・中・強）
       if (cur & BT.AU) {
         const ab = pm & BT.HP ? 'H' : pm & BT.MP ? 'M' : pm & BT.LP ? 'L' : null;
-        if (ab) return { id: C.assist[ab][0], ast: { b: ab, i: 0 } };
+        if (ab) { const k = (isDown(d) && C.assist['d' + ab]) ? 'd' + ab : ab; return { id: C.assist[k][0], ast: { b: ab, k, i: 0 } }; }
       }
       const c = isDown(d), b = pm & BT.HP ? 'H' : pm & BT.MP ? 'M' : pm & BT.LP ? 'L' : null;
       if (!b) return null;
@@ -461,9 +461,10 @@
     if (ctl && f.ast && f.conn && !f.air && f.mt <= lastWin + 12 && (f.hist[0] & BT.AU)) {
       const bit = { L: BT.LP, M: BT.MP, H: BT.HP }[f.ast.b];
       if (pressedMask(G, f, 10) & bit) {
-        let nx = C.assist[f.ast.b][f.ast.i + 1];
-        if (nx === 'SA') nx = f.sa >= BAR ? 'sa1' : null;
-        if (nx && C.moves[nx]) { const M = C.moves[nx], o = other(G, f), gap = Math.abs(o.x - f.x) - 72; if (gap > 0) f.x += f.face * Math.min(gap, 24); startMove(G, f, nx, { mod: M.sp || M.saLv ? 1 : 0, ast: { b: f.ast.b, i: f.ast.i + 1 } }); return; }
+        const list = C.assist[f.ast.k || f.ast.b];
+        let nx = list[f.ast.i + 1];
+        if (nx === 'SA') { const lv = Math.min(3, Math.floor(f.sa / BAR)); nx = lv ? 'sa' + lv : null; }
+        if (nx && C.moves[nx]) { const M = C.moves[nx], o = other(G, f), gap = Math.abs(o.x - f.x) - 72; if (gap > 0) f.x += f.face * Math.min(gap, 24); startMove(G, f, nx, { mod: M.sp || M.saLv ? 1 : 0, ast: { b: f.ast.b, k: f.ast.k, i: f.ast.i + 1 } }); return; }
       }
     }
     // パーソナルアクション：ドライブゲージが少し回復

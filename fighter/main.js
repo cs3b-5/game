@@ -160,9 +160,9 @@
         for (const k in C.cmd || {}) h += `<tr><td>${C.cmd[k].nm}</td><td>${C.cmd[k].cmd}</td></tr>`;
         for (const t of C.tc || []) h += `<tr><td>${t.nm}</td><td>${t.cmd}</td></tr>`;
       } else {
-        const A = C.assist, nm = { clp: '↓弱P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA1' };
+        const A = C.assist, nm = { cmp: '↓中P', clp: '↓弱P', clk: '↓弱K', cmk: '↓中K', chp: '↓強P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA（ゲージ分）', tcB: '中K', '6hp': '鳩尾砕き' };
         const cv = x => nm[x] || (C.moves[x] ? C.moves[x].nm.replace('（OD）', '') : x);
-        for (const b of ['L', 'M', 'H']) h += `<tr><td>アシストコンボ ${{ L: '弱', M: '中', H: '強' }[b]}</td><td>AUTO＋${{ L: '弱', M: '中', H: '強' }[b]}連打：${A[b].map(cv).join(' ▶ ')}</td></tr>`;
+        for (const k of ['L', 'M', 'H', 'dL', 'dM', 'dH']) { if (!A[k]) continue; const jp = { L: '弱', M: '中', H: '強' }[k.slice(-1)], dn = k[0] === 'd'; h += `<tr><td>アシストコンボ ${dn ? '↓' : ''}${jp}</td><td>${dn ? '↓＋' : ''}AUTO＋${jp}連打：${A[k].map(cv).join(' ▶ ')}</td></tr>`; }
       }
     }
     $('cmdTable').innerHTML = h + '<tr><td colspan="2" class="note" style="text-align:left">表は1P側（右向き）のとき。左向きのときは左右が逆になる。<br>▶ は前の技が当たる（ガードされる）のに合わせて次のボタン。<br>必殺技はボタン2つ同時押しでOD（ドライブゲージ2本）。体力25%以下のSA3はクリティカルアーツ。<br>モダンのSP必殺技はダメージが少しだけ低い（80%）</td></tr>';
