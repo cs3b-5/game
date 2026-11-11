@@ -94,11 +94,12 @@ C = [
  (74,'gold','a nine-tailed fox with nine flowing tails, devouring the moon at night'),
 ]
 NEG = 'text, letters, words, watermark, signature, logo, frame, border, card frame, blurry, lowres, jpeg artifacts, deformed, bad anatomy, extra limbs, extra heads, duplicate'
-lines = []
-for no, st, subj in C:
-    p = f'{subj}, {STYLE[st]}'
-    assert '"' not in p
-    lines.append(f'--prompt "{p}" --negative_prompt "{NEG}" --width 1024 --height 768 --seed {1000 + no}')
-assert len(lines) == 74
-open('prompts.txt', 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
-print('prompts.txt を作ったよ（', len(lines), '行 ）')
+if __name__ == '__main__':
+    lines = []
+    for no, st, subj in C:
+        p = f'{subj}, {STYLE[st]}'
+        assert '"' not in p
+        lines.append(f'--prompt "{p}" --negative_prompt "{NEG}" --width 1024 --height 768 --seed {1000 + no}')
+    assert len(lines) == 74
+    open('prompts.txt', 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
+    print('prompts.txt を作ったよ（', len(lines), '行 ）')

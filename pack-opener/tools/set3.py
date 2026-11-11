@@ -1,0 +1,113 @@
+# 第三弾「成長と進化」のカード一覧（No.121〜166）
+# python set3.py → prompts3.txt（Forge の「Prompts from file or textbox」用）
+# 第一弾のコモン12体が、第三弾で2段階目・3段階目に進化する。新しい進化4系統も入る。
+# 画風：2段階目までは進化前のカードと同じ画風、3段階目は迫力のある厚塗り（real）。シード = 1000 + カード番号
+from make_prompts import STYLE, NEG
+
+# [番号, 属性, レア, 種類, 名前, 説明文, 画風, 題材（英語）, 進化前の番号]
+CARDS = [
+ # ---------- 第一弾から進化（2段階目・3段階目） ----------
+ (121, 'fire', 'U', 'M', 'カエンギツネ', '尻尾が三本に増えた。焚き火なら一瞬でつく。', 'pixel',
+  'a young orange fox with three flaming tails, bigger and stronger, standing proudly on volcanic rocks, embers in the air', 1),
+ (122, 'fire', 'SR', 'M', '炎天の大狐', '九つの炎の尾で、夜空を真昼に変える。', 'real',
+  'a majestic giant fox made of living flames with many burning tails, standing on a volcano at night, swirling embers', 121),
+ (123, 'fire', 'U', 'M', 'ほのおスライム', '頭の火が王冠みたいに大きくなった。', 'paper',
+  'a bigger round orange slime creature with a crown of flames on its head, bubbling drops of lava, volcanic background', 4),
+ (124, 'fire', 'SR', 'M', 'マグマの大王', '火山の中で育った、どろどろの王さま。', 'real',
+  'a colossal king slime made of glowing molten magma wearing a crown of fire, an erupting volcano behind it', 123),
+ (125, 'water', 'U', 'M', 'なみスライム', '小さな波に乗れるようになった。', 'pixel',
+  'a bigger blue water slime creature surfing on a small wave, splashing water, sunny beach', 13),
+ (126, 'water', 'SR', 'M', '大海の主', '海そのものが、ひとつの体になった。', 'real',
+  'a gigantic translucent water slime giant rising from the ocean like a tidal wave, glowing blue core, stormy sea', 125),
+ (127, 'water', 'R', 'M', '氷河ペンギン', '翼に霜がおりても、へっちゃら。', 'paper',
+  'a tall strong penguin with icy blue feathers and frost on its wings, standing in front of a glacier', 16),
+ (128, 'water', 'UR', 'M', '南極の皇帝', 'オーロラの下で、氷の冠をかぶる。', 'real',
+  'a majestic emperor penguin king wearing a crown of ice crystals, standing on a glacier under a glowing aurora', 127),
+ (129, 'leaf', 'U', 'M', '若葉の野ウサギ', '耳の葉っぱが枝になった。足も速くなった。', 'water',
+  'a slender brown hare with leafy branches growing from its long ears, running through a spring meadow', 26),
+ (130, 'leaf', 'SR', 'M', '森の月うさぎ', '満月の夜、森じゅうの花がこのうさぎに咲く。', 'real',
+  'a large mystical white hare with antlers of blooming branches and glowing green eyes, under a full moon in an ancient forest', 129),
+ (131, 'leaf', 'R', 'M', '花のアゲハ', '羽の模様が、そのまま花びらになった。', 'paper',
+  'a large swallowtail butterfly with wings patterned like flower petals, flying among blooming flowers', 28),
+ (132, 'leaf', 'SR', 'M', '大樹の蝶王', 'ひと羽ばたきで、森に春がくる。', 'real',
+  'a gigantic butterfly king with wings like translucent leaves and glowing veins, perched on a giant tree, sunbeams', 131),
+ (133, 'bolt', 'U', 'M', '雷鳴リス', 'しっぽが稲妻の形になってしまった。', 'pixel',
+  'a bigger yellow squirrel with a lightning bolt shaped tail crackling with electricity, stormy sky', 37),
+ (134, 'bolt', 'SR', 'M', '稲妻の大リス', '雲から雲へ、雷といっしょに跳ぶ。', 'real',
+  'a huge powerful squirrel beast with fur crackling with lightning, leaping between storm clouds', 133),
+ (135, 'bolt', 'R', 'M', '雷光ホタル', '一匹で、池ぜんぶを照らせる。', 'paper',
+  'a large firefly glowing with bright electric yellow light and small lightning sparks over a pond on a summer night', 40),
+ (136, 'bolt', 'SR', 'M', '夜空の雷蛍', 'この蛍が光ると、夜空に雷が走る。', 'real',
+  'a giant mystical firefly lighting up the whole night sky with lightning, thousands of glowing sparks below', 135),
+ (137, 'dark', 'R', 'M', '夜のヤマネコ', '影の毛皮は、月明かりも吸いこむ。', 'sumi',
+  'a wild black lynx with glowing yellow eyes and smoky shadow fur, prowling under the moon', 50),
+ (138, 'dark', 'SEC', 'M', '影の王ネコ', 'すべての影は、この王の領土。', 'real',
+  'a gigantic shadow cat king made of darkness wearing a crown, glowing golden eyes, sitting on a castle roof under a blood red moon', 137),
+ (139, 'dark', 'U', 'M', 'ゆうれい', 'もう、自分で自分におどろかない。', 'pixel',
+  'a larger floating ghost with a long flowing tail and glowing eyes in a haunted graveyard at night, will-o-wisps', 49),
+ (140, 'dark', 'SR', 'M', '大怨霊', '百年分のうらみが、青い炎になった。', 'real',
+  'a huge ghostly spirit with long flowing white robes surrounded by blue spirit flames, haunted night forest, eerie', 139),
+ (141, 'light', 'U', 'M', '天馬うさぎ', '小さかった羽が、空を運ぶ翼になった。', 'water',
+  'a white rabbit with large feathered angel wings soaring above pink clouds', 62),
+ (142, 'light', 'SR', 'M', '天空の聖兎', '六枚の翼で、雲の上の国を守る。', 'real',
+  'a majestic holy white rabbit with six glowing wings and a halo, floating in golden heavenly clouds', 141),
+ (143, 'light', 'R', 'M', '光の精', '光の玉に、小さな羽と手足が生えた。', 'pixel',
+  'a glowing light fairy spirit with small wings and a cute face, shining above the clouds', 61),
+ (144, 'light', 'UR', 'M', '夜明けの守護者', '毎朝、この光から一日がはじまる。', 'real',
+  'a radiant guardian spirit of dawn made of golden light with large wings, the rising sun behind it', 143),
+ # ---------- 第三弾から始まる進化 ----------
+ (145, 'leaf', 'C', 'M', '小さな種', '千年先の森が、この中に入っている。', 'water',
+  'a tiny glowing seed sprouting a small green leaf from rich soil, morning dew', None),
+ (146, 'leaf', 'R', 'M', '若木の精', '頭の若木が、毎日少しずつのびる。', 'water',
+  'a small young tree spirit with a sapling growing from its head, walking through a sunny forest', 145),
+ (147, 'leaf', 'UR', 'M', '千年の大樹', '森の歴史を、すべて覚えている。', 'real',
+  'an ancient enormous tree guardian with a wise face in its trunk, covered in moss and flowers, glowing forest', 146),
+ (148, 'water', 'C', 'M', '海亀のたまご', '月の夜に、そっと海の音を聞いている。', 'ukiyo',
+  'a sea turtle egg half buried in sand on a beach at night, moonlight, stylized waves', None),
+ (149, 'water', 'R', 'M', '子ガメ', '波の向こうに、まだ見ぬ島がある。', 'ukiyo',
+  'a baby sea turtle crawling toward the ocean waves under the moon', 148),
+ (150, 'water', 'UR', 'M', '島をせおう大亀', '背中の島には、小さな神社まである。', 'real',
+  'a colossal ancient sea turtle carrying a small island with trees and a tiny shrine on its shell, swimming in the ocean', 149),
+ (151, 'bolt', 'C', 'M', '雷のたまご', 'さわるとビリッ。中で何かが動いている。', 'comic',
+  'an egg crackling with electricity with glowing lightning cracks, in a nest on a mountain peak', None),
+ (152, 'bolt', 'R', 'M', '雷のひな竜', '生まれてすぐ、くしゃみで雷を出した。', 'comic',
+  'a baby dragon with yellow scales and small wings sparking with electricity, hatching from a broken eggshell', 151),
+ (153, 'bolt', 'UR', 'M', '雷雲の竜王', '雷雲そのものを、翼にまとう。', 'real',
+  'a massive storm dragon king with yellow scales flying through thunderclouds, lightning everywhere', 152),
+ (154, 'light', 'C', 'M', '光る卵', '夜空から落ちてきた、星のかけら。', 'star',
+  'a glowing egg covered with tiny stars', None),
+ (155, 'light', 'SR', 'M', '星のひな', '鳴き声が、流れ星の音に似ている。', 'star',
+  'a baby bird made of stars and light hatching from a glowing egg', 154),
+ (156, 'light', 'SEC', 'M', '星を生む鳥', 'この鳥が羽ばたくたび、夜空に星がひとつ増える。', 'star',
+  'a giant celestial bird with wings made of galaxies giving birth to new stars', 155),
+ # ---------- 進化を助けるカード ----------
+ (157, 'leaf', 'U', 'I', '成長のしずく', '一滴で、つぼみが花になる。', 'water',
+  'a glowing green water droplet falling onto a sprouting plant, magical light', None),
+ (158, 'fire', 'U', 'I', '骨つき肉', 'たくさん食べて、大きくなあれ。', 'comic',
+  'a big roasted meat on the bone over a campfire, sizzling', None),
+ (159, 'water', 'U', 'I', '海のミルク', '海の底でしか作れない、ひみつの栄養。', 'lowpoly',
+  'a glass bottle of glowing milky blue liquid on the sea floor, bubbles, coral', None),
+ (160, 'light', 'U', 'I', '進化のお守り', '持っていると、少しだけ未来の自分に近づける。', 'gold',
+  'a golden amulet with a glowing spiral symbol hanging from a red string', None),
+ (161, 'leaf', 'R', 'F', 'ゆりかごの森', '小さな命が、ここで大きくなる。', 'oil',
+  'a peaceful cradle-like forest with bird nests and eggs, soft morning light, no creatures', None),
+ (162, 'fire', 'R', 'F', '孵化の火山', '火山のぬくもりで、卵がかえる。', 'oil',
+  'a warm volcanic nest with glowing eggs among cooling lava rocks, soft red light, no creatures', None),
+ (163, 'bolt', 'R', 'F', '雷の巣', '雷が落ちるたび、ひなが元気になる。', 'oil',
+  'a large nest on a stormy mountain peak with lightning striking nearby, no creatures', None),
+ (164, 'light', 'SR', 'S', '急成長', '一晩で、子どもが大人になる魔法。', 'glass',
+  'a magical growth spell, plants and small creatures growing rapidly in a burst of golden light', None),
+ (165, 'dark', 'SR', 'S', '先祖返り', '時を巻きもどして、昔の姿にもどす。', 'neon',
+  'a reverse evolution spell, a spiral of time with glowing clock hands, dark purple magic', None),
+ (166, 'leaf', 'SR', 'S', '突然変異', '何に変わるかは、だれにもわからない。', 'glass',
+  'a mutation spell, glowing green spiral of life energy, strange sprouts and eggs transforming', None),
+]
+
+if __name__ == '__main__':
+    import os
+    from collections import Counter
+    out = [f'--prompt "{sub}, {STYLE[st]}" --negative_prompt "{NEG}" --width 1024 --height 768 --seed {1000 + no}' for no, el, r, t, nm, txt, st, sub, evo in CARDS]
+    path = os.path.join(os.path.dirname(__file__), 'prompts3.txt')
+    open(path, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
+    print(len(out), 'prompts ->', path)
+    print(Counter(c[2] for c in CARDS), Counter(c[1] for c in CARDS), Counter(c[3] for c in CARDS))
