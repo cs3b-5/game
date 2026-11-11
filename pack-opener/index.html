@@ -84,6 +84,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .card .back svg { width: 70%; }
 .card .front { display: grid; grid-template-rows: auto auto 1fr; border: .5em solid var(--rc); background: var(--rc); }
 .card .head { display: flex; align-items: center; gap: .5em; padding: .35em .5em .45em; background: rgba(0,0,0,.25); }
+.card .cst { flex: none; width: 1.75em; height: 1.75em; border-radius: 50%; display: grid; place-items: center; font-family: var(--num); font-weight: 700; font-size: .95em; color: #001a2a; background: radial-gradient(circle at 35% 35%, #fff, #46e0ff 60%, #1a6a90); box-shadow: 0 0 0 .12em rgba(255,255,255,.7), 0 .1em .3em rgba(0,0,0,.4); }
 .card .nm { font-weight: 900; font-size: 1.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; letter-spacing: .01em; }
 .card .el { width: 1.6em; height: 1.6em; border-radius: 50%; display: grid; place-items: center; font-size: .85em; font-weight: 900; color: #fff; box-shadow: 0 0 0 .15em rgba(255,255,255,.6) inset; flex: none; }
 .card .art { aspect-ratio: 4 / 3; position: relative; overflow: hidden; background: #000; margin: 0 .35em; border-radius: .25em; }
@@ -189,6 +190,19 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .nItem .new { font-size: .7rem; font-weight: 900; color: #ff3d6a; }
 .nItem b { display: block; font-weight: 900; font-size: 1.05rem; line-height: 1.4; }
 .nArt { max-width: 680px; margin: 0 auto; }
+.nTabs { display: flex; gap: 6px; max-width: 720px; margin: 0 auto 14px; }
+.nTabs button { position: relative; flex: 1; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: inherit; font: inherit; font-weight: 800; cursor: pointer; }
+.nTabs button.on { background: rgba(255,210,90,.16); border-color: var(--gold, #ffc94a); color: #ffe08a; }
+.nTabs .dot { position: absolute; top: 7px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #ff3d6a; }
+.pItem { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.05); }
+.pItem .meta { display: flex; gap: 8px; align-items: center; font-size: .78rem; color: var(--muted); margin-bottom: 6px; }
+.pItem .tag { font-size: .72rem; font-weight: 900; padding: 2px 8px; border-radius: 999px; background: #6ad0ff; color: #00223a; }
+.pItem .new { font-size: .7rem; font-weight: 900; color: #ff3d6a; }
+.pItem b { display: block; font-weight: 900; font-size: 1.02rem; line-height: 1.4; }
+.pItem ul { margin: 8px 0 0; padding-left: 1.2em; }
+.pItem li { margin: 0 0 .45em; line-height: 1.7; font-size: .9rem; color: #e8e4da; }
+.pItem li b { display: inline; font-size: inherit; color: #ffe08a; }
+.pEmpty { text-align: center; color: var(--muted); }
 .nArt .hero { position: relative; height: min(46vh, 380px); border-radius: 16px; overflow: hidden; background-size: cover; background-position: center 35%; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
 .nArt .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 45%, rgba(0,0,0,.85)); }
 .nArt .hero .ht { position: absolute; left: 18px; right: 18px; bottom: 16px; z-index: 1; }
@@ -401,7 +415,7 @@ function cardHTML(c, opts = {}) {
     ${opts.isNew ? '<div class="new">NEW</div>' : ''}
     <div class="inner">
       <div class="front" style="${c.r === 'SEC' ? 'border-image: linear-gradient(135deg,#ffe9a8,#ff9ad0,#9ff4ff) 1; background:#ffe9a8;' : ''}">
-        <div class="head"><div class="nm">${esc(c.nm)}</div><div class="el" style="background:${el.c}">${el.mark}</div></div>
+        <div class="head">${window.PackBattle && window.PackBattle.costOf ? `<div class="cst" title="ちから">${window.PackBattle.costOf(c)}</div>` : ''}<div class="nm">${esc(c.nm)}</div><div class="el" style="background:${el.c}">${el.mark}</div></div>
         <div class="art">${art(c)}</div>
         <div class="foot"><div class="tags"><span class="ty ty-${c.type}">${c.typeNm}</span><span class="st">画風：${CardArt.STYLE_NAMES[c.style]}</span></div><div class="txt">${esc(c.txt)}</div>${stats(c)}<div class="meta"><span>NO.${String(c.no).padStart(3, '0')}/${TOTAL}</span><span class="rar" style="color:${r.c}">${c.r}</span></div></div>
         <div class="holo"></div><div class="glare"></div>
@@ -905,12 +919,25 @@ function renderBinder() {
 const NEWS = window.NEWS || [];
 const newsHTML = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 const unreadNews = () => NEWS.filter(n => !(S.newsRead || []).includes(n.id));
-function newsDot() { $('newsDot').hidden = !unreadNews().length; }
+const PATCHES = window.PATCHES || [];
+const unreadPatch = () => PATCHES.filter(p => !(S.newsRead || []).includes(p.id));
+function newsDot() { $('newsDot').hidden = !unreadNews().length && !unreadPatch().length; }
+let newsTab = 'news';
+function newsTabs() { const up = unreadPatch().length; return `<div class="nTabs"><button data-tab="news" class="${newsTab === 'news' ? 'on' : ''}">お知らせ</button><button data-tab="patch" class="${newsTab === 'patch' ? 'on' : ''}">修正パッチ${up ? '<i class="dot"></i>' : ''}</button></div>`; }
+function patchHTML() {
+  const read = S.newsRead || [];
+  return `<div class="newsList">${PATCHES.map(p => `<article class="pItem"><div class="meta"><span class="tag">Ver.${esc(p.ver)}</span>${esc(p.date.replace(/-/g, '.'))}${read.includes(p.id) ? '' : '<span class="new">NEW</span>'}</div><b>${esc(p.title)}</b><ul>${p.items.map(t => `<li>${newsHTML(t)}</li>`).join('')}</ul></article>`).join('') || '<p class="pEmpty">まだ修正パッチはありません</p>'}</div>`;
+}
 function openNews(id) {
   $('newsOv').hidden = false;
-  if (!id) {
+  if (!id && newsTab === 'patch') {
     $('newsBack').hidden = true;
-    $('newsBody').innerHTML = `<div class="newsList">${NEWS.map(n => `<button class="nItem" data-id="${n.id}">${n.img ? `<img src="${n.img}" alt="">` : '<span></span>'}<span><span class="meta"><span class="tag">${esc(n.tag)}</span>${esc(n.date.replace(/-/g, '.'))}${(S.newsRead || []).includes(n.id) ? '' : '<span class="new">NEW</span>'}</span><b>${esc(n.title)}</b></span></button>`).join('')}</div>`;
+    const html = patchHTML();   // NEW の印は、読む前の状態で出す
+    S.newsRead = [...new Set([...(S.newsRead || []), ...PATCHES.map(p => p.id)])]; save(); newsDot();
+    $('newsBody').innerHTML = newsTabs() + html;
+  } else if (!id) {
+    $('newsBack').hidden = true;
+    $('newsBody').innerHTML = newsTabs() + `<div class="newsList">${NEWS.map(n => `<button class="nItem" data-id="${n.id}">${n.img ? `<img src="${n.img}" alt="">` : '<span></span>'}<span><span class="meta"><span class="tag">${esc(n.tag)}</span>${esc(n.date.replace(/-/g, '.'))}${(S.newsRead || []).includes(n.id) ? '' : '<span class="new">NEW</span>'}</span><b>${esc(n.title)}</b></span></button>`).join('')}</div>`;
   } else {
     const n = NEWS.find(x => x.id === id); if (!n) return openNews();
     $('newsBack').hidden = false;
@@ -922,10 +949,10 @@ function openNews(id) {
     $('newsOk').onclick = () => { const u2 = unreadNews(), next = u2[u2.length - 1]; if (next) openNews(next.id); else $('newsOv').hidden = true; };
   }
 }
-$('newsBtn').addEventListener('click', () => { audio(); openNews(); });
+$('newsBtn').addEventListener('click', () => { audio(); newsTab = !unreadNews().length && unreadPatch().length ? 'patch' : 'news'; openNews(); });
 $('closeNews').addEventListener('click', () => { $('newsOv').hidden = true; });
 $('newsBack').addEventListener('click', () => openNews());
-$('newsBody').addEventListener('click', e => { const b = e.target.closest('.nItem'); if (b) openNews(b.dataset.id); });
+$('newsBody').addEventListener('click', e => { const t = e.target.closest('.nTabs button'); if (t) { newsTab = t.dataset.tab; openNews(); return; } const b = e.target.closest('.nItem'); if (b) openNews(b.dataset.id); });
 newsDot();
 // 読んでいないお知らせがあれば、はじめに1回だけ出す（古い順：リリース→第二弾）
 setTimeout(() => { const u = unreadNews(); if (u.length && $('newsOv').hidden) openNews(u[u.length - 1].id); }, 500);

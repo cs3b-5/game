@@ -534,6 +534,8 @@ function beginTurn(side) {
   onTurnStart(side);
   if (B.turn > 1) { log(`── ${sideNm(side)}のターン ──`, side, 'turn'); draw(side, 1); }
   else log(`── ${sideNm(side)}のターン（先攻） ──`, side, 'turn');
+  // 出せるカードがなく、場にモンスターもいないときは、ちから+1（重いデッキの立ち上がりを助ける）
+  if (B.turn > 1 && !side.field.some(Boolean) && side.mana < MANA_MAX + 1 && !side.hand.some(h => cost(h) <= side.mana && (h.c.type !== 'M' || !evoOf(h.c)))) { side.mana += 1; log(`⚡ 出せるカードがないので、ちから+1`, side); }
 }
 function over() { return B && (B.me.lp <= 0 || B.foe.lp <= 0); }
 async function startTurn(side) {
@@ -821,6 +823,7 @@ function shell() {
   how.innerHTML = `<div class="box"><h2>遊び方</h2>
     <p>・毎ターン<b>ちから</b>（青い玉）が1つずつ増える（最大8）。カードの左上の数字がちから。後攻は最初のターンだけちから+1<br>
     ・<b>モンスター</b>は場に3体まで。出したターンは休み<br>
+    ・ターンのはじめに、出せるカードが手札になく、場にモンスターもいないときは、<b>ちから+1</b><br>
     ・🌱<b>進化</b>：進化カードは、場にいる進化前のモンスターに重ねてだけ出せる（2段階目はちから1、3段階目はちから2）。進化するとぐっと強くなって、HPが全回復、カードを1枚引いて、すぐ攻撃できる<br>
     ・自分のモンスターをタップ→相手のモンスターか相手の顔をタップで攻撃。モンスター同士はお互いにダメージ<br>
     ・<b>属性の相性</b>：炎→森→雷→水→炎、光⇔闇。有利なら1.5倍<br>
@@ -932,7 +935,7 @@ function findCard(uid) {
   return null;
 }
 function battleText(c) {
-  let t = rulesText(c);
+  let t = `ちから ${costOf(c)}\n` + rulesText(c);
   if (c.type === 'M') t += `\n相性：${EL_NM[c.el]}は${EL_NM[BEATS[c.el]]}に強い（1.5倍）`;
   return t;
 }
@@ -1597,7 +1600,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
+  get state() { return B; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });
