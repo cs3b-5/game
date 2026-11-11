@@ -63,6 +63,12 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .pack .ttl { font-weight: 900; font-size: 1.9rem; line-height: 1.1; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
 .pack .kind { font-family: var(--num); font-size: 1.5rem; letter-spacing: .12em; padding: 2px 14px; border: 2px solid currentColor; border-radius: 6px; }
 .pack .emb { width: 110px; height: 110px; }
+.pack.hasArt .emb { display: none; }
+.pack.hasArt .face { align-content: space-between; padding: 14px 14px 18px; background: linear-gradient(rgba(0,0,0,.55), transparent 28%, transparent 62%, rgba(0,0,0,.75)); }
+.pack .face .ptop, .pack .face .pbot { display: grid; gap: 6px; justify-items: center; }
+.pack.hasArt .kind { background: rgba(0,0,0,.45); backdrop-filter: blur(2px); }
+.pack.hasArt .set, .pack.hasArt .ttl { text-shadow: 0 0 6px #000, 0 0 12px #000, 0 2px 2px #000; opacity: 1; font-weight: 900; }
+.pack.hasArt .strip .crimp { background: repeating-linear-gradient(90deg, rgba(0,0,0,.35) 0 3px, transparent 3px 6px); }
 .pack.tearing .strip { animation: none; }
 .pack .strip.off { animation: stripOff .6s ease-in forwards; }
 @keyframes stripOff { to { transform: translate(140px, -160px) rotate(38deg); opacity: 0; } }
@@ -333,8 +339,8 @@ function cardHTML(c, opts = {}) {
 // 第一弾・第二弾のパック（確率は同じ。5枚目はR以上）
 const RATES = { C: 60, U: 27, R: 10, SR: 2.5, UR: .45, SEC: .05 }, LAST = { R: 80, SR: 16, UR: 3.5, SEC: .5 };
 const PACKS = [
-  { id: 'set1', set: 1, nm: '第一弾パック', title: '', price: 100, colors: ['#2a8cff', '#1a3a8a'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
-  { id: 'set2', set: 2, nm: '第二弾パック', title: '夜汽車と異界の駅', price: 100, colors: ['#3a2a6a', '#0a0a1e'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
+  { id: 'set1', set: 1, nm: '第一弾パック', title: '', price: 100, colors: ['#2a8cff', '#1a3a8a'], img: 'images/pack1.jpg', mini: 'images/mini_pack1.jpg', rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
+  { id: 'set2', set: 2, nm: '第二弾パック', title: '夜汽車と異界の駅', price: 100, colors: ['#3a2a6a', '#0a0a1e'], img: 'images/pack2.jpg', mini: 'images/mini_pack2.jpg', rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
 ];
 const FREE_EVERY = 180;  // 無料パックは3分ごとに1つ（最大3つ）
 function roll(rates) {
@@ -438,17 +444,17 @@ addEventListener('resize', layout);
 //  ショップ
 // =============================================================
 function packFace(p, big) {
-  return `<div class="face" style="color:#fff"><div class="glogo">けものの星</div><div class="set">第${p.set}弾</div>
+  return `<div class="face" style="color:#fff"><div class="ptop"><div class="glogo">けものの星</div><div class="set">第${p.set}弾</div></div>
     <svg class="emb" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.6)" stroke-width="2"/><path d="M50 14 L57 43 L86 50 L57 57 L50 86 L43 57 L14 50 L43 43Z" fill="#fff" opacity=".9"/></svg>
-    ${p.title ? `<div class="ttl" style="${p.title.length > 6 ? 'font-size:1.35rem;white-space:nowrap' : ''}">${p.set === 2 ? '🚂 ' : ''}${esc(p.title)}</div>` : ''}<div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
+    <div class="pbot">${p.title ? `<div class="ttl" style="${p.title.length > 6 ? 'font-size:1.35rem;white-space:nowrap' : ''}">${p.set === 2 ? '🚂 ' : ''}${esc(p.title)}</div>` : ''}<div class="kind">${esc(p.nm)}</div></div></div><div class="shine"></div>`;
 }
 function renderShop() {
   tickFree(); layout();
   const busy = state !== 'idle' && state !== 'done';
   let h = '';
-  if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title || 'けものの星')}</small></span></button>`;
+  if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title || 'けものの星')}</small></span></button>`;
   else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="buy" disabled><div class="mini" style="background:#333"></div><b>無料パック</b><span class="free">${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}<small>3分ごとにもらえる</small></span></button>`; }
-  for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
+  for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
   $('shop').innerHTML = h;
 }
 $('shop').addEventListener('click', e => {
@@ -474,7 +480,9 @@ function showPack(p) {
   const el = document.createElement('div');
   el.className = 'pack';
   const bg = `linear-gradient(160deg,${p.colors[0]},${p.colors[1]})`;
-  el.innerHTML = `<div class="body" style="background:${bg}">${packFace(p)}</div><div class="strip" id="strip" style="background:${bg}"><div class="crimp"></div><div class="tearline"></div><div class="rip" id="rip"></div></div>`;
+  const art = p.img ? `url(${p.img}) 0 -44px / 240px 350px no-repeat, ` : '', artTop = p.img ? `url(${p.img}) 0 0 / 240px 350px no-repeat, ` : '';
+  if (p.img) el.classList.add('hasArt');
+  el.innerHTML = `<div class="body" style="background:${art}${bg}">${packFace(p)}</div><div class="strip" id="strip" style="background:${artTop}${bg}"><div class="crimp"></div><div class="tearline"></div><div class="rip" id="rip"></div></div>`;
   $('stage').prepend(el);
   current = el;
   hint(T('<b>上のギザギザを左から右へドラッグ</b>して封を破る', '<b>上のギザギザを指で左から右へなぞって</b>封を破る'));
