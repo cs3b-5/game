@@ -21,7 +21,7 @@
     const C = FG.CHARS[ch];
     return { i, ch, mode: mode || 'classic', x: 0, y: 0, vx: 0, vy: 0, face: i ? -1 : 1, hp: C.hp, maxHp: C.hp, drive: DRIVE_MAX, burn: 0, sa: 0,
       st: 'idle', t: 0, mv: null, mt: 0, hitW: [], conn: 0, hs: 0, push: 0, armor: 0, jug: 0, combo: 0, cdmg: 0, cons: -1, rushB: 0, modSp: 0,
-      air: 0, airAtk: 0, reset: 0, diSplat: 0, freeze: 0, parried: 0, ca: 0, lastHit: 0, hist: new Array(HIST).fill(0) };
+      air: 0, airAtk: 0, ki: 0, kiOn: 0, reset: 0, diSplat: 0, freeze: 0, parried: 0, ca: 0, lastHit: 0, hist: new Array(HIST).fill(0) };
   }
   FG.newGame = function (o) {
     const G = { f: 0, phase: 'intro', pt: 0, round: 1, wins: [0, 0], timer: 99 * 60, hitstop: 0, freeze: 0, freezeBy: -1, cin: null, grab: null,
@@ -82,7 +82,7 @@
 
   // いま入力から出せる技を探す（ctx: ground / air / cancel / rush）
   function readAction(G, f, ctx) {
-    const C = FG.CHARS[f.ch], M = C.moves, cur = f.hist[0], pm = pressedMask(G, f, ctx === 'cancel' ? 10 : 3), d = dirNow(f);
+    const C = FG.CHARS[f.ch], M = C.moves, cur = f.hist[0], pm = pressedMask(G, f, ctx === 'cancel' ? 16 : 3), d = dirNow(f);
     if (!pm) return null;
     const air = ctx === 'air', drive = !f.burn;
     const hasProj = G.proj.some(p => p.o === f.i && !p.sa);
@@ -90,12 +90,14 @@
     const spMove = (id, s) => (s === 3 && (!drive || f.drive < 2 * BAR)) ? null : (can(id) ? id + s : null);
     if (f.mode === 'modern') {
       if (pm & BT.SP || (cur & BT.SP && pm & (BT.HP | BT.MP))) {
-        if (cur & BT.HP && !air) {           // SP+H：スーパーアーツ
-          const lv = d === 6 ? 2 : isDown(d) ? 3 : 1;
-          for (let l = lv; l >= 1; l--) if (f.sa >= l * BAR && (ctx !== 'cancel' || f.mv.sp || l >= 2 || f.mv.cx.includes('sp'))) return { id: 'sa' + l, mod: 1 };
+        if (cur & BT.HP) {           // SP+強：スーパーアーツ（N=Lv1 ←=Lv2 ↓=Lv3、ジャンプ中は空中版）
+          if (air) { const k = C.sa.findIndex(x => x.air); if (k >= 0 && f.sa >= C.sa[k].cost * BAR && ctx === 'air') return { id: 'sa' + (k + 1), mod: 1 }; return null; }
+          const lv = d === 4 ? 2 : isDown(d) ? 3 : 1;
+          for (let l = lv; l >= 1; l--) if (f.sa >= l * BAR) return { id: 'sa' + l, mod: 1 };
         }
         const dk = air ? 'air' : d === 6 ? 'f' : isDown(d) ? 'd' : d === 4 ? 'b' : 'n';
         const id = C.modern[dk]; if (!id || !C.sp[id] || !!C.sp[id].air !== air) return null;
+        if (C.sp[id].fwdJump && !(f.vx * f.face > 0)) return null;
         const s = (cur & BT.MP) ? 3 : 1, mv = spMove(id, s) || spMove(id, 1);
         return mv ? { id: mv, mod: 1 } : null;
       }
@@ -116,16 +118,20 @@
       }
       const c = isDown(d), b = pm & BT.HP ? 'H' : pm & BT.MP ? 'M' : pm & BT.LP ? 'L' : null;
       if (!b) return null;
-      return { id: c ? { L: 'clk', M: 'cmk', H: 'chp' }[b] : { L: 'lp', M: 'mk', H: 'hp' }[b] };
+      const mc = C.mcmd && C.mcmd[(d === 6 || d === 4 || d === 3 ? d : '') + b];   // モダンの特殊技
+      if (mc) return { id: mc };
+      return { id: C.mN[(c ? 'c' : '') + b] };
     }
     // ---- クラシック ----
-    if (!air) for (let i = C.sa.length - 1; i >= 0; i--) {
+    for (let i = C.sa.length - 1; i >= 0; i--) {
       const sa = C.sa[i], bm = sa.btn === 'P' ? P3 : K3;
+      if (!!sa.air !== air || (air && ctx !== 'air')) continue;
       if ((pm & bm) && f.sa >= sa.cost * BAR && motion(f, sa.in, 40)) return { id: 'sa' + (i + 1) };
     }
     const order = Object.keys(C.sp).sort((a, b) => (C.sp[a].in[0] === 6 ? -1 : 0) - (C.sp[b].in[0] === 6 ? -1 : 0) || C.sp[b].in.length - C.sp[a].in.length);
     for (const id of order) {
       const sp = C.sp[id]; if (!!sp.air !== air) continue;
+      if (sp.fwdJump && !(f.vx * f.face > 0)) continue;
       const bm = sp.btn === 'P' ? P3 : K3, got = pm & bm; if (!got) continue;
       const ok = sp.in.length === 1 ? isDown(d) : motion(f, sp.in, 15);
       if (!ok) continue;
@@ -146,10 +152,23 @@
     if ((pm & BT.TA) && ctx === 'ground') return { id: 'taunt' };
     const b = pm & BT.HK ? 'hk' : pm & BT.HP ? 'hp' : pm & BT.MK ? 'mk' : pm & BT.MP ? 'mp' : pm & BT.LK ? 'lk' : pm & BT.LP ? 'lp' : null;
     if (!b) return null;
-    if ((d === 6 || d === 3) && M[d + b] && C.cmd && C.cmd[d + b]) return { id: d + b };   // 特殊技
+    if ((d === 6 || d === 3 || d === 4) && M[d + b] && C.cmd && C.cmd[d + b]) return { id: d + b };   // 特殊技
     return { id: isDown(d) ? 'c' + b : b };
   }
 
+  // 派生技の入力の種類（雷翔閃など）
+  function followKind(G, f) {
+    const pm = pressedMask(G, f), cur = f.hist[0], d = dirNow(f);
+    if (!pm) return null;
+    if (f.mode === 'modern') {
+      if (!(pm & (BT.LP | BT.MP | BT.HP | BT.SP))) return null;
+      return isDown(d) ? 'rev' : d === 6 ? 'grab' : d === 4 ? 'stop' : 'strike';
+    }
+    if (((pm | cur) & BT.LP) && ((pm | cur) & BT.LK) && (pm & (BT.LP | BT.LK))) return 'grab';
+    if (pm & K3) return isDown(d) ? 'rev' : 'strike';
+    if (pm & P3) return 'stop';
+    return null;
+  }
   // ---------------- 状態の切りかえ ----------------
   function setSt(f, st) { f.st = st; f.t = 0; }
   function startMove(G, f, id, extra) {
@@ -164,6 +183,7 @@
       G.ev.push({ k: 'super', i: f.i, lv: m.saLv, nm: f.ca ? 'クリティカルアーツ ' + m.nm : m.nm });
     }
     f.rushB = f.st === 'rush' ? 1 : 0;
+    f.kiOn = 0; if (m.kiUse && f.ki) { f.kiOn = 1; f.ki = 0; }
     setSt(f, 'move'); f.mv = id; f.mt = 0; f.hitW = []; f.conn = 0; f.buf = null; f.armor = m.armor || 0; f.modSp = extra && extra.mod ? 1 : 0; f.ast = extra && extra.ast ? extra.ast : null;
     if (!m.air && !m.airMove && !f.air) f.vx = 0;
     if (m.air || m.airMove) f.airAtk = 1;
@@ -246,7 +266,8 @@
       G.hitstop = 10; G.ev.push({ k: 'armor', i: V.i, x: hx, y: hy });
       return 'armor';
     }
-    const mod = A.modSp ? .8 : 1, caMul = A.ca && m.saLv === 3 ? 1.1 : 1;
+    const kiB = proj ? proj.ki : (A.kiOn && m.kiUse);
+    const mod = A.modSp ? .8 : 1, caMul = (A.ca && m.saLv === 3 ? 1.1 : 1) * (kiB ? 1.35 : 1);
     const base = (opt.dmg != null ? opt.dmg : m.dmg) * mod * caMul;
     // ガード
     if (canBlock(V, fromX, m.lvl || 'mid')) {
@@ -290,12 +311,12 @@
     if (m.di && !wasAir) {
       if (ct === 'punish') { setSt(V, 'crumple'); V.hs = 70; }
       else { setSt(V, 'fall'); V.air = 1; V.y = Math.max(V.y, 1); V.vx = away * 9; V.vy = 8; V.diSplat = 1; V.jug = 0; V.reset = 0; }
-    } else if (wasAir || m.kd || (m.launch && wasAir)) {
+    } else if (wasAir || m.kd || kiB || (m.launch && wasAir)) {
       const juggle = prevSt === 'fall' || prevSt === 'splat';
       setSt(V, 'fall'); V.air = 1; V.y = Math.max(V.y, 1);
-      const L = m.launch || (m.kd ? [3, 5] : juggle ? [2.2, 5] : [2.6, 6]);
+      const L = m.launch || (m.kd || kiB ? [4, 6] : juggle ? [2.2, 5] : [2.6, 6]);
       V.vx = away * L[0]; V.vy = L[1]; V.jug++;
-      V.reset = !m.kd && !m.launch && !juggle ? 1 : 0;
+      V.reset = !m.kd && !kiB && !m.launch && !juggle ? 1 : 0;
       if (prevSt === 'splat') V.diSplat = 0;
     } else {
       setSt(V, crouching(V) || (V.hist[0] & BT.D) ? 'chit' : 'hit'); V.hs = hsN;
@@ -439,6 +460,7 @@
       if (m.vel && m.airMove) { for (const v of m.vel) if (f.mt >= v[0] && f.mt <= v[1] && v[3] != null) f.vy = v[3]; }
       if (f.y <= 0) {
         f.y = 0; f.air = 0; f.vy = 0; f.vx = 0;
+        if (m.landInto) { f.mv = null; setSt(f, 'idle'); startMove(G, f, m.landInto); return; }
         if (m.untilLand) { setSt(f, 'land'); f.hs = m.land || 4; f.mv = null; return; }
         if (m.air) { setSt(f, 'land'); f.hs = 3; f.mv = null; return; }
       }
@@ -447,22 +469,36 @@
     if (m.spawn && f.mt === m.spawn.f) {
       const s = m.spawn;
       G.proj.push({ o: f.i, x: f.x + f.face * s.x, y: s.y, vx: f.face * s.vx, w: s.w, h: s.h, dmg: s.dmg * (f.modSp ? .8 : 1), chip: s.chip, hs: s.hs, bs: s.bs,
-        hits: s.hits, kind: s.kind, gap: s.gap || 0, cd: 0, sa: s.sa || 0, od: s.od ? 1 : 0, str: s.sa ? 2 : 1, t: 0, ca: f.ca, life: s.life || 240 });
+        hits: s.hits, ki: f.kiOn, kind: s.kind, gap: s.gap || 0, cd: 0, sa: s.sa || 0, od: s.od ? 1 : 0, str: s.sa ? 2 : 1, t: 0, ca: f.ca, life: s.life || 240 });
       G.ev.push({ k: 'proj', i: f.i, kind: s.kind });
     }
     // 派生（ライカの閃歩→雷槌）
-    if (m.follow && ctl && f.mt >= m.follow.from && f.mt <= m.follow.to && (pressedMask(G, f) & (P3 | BT.SP))) { startMove(G, f, m.follow.mv); return; }
+    if (m.follows && ctl) {
+      const kind = followKind(G, f);
+      if (kind) for (const fw of m.follows) if (fw.kind === kind && f.mt >= fw.from && f.mt <= fw.to) { startMove(G, f, fw.mv); return; }
+    }
+    // 空中のコマンド投げ（雷縛脚）
+    if (m.cmdGrab && f.mt === 1) {
+      const o = other(G, f);
+      if (Math.abs(o.x - f.x) <= 120 && !o.air && o.y <= 0 && throwable(o)) {
+        f.y = 0; f.air = 0; f.vy = 0; f.vx = 0; setSt(f, 'throwing'); setSt(o, 'thrown'); o.mv = null; o.vx = 0;
+        G.grab = { a: f.i, t: 0, back: 0, pc: false, techable: false, dmg: m.cmdGrab };
+        G.ev.push({ k: 'grab', i: f.i }); return;
+      }
+    }
+    // 練気（次の焔弾・焔掌が強くなる）
+    if (m.kiAt && f.mt === m.kiAt) { f.ki = 1; G.ev.push({ k: 'ki', i: f.i }); }
     // キャンセル
     const lastWin = m.win.length ? m.win[m.win.length - 1][1] : m.st + m.act;
     // ターゲットコンボ（当たるかガードされたら、決まったボタンで次の技へ）
-    if (ctl && f.conn && C.tc && !f.air && f.mode === 'classic' && f.mt <= lastWin + 12) {
-      const pm = pressedMask(G, f, 10);
-      for (const t of C.tc) if (t.from === f.mv && (pm & BT[t.btn])) { startMove(G, f, t.to); return; }
+    if (ctl && f.conn && C.tc && !f.air && f.mt <= lastWin + 12) {
+      const pm = pressedMask(G, f, 16), mod = f.mode === 'modern';
+      for (const t of C.tc) { const bit = mod ? (t.btnM ? BT[t.btnM] : 0) : BT[t.btn]; if (t.from === f.mv && bit && (pm & bit) && !(mod && (f.hist[0] & (BT.SP | BT.AU)))) { startMove(G, f, t.to); return; } }
     }
     // アシストコンボ：当たったら同じボタンで次の技へ
     if (ctl && f.ast && f.conn && !f.air && f.mt <= lastWin + 12 && (f.hist[0] & BT.AU)) {
       const bit = { L: BT.LP, M: BT.MP, H: BT.HP }[f.ast.b];
-      if (pressedMask(G, f, 10) & bit) {
+      if (pressedMask(G, f, 16) & bit) {
         const list = C.assist[f.ast.k || f.ast.b];
         let nx = list[f.ast.i + 1];
         if (nx === 'SA') { const lv = Math.min(3, Math.floor(f.sa / BAR)); nx = lv ? 'sa' + lv : null; }
@@ -538,7 +574,7 @@
       if (want && pm) { tech(G); return; }
     }
     if (g.t === 12) {
-      const C = FG.CHARS[A.ch], dmg = Math.round(1200 * (g.pc ? 1.7 : 1) * (C.dmgMul || 1) / 10) * 10;
+      const C = FG.CHARS[A.ch], dmg = g.dmg || Math.round(1200 * (g.pc ? 1.7 : 1) * (C.dmgMul || 1) / 10) * 10;
       if (g.back) { A.face = -A.face; V.x = A.x + A.face * 56; }
       V.hp -= dmg; V.combo = 1; V.cdmg = dmg; V.lastHit = G.f;
       A.sa = Math.min(SA_MAX, A.sa + dmg); if (g.pc && !V.burn) { V.drive -= 2 * BAR; if (V.drive <= 0) burnout(G, V); }

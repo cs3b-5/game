@@ -182,8 +182,10 @@
       if (m.fx === 'fire' && act) flame(T(S.fa.h), 26), flame(T(S.ba.h), 22);
       if (m.fx === 'bolt' && act) bolt(T(S.fl.k), T(S.fl.f), C.colors.aura);
       if (m.fx === 'pillar' && f.mt >= m.st - 1 && f.mt <= m.st + m.act) pillar(SX(f.x + f.face * 80), C.colors.aura);
+      if (m.fx === 'charge') { aura(T(S.sh), C.colors.aura, 70, .45); if (f.mt % 3 === 0) flame(T(S.fa.h), 14); }
     }
     if (f.st === 'stun') stars(T(S.hd));
+    if (f.ki && G.f % 2 === 0) { flame(T(S.fa.h), 12); flame(T(S.ba.h), 10); }
     // ラッシュの残像
     if (f.st === 'rush' || (f.rushB && f.st === 'move')) trails[f.i].push({ x: f.x, y: f.y, a: .5 });
     // 骨の位置を覚えておく（エフェクト用）
@@ -429,6 +431,7 @@
         case 'cin': SFX.cin(); break;
         case 'super': superBanner = { nm: e.nm, lv: e.lv, i: e.i, t: 0 }; SFX.super(); break;
         case 'di': SFX.di(); break;
+        case 'ki': texts.push({ t: '練気', x: e.i ? VW - 240 : 240, y: 300, col: '#ffb040', life: 50 }); SFX.parry(true); break;
         case 'taunt': texts.push({ t: '♪ DRIVE UP', x: e.i ? VW - 240 : 240, y: 300, col: '#5affb0', life: 50 }); SFX.parry(false); break;
         case 'rush': SFX.rush(); break;
         case 'parryOn': SFX.whoosh(0); break;

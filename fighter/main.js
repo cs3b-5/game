@@ -141,31 +141,36 @@
     $('keyTable').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '<tr><td colspan="2" class="note" style="text-align:left">ゲームパッドもつかえます（クラシック：X/Y/RB＝P、A/B/RT＝K、LB＝パリィ、LT＝インパクト。モダン：X/A/B＝弱中強、Y＝SP、RB＝DI、LB＝DP、RT＝AUTO、LT＝投げ）</td></tr>';
     const arrow = { 1: '↙', 2: '↓', 3: '↘', 4: '←', 6: '→', 7: '↖', 8: '↑', 9: '↗' };
     let h = '';
-    const cmdOf = (seq, btn) => seq.map(d => arrow[d]).join('') + ' ＋ ' + btn;
-    const modOf = (C, s) => { const m = Object.entries(C.modern).filter(([, v]) => v === s).map(([d]) => ({ n: '', f: '→ ', d: '↓ ', b: '← ', air: '空中で ' })[d]); return m.length ? m.join('／') + 'SP' : '—'; };
+    const cmdOf = (seq, btn) => seq.map(d => arrow[d] || '').join('') + ' ＋ ' + btn;
+    const modOf = (C, s) => { const m = Object.entries(C.modern).filter(([, v]) => v === s).map(([d]) => ({ n: '', f: '→ ＋ ', d: '↓ ＋ ', b: '← ＋ ', air: '' })[d]); return m.length ? m.join(' か ') + 'SP' : '—'; };
+    const sec = t => `<tr><th>${t}</th><th>コマンド</th></tr>`;
     for (const id in FG.CHARS) {
       const C = FG.CHARS[id];
       h += `<tr><th colspan="2" style="color:#fff;font-size:1.05rem;padding-top:14px">${C.nm}<span style="color:var(--mute);font-weight:700"> ${C.en}</span></th></tr>`;
-      h += `<tr><th>必殺技</th><th>コマンド</th></tr>`;
+      h += sec('必殺技');
       for (const s in C.sp) {
-        const sp = C.sp[s];
-        const cmd = ctl === 'classic' ? (sp.air ? '空中で ' : '') + cmdOf(sp.in, sp.btn) : modOf(C, s);
+        const sp = C.sp[s], pre = sp.air ? (sp.fwdJump ? '（前ジャンプ中）' : '（ジャンプ中）') : '';
+        if (ctl === 'modern' && !Object.values(C.modern).includes(s)) continue;   // モダンにない技
+        const cmd = pre + (ctl === 'classic' ? (s === 'ki' ? '↓↓ ＋ P' : cmdOf(sp.in, sp.btn)) : modOf(C, s));
         h += `<tr><td>${sp.nm}</td><td>${cmd}</td></tr>`;
-        if (s === 'flash') h += `<tr><td>　雷槌</td><td>${ctl === 'classic' ? '（閃歩中に）P' : '（閃歩中に）SP'}</td></tr>`;
+        for (const sb of sp.subs || []) h += `<tr><td>　${sb.nm}</td><td>${ctl === 'classic' ? sb.cmd : sb.cmdM}</td></tr>`;
       }
-      h += `<tr><th>スーパーアーツ</th><th></th></tr>`;
-      C.sa.forEach((sa, i) => { h += `<tr><td>SA${i + 1} ${sa.nm}</td><td>${ctl === 'classic' ? cmdOf(sa.in, sa.btn) : ['SP ＋ 強', '→ SP ＋ 強', '↓ SP ＋ 強'][i]}</td></tr>`; });
-      h += `<tr><th>特殊技</th><th></th></tr>`;
-      if (ctl === 'classic') {
-        for (const k in C.cmd || {}) h += `<tr><td>${C.cmd[k].nm}</td><td>${C.cmd[k].cmd}</td></tr>`;
-        for (const t of C.tc || []) h += `<tr><td>${t.nm}</td><td>${t.cmd}</td></tr>`;
-      } else {
-        const A = C.assist, nm = { cmp: '↓中P', clp: '↓弱P', clk: '↓弱K', cmk: '↓中K', chp: '↓強P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA（ゲージ分）', tcB: '中K', '6hp': '鳩尾砕き' };
+      h += sec('スーパーアーツ');
+      C.sa.forEach((sa, i) => {
+        const lv = sa.lv || i + 1, pre = sa.air ? '（前ジャンプ中）' : '';
+        h += `<tr><td>SA${lv} ${sa.nm}</td><td>${pre}${ctl === 'classic' ? cmdOf(sa.in, sa.btn) : (sa.air ? 'SP ＋ 強' : ['SP ＋ 強', '← ＋ SP ＋ 強', '↓ ＋ SP ＋ 強'][lv - 1])}</td></tr>`;
+      });
+      h += sec('特殊技');
+      for (const k in C.cmd || {}) { const c = C.cmd[k]; if (ctl === 'classic') h += `<tr><td>${c.nm}</td><td>${c.cmd}</td></tr>`; else if (c.cmdM) h += `<tr><td>${c.nm}</td><td>${c.cmdM}</td></tr>`; }
+      for (const t of C.tc || []) { if (t.hide) continue; if (ctl === 'classic') h += `<tr><td>${t.nm}</td><td>${t.cmd}</td></tr>`; else if (t.cmdM) h += `<tr><td>${t.nm}</td><td>${t.cmdM}</td></tr>`; }
+      if (ctl === 'modern') {
+        h += sec('アシストコンボ');
+        const A = C.assist, nm = { cmp: '↓中P', clp: '↓弱P', clk: '↓弱K', cmk: '↓中K', chp: '↓強P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA（ゲージ分のLv）' };
         const cv = x => nm[x] || (C.moves[x] ? C.moves[x].nm.replace('（OD）', '') : x);
-        for (const k of ['L', 'M', 'H']) { if (!A[k]) continue; const jp = { L: '弱', M: '中', H: '強' }[k.slice(-1)], dn = k[0] === 'd'; h += `<tr><td>アシストコンボ ${dn ? '↓' : ''}${jp}</td><td>${dn ? '↓＋' : ''}AUTO＋${jp}連打：${A[k].map(cv).join(' ▶ ')}</td></tr>`; }
+        for (const k of ['L', 'M', 'H']) { const jp = { L: '弱', M: '中', H: '強' }[k]; h += `<tr><td>AUTO ＋ ${jp}連打</td><td>${A[k].map(cv).join(' ▶ ')}</td></tr>`; }
       }
     }
-    $('cmdTable').innerHTML = h + '<tr><td colspan="2" class="note" style="text-align:left">表は1P側（右向き）のとき。左向きのときは左右が逆になる。<br>▶ は前の技が当たる（ガードされる）のに合わせて次のボタン。<br>必殺技はボタン2つ同時押しでOD（ドライブゲージ2本）。体力25%以下のSA3はクリティカルアーツ。<br>モダンのSP必殺技はダメージが少しだけ低い（80%）</td></tr>';
+    $('cmdTable').innerHTML = h + '<tr><td colspan="2" class="note" style="text-align:left">表は1P側（右向き）のとき。左向きのときは左右が逆になる。<br>▶ は前の技が当たる（ガードされる）のに合わせて次のボタン。<br>必殺技はボタン2つ同時押しでOD（ドライブゲージ2本）。体力25%以下のSA3はクリティカルアーツ。<br>ホムラの練気（↓↓＋P）のあとは、次の焔弾・焔掌が強くなってダウンを奪える。<br>モダンのSP必殺技はダメージが少しだけ低い（80%）</td></tr>';
   }
 
   // ================= ゲーム開始 =================
