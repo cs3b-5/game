@@ -63,7 +63,7 @@
   document.querySelectorAll('[data-back]').forEach(b => b.onclick = goBack);
   document.querySelectorAll('#mainMenu .btn').forEach(b => b.onclick = () => {
     const g = b.dataset.go;
-    if (g === 'help') { buildHelp(S.ctl); show('help'); return; }
+    if (g === 'help') { helpChar = S.my || 'homura'; buildHelp(S.ctl); show('help'); return; }
     mode = g; openSelect();
   });
   function onEsc() {
@@ -77,7 +77,7 @@
   }
   function resume() { paused = false; $('pause').hidden = true; $('cv').focus && $('cv').focus(); }
   $('pResume').onclick = resume;
-  $('pHelp').onclick = () => { buildHelp(S.ctl); back = []; show('help', false); back.push('pause'); };
+  $('pHelp').onclick = () => { helpChar = (G && G.p[0].ch) || S.my; buildHelp(S.ctl); back = []; show('help', false); back.push('pause'); };
   $('pSelect').onclick = () => { leaveGame(); back = ['title']; openSelect(); };
   $('pTitle').onclick = () => { leaveGame(); back = []; show('title', false); };
   function leaveGame() { running = false; paused = false; G = null; $('hudBar').hidden = true; if (net) netClose(true); }
@@ -95,10 +95,12 @@
   seg('gaugeSeg', () => S.inf, v => S.inf = +v);
   seg('boxSeg', () => S.boxes, v => { S.boxes = +v; R.opts.boxes = !!S.boxes; });
   R.opts.boxes = !!S.boxes;
-  let helpCtl = S.ctl;
+  let helpCtl = S.ctl, helpChar = S.my || 'homura';
   const helpSync = seg('helpSeg', () => helpCtl, v => { helpCtl = v; buildHelp(v); });
 
   // ================= キャラ選択 =================
+  const DESC = { homura: '飛び道具と昇竜のバランス型', raika: '素早い蹴りで攻めるラッシュ型', rinfa: '足技と溜めの風の拳法', yomi: 'ストックをためて強化する毒使い',
+    shinobu: '走って化かす忍者', serena: '投げるほど強くなる月の舞踏', gouzan: '一回転で大ダメージの投げ', jin: '溜めで守る氷の軍人' };
   function openSelect() {
     $('selTitle').textContent = { training: 'トレーニング：キャラ選択', cpu: 'CPU戦：キャラ選択', online: 'オンライン：キャラ選択' }[mode];
     const two = mode !== 'online';
@@ -109,7 +111,7 @@
     for (const id in FG.CHARS) {
       const C = FG.CHARS[id], el = document.createElement('button');
       el.className = 'cc'; el.dataset.id = id;
-      el.innerHTML = `<span class="tag t1">1P</span><span class="tag t2">${mode === 'training' ? 'DUMMY' : 'CPU'}</span><canvas width="400" height="300"></canvas><div><b>${C.nm}</b> <span class="en">${C.en}</span></div><div class="note" style="text-align:left">${C.title}・${id === 'homura' ? '飛び道具と昇竜で戦うバランス型' : '素早い蹴りで攻めるラッシュ型'}</div>`;
+      el.innerHTML = `<span class="tag t1">1P</span><span class="tag t2">${mode === 'training' ? 'DUMMY' : 'CPU'}</span><canvas width="400" height="300"></canvas><div><b>${C.nm}</b> <span class="en">${C.en}</span></div><div class="note" style="text-align:left">${C.title}・${DESC[id] || ''}</div>`;
       el.onclick = () => { S.my = id; mark(); save(); };
       el.oncontextmenu = e => { e.preventDefault(); if (two) { S.opp = id; mark(); save(); } };
       box.appendChild(el); previews.push({ cv: el.querySelector('canvas'), id });
@@ -124,7 +126,9 @@
   $('selGo').onclick = () => { if (mode === 'online') { $('myName').value = S.name || ''; $('netMsg').textContent = ''; $('hostBox').hidden = true; show('online'); } else startLocal(); };
 
   // ================= 操作説明 =================
+  { const sel = document.getElementById('helpChar'); for (const id in FG.CHARS) { const o = document.createElement('option'); o.value = id; o.textContent = FG.CHARS[id].nm; sel.appendChild(o); } sel.onchange = () => { helpChar = sel.value; buildHelp(helpCtl); }; }
   function buildHelp(ctl) {
+    document.getElementById('helpChar').value = helpChar;
     helpCtl = ctl; helpSync();
     const k = (...a) => a.map(x => `<kbd>${x}</kbd>`).join('');
     const rows = ctl === 'classic' ? [
@@ -142,27 +146,38 @@
     const arrow = { 1: '↙', 2: '↓', 3: '↘', 4: '←', 6: '→', 7: '↖', 8: '↑', 9: '↗' };
     let h = '';
     const cmdOf = (seq, btn) => seq.map(d => arrow[d] || '').join('') + ' ＋ ' + btn;
-    const modOf = (C, s) => { const m = Object.entries(C.modern).filter(([, v]) => v === s).map(([d]) => ({ n: '', f: '→ ＋ ', d: '↓ ＋ ', b: '← ＋ ', air: '' })[d]); return m.length ? m.join(' か ') + 'SP' : '—'; };
+    const inText = sp => { const I = sp.in, b = { P: 'P', K: 'K', PP: 'PP', KK: 'KK', LP: '弱P', MP: '中P', HP: '強P', LK: '弱K', MK: '中K', HK: '強K' }[sp.btn];
+      if (Array.isArray(I)) { if (!I.length) return b; if (I.join() === '2,5,2') return '↓↓ ＋ ' + b; return cmdOf(I, b); }
+      if (I.spin) return (I.spin === 2 ? '2回転' : '1回転（→↘↓↙←↖↑↗→）') + ' ＋ ' + b;
+      if (I.ch) return (I.ch === 'b' ? '←タメ ' : '↓タメ ') + I.to.map(d => arrow[d]).join('') + ' ＋ ' + b;
+      return ''; };
+    const modOf = (C, s) => { const m = Object.entries(C.modern).filter(([, v]) => [].concat(v).includes(s)).map(([d]) => ({ n: '', f: '→ ＋ ', d: '↓ ＋ ', b: '← ＋ ', air: '', airf: '→ ＋ ' })[d]); return m.length ? m.join(' か ') + 'SP' : '—'; };
     const sec = t => `<tr><th>${t}</th><th>コマンド</th></tr>`;
     for (const id in FG.CHARS) {
+      if (id !== helpChar) continue;
       const C = FG.CHARS[id];
       h += `<tr><th colspan="2" style="color:#fff;font-size:1.05rem;padding-top:14px">${C.nm}<span style="color:var(--mute);font-weight:700"> ${C.en}</span></th></tr>`;
       h += sec('必殺技');
       for (const s in C.sp) {
         const sp = C.sp[s], pre = sp.air ? (sp.fwdJump ? '（前ジャンプ中）' : '（ジャンプ中）') : '';
-        if (ctl === 'modern' && !Object.values(C.modern).includes(s)) continue;   // モダンにない技
-        const cmd = pre + (ctl === 'classic' ? (s === 'ki' ? '↓↓ ＋ P' : cmdOf(sp.in, sp.btn)) : modOf(C, s));
+        if (sp.asCmd) continue;
+        if (ctl === 'modern' && !Object.values(C.modern).flat().includes(s) && !sp.cmdM) continue;   // モダンにない技
+        const cmd = (sp.cmdNote || '') + pre + (ctl === 'classic' ? inText(sp) : (sp.cmdM || modOf(C, s)));
         h += `<tr><td>${sp.nm}</td><td>${cmd}</td></tr>`;
         for (const sb of sp.subs || []) h += `<tr><td>　${sb.nm}</td><td>${ctl === 'classic' ? sb.cmd : sb.cmdM}</td></tr>`;
+        if (sp.note) h += `<tr><td colspan="2" class="note" style="text-align:left">　${sp.note}</td></tr>`;
       }
       h += sec('スーパーアーツ');
       C.sa.forEach((sa, i) => {
         const lv = sa.lv || i + 1, pre = sa.air ? '（前ジャンプ中）' : '';
-        h += `<tr><td>SA${lv} ${sa.nm}</td><td>${pre}${ctl === 'classic' ? cmdOf(sa.in, sa.btn) : (sa.air ? 'SP ＋ 強' : ['SP ＋ 強', '← ＋ SP ＋ 強', '↓ ＋ SP ＋ 強'][lv - 1])}</td></tr>`;
+        const MS = C.modernSA || { n: 1, b: 2, d: 3 }, md = Object.keys(MS).find(k => MS[k] === lv);
+        h += `<tr><td>SA${lv} ${sa.nm}</td><td>${sa.cmdNote || ''}${pre}${ctl === 'classic' ? inText(sa) : (sa.air ? 'SP ＋ 強' : ({ n: '', b: '← ＋ ', d: '↓ ＋ ' }[md] + 'SP ＋ 強'))}</td></tr>`;
+        if (sa.note) h += `<tr><td colspan="2" class="note" style="text-align:left">　${sa.note}</td></tr>`;
       });
       h += sec('特殊技');
-      for (const k in C.cmd || {}) { const c = C.cmd[k]; if (ctl === 'classic') h += `<tr><td>${c.nm}</td><td>${c.cmd}</td></tr>`; else if (c.cmdM) h += `<tr><td>${c.nm}</td><td>${c.cmdM}</td></tr>`; }
-      for (const t of C.tc || []) { if (t.hide) continue; if (ctl === 'classic') h += `<tr><td>${t.nm}</td><td>${t.cmd}</td></tr>`; else if (t.cmdM) h += `<tr><td>${t.nm}</td><td>${t.cmdM}</td></tr>`; }
+      for (const k in C.cmd || {}) { const c = C.cmd[k]; if (c.hide) continue; if (ctl === 'classic') { if (c.cmd && !c.mOnly) h += `<tr><td>${c.nm}</td><td>${c.cmd}</td></tr>`; } else if (c.cmdM) h += `<tr><td>${c.nm}</td><td>${c.cmdM}</td></tr>`; }
+      for (const k in C.sp) if (C.sp[k].asCmd && ctl === 'classic') h += `<tr><td>${C.sp[k].nm}</td><td>${C.sp[k].cmdText}</td></tr>`;
+      for (const t of C.tc || []) { if (t.hide) continue; if (ctl === 'classic') { if (t.cmd && !t.mOnly) h += `<tr><td>${t.nm}</td><td>${t.cmd}</td></tr>`; } else if (t.cmdM) h += `<tr><td>${t.nm}</td><td>${t.cmdM}</td></tr>`; }
       if (ctl === 'modern') {
         h += sec('アシストコンボ');
         const A = C.assist, nm = { cmp: '↓中P', clp: '↓弱P', clk: '↓弱K', cmk: '↓中K', chp: '↓強P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA（ゲージ分のLv）' };
@@ -238,32 +253,39 @@
   }
 
   // ================= CPU =================
+  // CPUのキャラごとの作戦：combo=当たったらつなぐ必殺技 aa=対空 far=遠くで使う grab=近くで投げる
+  const AIP = {
+    homura: { combo: ['hado', 'tatsu'], aa: 'shoryu', far: 'hado' }, raika: { combo: ['rkick'], aa: 'flip', far: 'rkick' },
+    rinfa: { combo: ['hyaku'], aa: 'tensho', far: 'kiko' }, yomi: { combo: ['anken', 'saiha'], aa: 'tensen', far: 'fuha' },
+    shinobu: { combo: ['ichi', 'bushin'], aa: null, far: 'run' }, serena: { combo: ['renverse', 'degage'], aa: 'rond', far: 'degage', grab: 'manege' },
+    gouzan: { combo: ['lariat'], aa: 'tundra', far: 'siberian', grab: 'spd' }, jin: { combo: ['sonic'], aa: 'flash', far: 'sonic' },
+  };
   function makeAI(lv) { return { q: [], hold: 0, bits: 0, wait: 20, walk: 0, lv, react: [22, 12, 6][lv], blockP: [.3, .6, .88][lv], aaP: [.03, .07, .16][lv], comboP: [.25, .7, .95][lv], did: 0 }; }
   function aiInput() {
-    const A = ai, me = G.p[1], op = G.p[0], C = FG.CHARS[me.ch];
-    const fwd = op.x > me.x ? BT.R : BT.L, bk = fwd === BT.R ? BT.L : BT.R;
+    const A = ai, me = G.p[1], op = G.p[0], C = FG.CHARS[me.ch], plan = AIP[me.ch] || {};
+    const fwd = op.x > me.x ? BT.R : BT.L, bk = fwd === BT.R ? BT.L : BT.R, face = op.x > me.x ? 1 : -1;
     const dir = n => ({ 1: BT.D | bk, 2: BT.D, 3: BT.D | fwd, 4: bk, 5: 0, 6: fwd, 7: BT.U | bk, 8: BT.U, 9: BT.U | fwd })[n];
-    const motion = (seq, btn) => { A.q = seq.map((d, i) => dir(d) | (i === seq.length - 1 ? btn : 0)); A.q.push(dir(seq[seq.length - 1]) | btn, 0); return A.q.shift(); };
+    const doSp = (key, s) => { if (!key || !C.sp[key]) return 0; A.q = FG.seqFor(me.ch, key, s, face); return A.q.shift(); };
+    const doSA = i => { const sa = C.sa[i]; if (!sa || sa.air) return 0; C.sp.__ai = { in: sa.in, btn: sa.btn, v: [{}] }; A.q = FG.seqFor(me.ch, '__ai', 2, face); delete C.sp.__ai; return A.q.shift(); };
     const hold = (b, n) => { A.hold = n; A.bits = b; return b; };
-    const rnd = Math.random, dist = Math.abs(op.x - me.x), om = FG.mvOf(op);
+    const rnd = Math.random, dist = Math.abs(op.x - me.x), om = FG.mvOf(op), pick = a => a[Math.floor(rnd() * a.length)];
     if (A.q.length) return A.q.shift();
     if (A.hold > 0) { A.hold--; return A.bits; }
-    const homura = me.ch === 'homura';
     // コンボ：当たったら必殺技につなぐ
     if (me.st === 'move' && me.conn === 1 && !A.did) {
       const m = FG.mvOf(me);
       if (m && m.cx.includes('sp') && rnd() < A.comboP) {
         A.did = 1;
-        if (me.sa >= 10000 && rnd() < .3 + A.lv * .1) return motion([2, 3, 6, 2, 3, 6], homura ? BT.HP : BT.HK);
-        return homura ? (rnd() < .5 ? motion([2, 3, 6], BT.HP) : motion([2, 1, 4], BT.MK)) : motion([2, 3, 6], BT.HK);
+        if (me.sa >= 10000 && rnd() < .3 + A.lv * .1) return doSA(0);
+        const key = pick(plan.combo || Object.keys(C.sp)); const sp = C.sp[key];
+        if (sp && Array.isArray(sp.in)) return doSp(key, Math.floor(rnd() * 3));
       }
     }
     if (me.st !== 'move') A.did = 0;
-    // ガード中は後ろを押しつづける
     if (me.st === 'block' || me.st === 'cblock') return bk | (me.st === 'cblock' ? BT.D : 0);
     if (!FG.actionable(me)) return 0;
     // 対空
-    if (op.air && op.st !== 'fall' && op.vy < 4 && dist < 220 && rnd() < A.aaP * 3) return motion([6, 2, 3], homura ? BT.HP : BT.HK);
+    if (op.air && op.st !== 'fall' && op.vy < 4 && dist < 220 && rnd() < A.aaP * 3) return plan.aa ? doSp(plan.aa, 2) : BT.D | BT.HP;
     // 相手の攻撃をガード
     if (op.st === 'move' && om && (om.hb || om.spawn) && dist < 280 && op.mt < om.st + om.act && rnd() < A.blockP * .35) {
       const low = om.lvl === 'low' || (om.lvl !== 'high' && rnd() < .5);
@@ -274,34 +296,34 @@
     if (pj && rnd() < .2) { const r = rnd(); if (r < .35 && dist < 520) return hold(dir(9), 6); if (r < .6) return hold(bk, 20); return hold(BT.PA, 18); }
     // スキに反撃
     if ((op.st === 'land' || op.st === 'parryEnd' || (op.st === 'move' && om && op.mt > om.st + om.act + 4)) && dist < 170 && rnd() < .2 + A.lv * .3) {
-      if (me.sa >= 10000 && rnd() < .4) return motion([2, 3, 6, 2, 3, 6], homura ? BT.HP : BT.HK);
-      return homura ? BT.HP : BT.HK;
+      if (me.sa >= 10000 && rnd() < .4) return doSA(0);
+      return BT.HP;
     }
     if (A.wait > 0) { A.wait--; return A.walk; }
     A.wait = A.react + Math.floor(rnd() * 14); A.walk = 0;
     const r = rnd();
     if (op.st === 'down' || op.st === 'wake') { if (dist > 150) { A.walk = fwd; return fwd; } return r < .5 ? BT.D | BT.MK : hold(0, 4); }
     if (dist > 380) {
-      if (homura && r < .35 && !G.proj.some(p => p.o === 1)) return motion([2, 3, 6], [BT.LP, BT.MP, BT.HP][Math.floor(rnd() * 3)]);
+      if (plan.far && r < .3 && !(C.sp[plan.far] && C.sp[plan.far].proj && G.proj.some(p => p.o === 1))) return doSp(plan.far, Math.floor(rnd() * 3));
       if (r < .75) { A.walk = fwd; return fwd; }
       if (r < .87) return hold(dir(9), 4);
-      return motion([6, 5, 6], 0);
+      return 0;
     }
     if (dist > 190) {
       if (r < .3) { A.walk = fwd; return fwd; }
       if (r < .55) return BT.D | BT.MK;
-      if (r < .65) return homura ? BT.MK : BT.HK;
+      if (r < .65) return BT.MK;
       if (r < .75) return hold(dir(9), 4);
       if (r < .85) { A.walk = bk; return bk; }
-      return homura ? (G.proj.some(p => p.o === 1) ? fwd : motion([2, 3, 6], BT.HP)) : motion([2, 3, 6], BT.MK);
+      return plan.far ? doSp(plan.far, 1) : fwd;
     }
+    if (plan.grab && r < .2 + A.lv * .05) return doSp(plan.grab, 1);
     if (r < .3) return rnd() < .5 ? BT.LP : BT.D | BT.LK;
-    if (r < .45) return BT.LP | BT.LK;
-    if (r < .62) return hold(bk | BT.D, 14);
-    if (r < .72) return motion([4, 5, 4], 0);
+    if (r < .42) return BT.LP | BT.LK;
+    if (r < .6) return hold(bk | BT.D, 14);
     if (r < .82) return BT.D | BT.MK;
     if (r < .86 && me.drive >= 10000) return BT.HP | BT.HK;
-    if (me.sa >= 10000 && r < .92) return motion([2, 3, 6, 2, 3, 6], homura ? BT.HP : BT.HK);
+    if (me.sa >= 10000 && r < .92) return doSA(0);
     return BT.MP;
   }
 

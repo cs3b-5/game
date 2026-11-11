@@ -13,7 +13,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); 
 canvas { width: min(100vw, calc(100vh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; display: block; background: #000; image-rendering: auto; }
 .scr { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(1000px 600px at 50% 30%, rgba(80,20,40,.55), rgba(5,4,10,.92)); z-index: 10; padding: 16px; overflow: auto; }
 .scr[hidden] { display: none; }
-.box { width: min(920px, 100%); display: grid; gap: 18px; justify-items: center; }
+.box { width: min(1080px, 100%); display: grid; gap: 18px; justify-items: center; }
 .logo { font-family: "Bebas Neue", sans-serif; font-size: clamp(64px, 12vw, 140px); line-height: .85; letter-spacing: .04em; margin: 0; text-align: center;
   background: linear-gradient(180deg, #fff 10%, #ffcc3a 45%, #ff3a2a 75%, #7a0a14); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 0 #000); }
 .logo small { display: block; font-family: "Noto Sans JP", sans-serif; font-size: .28em; letter-spacing: .5em; color: #ffcc3a; -webkit-text-fill-color: #ffcc3a; margin-top: 8px; }
@@ -27,7 +27,8 @@ button { font: inherit; cursor: pointer; border: 0; }
 .btn.ghost { background: transparent; justify-content: center; }
 h2 { margin: 0; font-size: 1.5rem; letter-spacing: .1em; }
 .note { color: var(--mute); font-size: .85rem; text-align: center; line-height: 1.6; }
-.chars { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+.chars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%; }
+.cc .note { font-size: .74rem; }
 .cc { position: relative; border-radius: 14px; padding: 12px; background: #15121e; border: 2px solid var(--line); cursor: pointer; display: grid; gap: 6px; text-align: left; color: var(--ink); }
 .cc canvas { width: 100%; aspect-ratio: 4 / 3; background: radial-gradient(circle at 50% 70%, #2a1838, #0d0b16); border-radius: 10px; }
 .cc.p1 { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc), 0 0 30px rgba(255,74,58,.35); }
@@ -113,7 +114,7 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 <section class="scr" id="help" hidden>
   <div class="box">
     <h2>操作説明</h2>
-    <div class="row"><div class="seg" id="helpSeg"><button data-v="classic" class="on">クラシック</button><button data-v="modern">モダン</button></div></div>
+    <div class="row"><div class="seg" id="helpSeg"><button data-v="classic" class="on">クラシック</button><button data-v="modern">モダン</button></div><select id="helpChar" style="font:900 1rem 'Noto Sans JP';padding:8px 10px;border-radius:10px;background:#15121e;color:#f4f1ea;border:1px solid rgba(255,255,255,.12)"></select></div>
     <div class="cols">
       <div class="card" style="max-height:70vh;overflow:auto"><h3>キー</h3><table class="keys" id="keyTable"></table></div>
       <div class="card" style="max-height:70vh;overflow:auto"><h3>コマンド表</h3><table class="keys" id="cmdTable"></table></div>
@@ -154,6 +155,7 @@ kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 
 <div id="pcOnly"><div class="box"><h1 class="logo" style="font-size:72px">ARASHI-KEN</h1><p class="note">このゲームはPC専用です。<br>キーボードかゲームパッドで遊んでね。</p></div></div>
 
 <script src="chars.js"></script>
+<script src="chars2.js"></script>
 <script src="engine.js"></script>
 <script src="render.js"></script>
 <script src="main.js"></script>

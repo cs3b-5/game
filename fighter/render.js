@@ -130,101 +130,169 @@
     cx.strokeStyle = col; cx.lineWidth = w; cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.stroke();
   }
   function dot(p, r, col, out = '#0c0a10') { cx.fillStyle = out; cx.beginPath(); cx.arc(p[0], p[1], r + 2.5, 0, 7); cx.fill(); cx.fillStyle = col; cx.beginPath(); cx.arc(p[0], p[1], r, 0, 7); cx.fill(); }
+  // 見た目（キャラごと）：体格・髪型・服
+  function lookOf(C) {
+    const base = C.colors.pony ? { fem: 1, hair: 'pony', outfit: 'sleeve', band: 1 } : { hair: 'spiky', outfit: 'gi', band: 1 };
+    return Object.assign({ scale: 1, bulk: 1 }, C.look ? { band: 0 } : base, C.look || {});
+  }
+  // 服ごとの色：上腕・前腕・脚・足・胴
+  function wear(Lk, col, gi, gi2) {
+    const skin = col.skin, dark = '#14121c';
+    switch (Lk.outfit) {
+      case 'sleeve': return { ua: gi, fa: skin, leg: gi, legB: gi2, foot: col.glove, torso: gi };
+      case 'qipao': return { ua: gi, fa: skin, leg: shade(skin, .92), legB: shade(skin, .72), foot: col.glove, torso: gi };
+      case 'suit': return { ua: gi, fa: gi, leg: gi, legB: gi2, foot: dark, torso: gi };
+      case 'ninja': return { ua: gi, fa: gi2, leg: gi2, legB: shade(gi2.length === 7 ? gi2 : '#2a2a3a', .7), foot: dark, torso: gi };
+      case 'leotard': return { ua: skin, fa: skin, leg: shade(skin, .96), legB: shade(skin, .74), foot: col.glove, torso: gi };
+      case 'trunks': return { ua: skin, fa: skin, leg: skin, legB: shade(skin, .74), foot: col.belt, torso: skin };
+      case 'army': return { ua: skin, fa: skin, leg: gi2, legB: shade(gi2, .7), foot: dark, torso: gi };
+      default: return { ua: skin, fa: skin, leg: gi, legB: gi2, foot: null, torso: gi };
+    }
+  }
   function drawFighter(G, f) {
-    const C = FG.CHARS[f.ch], col = C.colors, { p, rot, spin } = poseOf(G, f), S = skeleton(p);
-    const face = spin ? -f.face : f.face;
+    const C = FG.CHARS[f.ch], col = C.colors, Lk = lookOf(C), { p, rot, spin } = poseOf(G, f), S = skeleton(p);
+    const face = spin ? -f.face : f.face, sc = Lk.scale, bk = Lk.bulk;
     // ローカル → 画面
     const ox = SX(f.x), oy = SY(f.y), pv = [S.hip[0], S.hip[1] - 10];
     const T = q => {
       let x = q[0], y = q[1];
       if (rot) { const dx = x - pv[0], dy = y - pv[1], c = Math.cos(rot), s = Math.sin(rot); x = pv[0] + dx * c - dy * s; y = pv[1] + dx * s + dy * c; }
-      return [ox + x * face * K, oy - y * K];
+      return [ox + x * face * K * sc, oy - y * K * sc];
     };
-    const burnt = f.burn, dim = (c, k) => shade(c, k);
-    const gi = burnt ? '#8a8a8a' : col.gi, gi2 = burnt ? '#5a5a5a' : col.gi2;
+    const burnt = f.burn;
+    const gi = burnt ? '#8a8a8a' : col.gi, gi2 = burnt ? '#5a5a5a' : col.gi2, W = wear(Lk, col, gi, gi2);
     // 影
-    cx.fillStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.ellipse(ox, GY + 4, 46 * K * Math.max(.4, 1 - f.y / 400), 8 * K, 0, 0, 7); cx.fill();
-    // オーラ（ドライブインパクト・パリィ・SA）
+    cx.fillStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.ellipse(ox, GY + 4, 46 * K * sc * Math.max(.4, 1 - f.y / 400), 8 * K, 0, 0, 7); cx.fill();
+    // オーラ（ドライブインパクト・パリィ・SA・強化中）
     const m = FG.mvOf(f);
     if (f.st === 'move' && m && (m.di || m.id === 'drev')) aura(T(S.sh), '#ffb030', 70);
     if (f.st === 'parry') aura(T(S.sh), '#5affb0', 64, .5);
     if (f.st === 'move' && m && m.saLv) aura(T(S.sh), C.colors.aura, 80);
-    if (f.burn) { cx.globalAlpha = .9; }
-    const s = 1.6;
+    if (f.buffT > 0) aura(T(S.sh), C.colors.aura, 60, .25);
+    let alpha = f.burn ? .9 : 1;
+    if (f.st === 'move' && m && m.fx === 'vanish' && f.mt >= 6 && f.mt <= 18) alpha = .12;
+    cx.globalAlpha = alpha;
+    const s = 1.6 * sc, wb = s * bk, fem = Lk.fem;
+    const legW = 16 * wb * (fem ? .92 : 1), shinW = 13 * wb * (fem ? .9 : 1), uaW = 11 * wb * (fem ? .9 : 1), faW = 10 * wb * (fem ? .88 : 1);
     // うしろの脚・腕
-    limb(T(S.bl.s), T(S.bl.k), 16 * s, gi2); limb(T(S.bl.k), T(S.bl.f), 13 * s, gi2);
-    foot(T(S.bl.k), T(S.bl.f), C, true, face);
-    limb(T(S.ba.s), T(S.ba.e), 11 * s, C.colors.pony ? gi2 : dim(col.skin, .75));
-    limb(T(S.ba.e), T(S.ba.h), 10 * s, dim(col.skin, .75)); dot(T(S.ba.h), 7 * s, dim(col.glove, .8));
-    // 胴
-    const hipL = T([S.hip[0] - 12, S.hip[1]]), hipR = T([S.hip[0] + 12, S.hip[1]]);
+    limb(T(S.bl.s), T(S.bl.k), legW, W.legB); limb(T(S.bl.k), T(S.bl.f), shinW, W.legB);
+    footDraw(T(S.bl.k), T(S.bl.f), W.foot || shade(col.skin, .75), true, face, s);
+    limb(T(S.ba.s), T(S.ba.e), uaW, shade(W.ua.startsWith('#') ? W.ua : '#888888', .78));
+    limb(T(S.ba.e), T(S.ba.h), faW, shade(W.fa.startsWith('#') ? W.fa : '#888888', .78)); dot(T(S.ba.h), 7 * s * Math.sqrt(bk), shade(col.glove, .8));
+    // スカートのうしろ
     const r = p.l * Math.PI / 180, perp = [Math.cos(r), -Math.sin(r)];
-    const shL = T([S.sh[0] - perp[0] * 16, S.sh[1] - perp[1] * 16]), shR = T([S.sh[0] + perp[0] * 16, S.sh[1] + perp[1] * 16]);
-    poly([hipL, hipR, shR, shL], gi);
-    // 胸元（道着のV）
-    if (!C.colors.pony) poly([T([S.sh[0] + perp[0] * 9, S.sh[1] + perp[1] * 9]), T([S.sh[0] - perp[0] * 6, S.sh[1] - perp[1] * 6]), T([(S.sh[0] + S.hip[0]) / 2 + 4, (S.sh[1] + S.hip[1]) / 2 + 6])], col.skin, true);
-    // 帯
-    limb(T([S.hip[0] - 13, S.hip[1] + 4]), T([S.hip[0] + 13, S.hip[1] + 4]), 7 * s, col.belt);
-    const tail = [S.hip[0] - 14 - Math.sin(G.f * .2) * 3, S.hip[1] - 14];
-    limb(T([S.hip[0] - 10, S.hip[1] + 4]), T(tail), 4 * s, col.belt);
-    // 頭
-    limb(T(S.sh), T(S.nk), 9 * s, col.skin);
-    drawHead(T, S, C, face, f, G);
+    if (Lk.outfit === 'qipao') poly([T([S.hip[0] - 14, S.hip[1] + 2]), T([S.hip[0] - 4, S.hip[1] + 2]), T([S.bl.k[0] - 2, S.bl.k[1] + 8]), T([S.bl.k[0] - 14, S.bl.k[1] + 10])], gi2);
+    // 胴
+    const tw = fem ? 13 : 16 * Math.min(1.3, bk), hw = fem ? 13 : 12 * Math.min(1.25, bk);
+    const hipL = T([S.hip[0] - hw, S.hip[1]]), hipR = T([S.hip[0] + hw, S.hip[1]]);
+    const shL = T([S.sh[0] - perp[0] * tw, S.sh[1] - perp[1] * tw]), shR = T([S.sh[0] + perp[0] * tw, S.sh[1] + perp[1] * tw]);
+    poly([hipL, hipR, shR, shL], W.torso);
+    const mid = [(S.sh[0] + S.hip[0]) / 2, (S.sh[1] + S.hip[1]) / 2];
+    if (Lk.outfit === 'gi') poly([T([S.sh[0] + perp[0] * 9, S.sh[1] + perp[1] * 9]), T([S.sh[0] - perp[0] * 6, S.sh[1] - perp[1] * 6]), T([mid[0] + 4, mid[1] + 6])], col.skin, true);
+    if (Lk.outfit === 'army') { poly([T([S.sh[0] + perp[0] * 7, S.sh[1] + perp[1] * 7]), T([S.sh[0] - perp[0] * 5, S.sh[1] - perp[1] * 5]), T([S.sh[0] - Math.sin(r) * 10, S.sh[1] - Math.cos(r) * 10])], col.skin, true); dot(T([mid[0] + 6, mid[1] + 10]), 3, '#c8c8d0'); }
+    if (Lk.outfit === 'trunks') {   // 胸の線とパンツ
+      cx.strokeStyle = 'rgba(60,20,10,.5)'; cx.lineWidth = 2; const a = T([mid[0] + 4, mid[1] + 14]), b = T([mid[0] + 4, mid[1] - 6]); cx.beginPath(); cx.moveTo(...a); cx.lineTo(...b); cx.stroke();
+      poly([T([S.hip[0] - hw - 2, S.hip[1] + 8]), T([S.hip[0] + hw + 2, S.hip[1] + 8]), T([S.hip[0] + hw + 4, S.hip[1] - 14]), T([S.hip[0] - hw - 4, S.hip[1] - 14])], gi);
+    }
+    if (Lk.outfit === 'leotard') poly([T([S.hip[0] - hw, S.hip[1] + 2]), T([S.hip[0] + hw, S.hip[1] + 2]), T([S.hip[0] + 4, S.hip[1] - 12]), T([S.hip[0] - 4, S.hip[1] - 12])], gi2, true);
+    if (Lk.outfit === 'qipao') { cx.strokeStyle = col.belt; cx.lineWidth = 3; const a = T([S.sh[0] + perp[0] * 4, S.sh[1] + perp[1] * 4 - 2]), b = T([mid[0] + 8, mid[1]]); cx.beginPath(); cx.moveTo(...a); cx.quadraticCurveTo(...T([mid[0] + 12, mid[1] + 14]), ...b); cx.stroke(); }
+    // 帯・ベルト
+    if (Lk.outfit !== 'army') {
+      limb(T([S.hip[0] - hw - 1, S.hip[1] + 4]), T([S.hip[0] + hw + 1, S.hip[1] + 4]), (Lk.outfit === 'trunks' ? 9 : 7) * s, col.belt);
+      if (Lk.outfit === 'gi' || Lk.outfit === 'sleeve' || Lk.outfit === 'leotard' || Lk.outfit === 'ninja') { const tail = [S.hip[0] - 14 - Math.sin(G.f * .2) * 3, S.hip[1] - 14]; limb(T([S.hip[0] - 10, S.hip[1] + 4]), T(tail), 4 * s, col.belt); }
+    } else limb(T([S.hip[0] - hw, S.hip[1] + 4]), T([S.hip[0] + hw, S.hip[1] + 4]), 5 * s, '#2a2a20');
+    // 首と頭
+    limb(T(S.sh), T(S.nk), 9 * s * Math.min(1.3, bk), col.skin);
+    if (Lk.outfit === 'ninja') {   // マフラー
+      const w = Math.sin(G.f * .2 + f.i) * 6, n = T(S.nk);
+      cx.strokeStyle = '#0c0a10'; cx.lineWidth = 12; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(...n); cx.quadraticCurveTo(n[0] - face * 40, n[1] + 10 + w, n[0] - face * 80, n[1] + 4 - w); cx.stroke();
+      cx.strokeStyle = col.band; cx.lineWidth = 8; cx.beginPath(); cx.moveTo(...n); cx.quadraticCurveTo(n[0] - face * 40, n[1] + 10 + w, n[0] - face * 80, n[1] + 4 - w); cx.stroke();
+    }
+    drawHead(T, S, C, face, f, G, Lk, sc);
     // 前の脚・腕
-    limb(T(S.fl.s), T(S.fl.k), 16 * s, gi); limb(T(S.fl.k), T(S.fl.f), 13 * s, gi);
-    foot(T(S.fl.k), T(S.fl.f), C, false, face);
-    limb(T(S.fa.s), T(S.fa.e), 11 * s, C.colors.pony ? gi : col.skin);
-    limb(T(S.fa.e), T(S.fa.h), 10 * s, col.skin); dot(T(S.fa.h), 7.5 * s, col.glove);
+    limb(T(S.fl.s), T(S.fl.k), legW, W.leg); limb(T(S.fl.k), T(S.fl.f), shinW, W.leg);
+    footDraw(T(S.fl.k), T(S.fl.f), W.foot || col.skin, false, face, s);
+    if (Lk.outfit === 'qipao') poly([T([S.hip[0] - 2, S.hip[1] + 2]), T([S.hip[0] + 14, S.hip[1] + 2]), T([S.fl.k[0] + 10, S.fl.k[1] + 10]), T([S.fl.k[0] - 2, S.fl.k[1] + 8])], gi);
+    limb(T(S.fa.s), T(S.fa.e), uaW, W.ua);
+    limb(T(S.fa.e), T(S.fa.h), faW, W.fa); dot(T(S.fa.h), 7.5 * s * Math.sqrt(bk), col.glove);
     cx.globalAlpha = 1;
-    // 技の炎・雷
+    // 技のエフェクト
     if (f.st === 'move' && m) {
       const act = m.win.some(w => f.mt >= w[0] - 1 && f.mt <= w[1] + 2);
       if (m.fx === 'fire' && act) flame(T(S.fa.h), 26), flame(T(S.ba.h), 22);
-      if (m.fx === 'bolt' && act) bolt(T(S.fl.k), T(S.fl.f), C.colors.aura);
-      if (m.fx === 'pillar' && f.mt >= m.st - 1 && f.mt <= m.st + m.act) pillar(SX(f.x + f.face * 80), C.colors.aura);
-      if (m.fx === 'charge') { aura(T(S.sh), C.colors.aura, 70, .45); if (f.mt % 3 === 0) flame(T(S.fa.h), 14); }
+      else if (m.fx === 'bolt' && act) bolt(T(S.fl.k), T(S.fl.f), C.colors.aura);
+      else if (m.fx === 'pillar' && f.mt >= m.st - 1 && f.mt <= m.st + m.act) pillar(SX(f.x + f.face * 80), C.colors.aura);
+      else if (m.fx === 'charge') { aura(T(S.sh), C.colors.aura, 70, .45); if (f.mt % 3 === 0) flame(T(S.fa.h), 14); }
+      else if (m.fx && act) sparkle([T(S.fl.f), T(S.fa.h)], C.colors.aura, m.fx);
     }
     if (f.st === 'stun') stars(T(S.hd));
     if (f.ki && G.f % 2 === 0) { flame(T(S.fa.h), 12); flame(T(S.ba.h), 10); }
     // ラッシュの残像
     if (f.st === 'rush' || (f.rushB && f.st === 'move')) trails[f.i].push({ x: f.x, y: f.y, a: .5 });
-    // 骨の位置を覚えておく（エフェクト用）
     f._head = T(S.hd);
   }
-  function foot(k, fp, C, back, face) {
-    const d = [fp[0] - k[0], fp[1] - k[1]], L = Math.hypot(d[0], d[1]) || 1;
-    const nx = -d[1] / L, ny = d[0] / L, s = face > 0 ? 1 : -1;
-    const toe = [fp[0] + face * 16 * Math.abs(ny) + 0, fp[1] + 2];
-    limb(fp, [fp[0] + face * 14, fp[1] + 3], 9, C.colors.pony ? (back ? '#10101a' : C.colors.glove) : shade(C.colors.skin, back ? .75 : 1));
+  function sparkle(pts, col, kind) {
+    for (const p of pts) for (let i = 0; i < 2; i++) {
+      const a = Math.random() * 7, sp = 1 + Math.random() * 3;
+      parts.push({ x: p[0] + (Math.random() - .5) * 20, y: p[1] + (Math.random() - .5) * 20, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (kind === 'smoke' ? 1 : 0), life: 18, max: 18, kind: kind === 'smoke' || kind === 'rock' ? 'dust' : 'ember', col: kind === 'smoke' ? 'rgba(220,210,200,.5)' : kind === 'rock' ? 'rgba(160,110,70,.6)' : col, r: kind === 'smoke' ? 8 : 4 });
+    }
   }
-  function drawHead(T, S, C, face, f, G) {
-    const h = T(S.hd), r = BONE.head * K * 1.05, col = C.colors;
-    // ポニーテール（うしろ）
-    if (col.pony) {
-      const sw = Math.sin(G.f * .15 + f.i) * 6;
-      const p1 = [h[0] - face * r * 1.1, h[1] - r * .5], p2 = [h[0] - face * r * 2.4, h[1] + r * .4 + sw], p3 = [h[0] - face * r * 3.2, h[1] + r * 1.4 + sw];
-      cx.strokeStyle = '#0c0a10'; cx.lineWidth = 16; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(...p1); cx.quadraticCurveTo(...p2, ...p3); cx.stroke();
-      cx.strokeStyle = col.hair; cx.lineWidth = 11; cx.beginPath(); cx.moveTo(...p1); cx.quadraticCurveTo(...p2, ...p3); cx.stroke();
-    }
+  function footDraw(k, fp, colr, back, face, s) {
+    limb(fp, [fp[0] + face * 14 * s / 1.6, fp[1] + 3], 9 * s / 1.6, back ? shade(colr.startsWith('#') ? colr : '#888888', .8) : colr);
+  }
+  function hairPath(h, r, face, pts) { cx.beginPath(); pts.forEach(([a, b], i) => { const x = h[0] + a * r * face, y = h[1] + b * r; i ? cx.lineTo(x, y) : cx.moveTo(x, y); }); cx.closePath(); cx.fill(); cx.strokeStyle = '#0c0a10'; cx.lineWidth = 2.5; cx.stroke(); }
+  function drawHead(T, S, C, face, f, G, Lk, sc) {
+    const h = T(S.hd), r = BONE.head * K * 1.05 * sc, col = C.colors, hair = Lk.hair;
+    const sw = Math.sin(G.f * .15 + f.i) * 6;
+    const strand = (p1, p2, p3, w) => { cx.strokeStyle = '#0c0a10'; cx.lineWidth = w + 5; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(...p1); cx.quadraticCurveTo(...p2, ...p3); cx.stroke(); cx.strokeStyle = col.hair; cx.lineWidth = w; cx.beginPath(); cx.moveTo(...p1); cx.quadraticCurveTo(...p2, ...p3); cx.stroke(); };
+    // うしろの髪
+    if (hair === 'pony') strand([h[0] - face * r * 1.1, h[1] - r * .5], [h[0] - face * r * 2.4, h[1] + r * .4 + sw], [h[0] - face * r * 3.2, h[1] + r * 1.4 + sw], 11);
+    if (hair === 'long' || hair === 'horns') { strand([h[0] - face * r * .6, h[1] - r * .6], [h[0] - face * r * 2, h[1] + r * .6 + sw], [h[0] - face * r * 2.2, h[1] + r * 2.6 + sw], 16); }
+    if (hair === 'ninja') strand([h[0] - face * r * 1, h[1] - r * .6], [h[0] - face * r * 2.2, h[1] - r * .2 + sw], [h[0] - face * r * 2.8, h[1] + r * .9 + sw], 9);
     dot(h, r, col.skin);
-    // 髪
-    cx.fillStyle = '#0c0a10'; cx.beginPath(); cx.arc(h[0], h[1] - 2, r + 3, Math.PI * 1.02, Math.PI * 1.98); cx.fill();
-    cx.fillStyle = col.hair; cx.beginPath();
-    if (!col.pony) {   // ツンツン頭
-      const pts = [[-1.1, .1], [-1.2, -.7], [-.7, -.9], [-.6, -1.5], [-.1, -1.05], [.25, -1.6], [.45, -1], [1, -1.2], [.95, -.5], [1.1, -.1]];
-      pts.forEach(([a, b], i) => { const x = h[0] + a * r * face, y = h[1] + b * r; i ? cx.lineTo(x, y) : cx.moveTo(x, y); });
-      cx.closePath(); cx.fill(); cx.strokeStyle = '#0c0a10'; cx.lineWidth = 2.5; cx.stroke();
-    } else {
-      cx.arc(h[0], h[1] - 1, r + .5, Math.PI * 1.05, Math.PI * 1.95); cx.fill();
-      cx.beginPath(); cx.moveTo(h[0] + face * r * .9, h[1] - r * .2); cx.lineTo(h[0] + face * r * .2, h[1] - r * .95); cx.lineTo(h[0] + face * r * 1.05, h[1] - r * .7); cx.fill();
+    cx.fillStyle = col.hair;
+    switch (hair) {
+      case 'pony': default:
+        if (hair !== 'pony' && hair !== 'spiky') break;
+        if (hair === 'pony') { cx.fillStyle = '#0c0a10'; cx.beginPath(); cx.arc(h[0], h[1] - 2, r + 3, Math.PI * 1.02, Math.PI * 1.98); cx.fill(); cx.fillStyle = col.hair; cx.beginPath(); cx.arc(h[0], h[1] - 1, r + .5, Math.PI * 1.05, Math.PI * 1.95); cx.fill(); cx.beginPath(); cx.moveTo(h[0] + face * r * .9, h[1] - r * .2); cx.lineTo(h[0] + face * r * .2, h[1] - r * .95); cx.lineTo(h[0] + face * r * 1.05, h[1] - r * .7); cx.fill(); }
+        else hairPath(h, r, face, [[-1.1, .1], [-1.2, -.7], [-.7, -.9], [-.6, -1.5], [-.1, -1.05], [.25, -1.6], [.45, -1], [1, -1.2], [.95, -.5], [1.1, -.1]]);
+        break;
+      case 'spiky': hairPath(h, r, face, [[-1.1, .1], [-1.2, -.7], [-.7, -.9], [-.6, -1.5], [-.1, -1.05], [.25, -1.6], [.45, -1], [1, -1.2], [.95, -.5], [1.1, -.1]]); break;
+      case 'buns':   // おだんご2つ
+        hairPath(h, r, face, [[-1.1, .2], [-1.05, -.7], [-.4, -1.1], [.5, -1.05], [1.05, -.5], [1.05, -.1], [.3, -.6], [-.5, -.5]]);
+        for (const bx of [-.85, .55]) { dot([h[0] + bx * r * face, h[1] - r * 1.05], r * .45, col.hair); cx.strokeStyle = '#f4f1ea'; cx.lineWidth = 3; cx.beginPath(); cx.arc(h[0] + bx * r * face, h[1] - r * 1.05, r * .5, .3, 2.2); cx.stroke(); }
+        break;
+      case 'long': case 'horns':
+        hairPath(h, r, face, [[-1.15, .6], [-1.1, -.7], [-.5, -1.15], [.4, -1.15], [1.05, -.6], [1.1, .1], [.7, -.5], [.2, -.7], [-.5, -.3], [-.8, .6]]);
+        if (hair === 'horns') for (const bx of [-.5, .35]) hairPath([h[0] + bx * r * face, h[1] - r * .9], r * .6, face, [[-.4, 0], [0, -1.4], [.4, 0]]);
+        break;
+      case 'ninja':   // ずきん
+        cx.fillStyle = col.gi2; hairPath(h, r * 1.08, face, [[-1.05, .7], [-1.1, -.6], [-.5, -1.1], [.5, -1.05], [1.05, -.4], [1.05, -.05], [.2, -.1], [.1, .5], [.9, .6], [.8, 1]]);
+        cx.fillStyle = col.band; cx.fillRect(h[0] - r, h[1] - r * .6, r * 2, r * .25);
+        break;
+      case 'bun':   // まとめ髪
+        hairPath(h, r, face, [[-1.1, .2], [-1.05, -.6], [-.4, -1.05], [.5, -1.05], [1.05, -.5], [1.05, -.1], [.4, -.55], [-.4, -.45]]);
+        dot([h[0] - face * r * .4, h[1] - r * 1.2], r * .55, col.hair);
+        break;
+      case 'mohawk':
+        cx.fillStyle = '#c82a1a'; hairPath(h, r, face, [[-.8, -.7], [-.6, -1.6], [-.2, -1.3], [.1, -1.8], [.4, -1.3], [.7, -1.5], [.8, -.8]]);
+        break;
+      case 'flat':   // 高い角刈り
+        hairPath(h, r, face, [[-1.05, .1], [-1.1, -.6], [-1.05, -1.7], [1.05, -1.7], [1.1, -.6], [1.05, -.2], [.3, -.6], [-.6, -.4]]);
+        break;
     }
+    // ひげ
+    if (Lk.beard) { cx.fillStyle = '#3a1a10'; hairPath(h, r, face, [[-.3, .3], [.9, .1], [.85, .8], [.2, 1.15], [-.4, .8]]); }
     // はちまき
-    cx.strokeStyle = '#0c0a10'; cx.lineWidth = 8; cx.beginPath(); cx.moveTo(h[0] - r, h[1] - r * .3); cx.lineTo(h[0] + r, h[1] - r * .45); cx.stroke();
-    cx.strokeStyle = col.band; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(h[0] - r, h[1] - r * .3); cx.lineTo(h[0] + r, h[1] - r * .45); cx.stroke();
-    const w = Math.sin(G.f * .25 + f.i * 2) * 5;
-    cx.lineWidth = 4; cx.beginPath(); cx.moveTo(h[0] - face * r, h[1] - r * .3); cx.quadraticCurveTo(h[0] - face * r * 2, h[1] - r * .6 + w, h[0] - face * r * 2.8, h[1] + w); cx.stroke();
+    if (Lk.band) {
+      cx.strokeStyle = '#0c0a10'; cx.lineWidth = 8; cx.beginPath(); cx.moveTo(h[0] - r, h[1] - r * .3); cx.lineTo(h[0] + r, h[1] - r * .45); cx.stroke();
+      cx.strokeStyle = col.band; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(h[0] - r, h[1] - r * .3); cx.lineTo(h[0] + r, h[1] - r * .45); cx.stroke();
+      const w = Math.sin(G.f * .25 + f.i * 2) * 5;
+      cx.lineWidth = 4; cx.beginPath(); cx.moveTo(h[0] - face * r, h[1] - r * .3); cx.quadraticCurveTo(h[0] - face * r * 2, h[1] - r * .6 + w, h[0] - face * r * 2.8, h[1] + w); cx.stroke();
+    }
     // 目
     cx.fillStyle = '#0c0a10'; cx.fillRect(h[0] + face * r * .45 - 2, h[1] - r * .05, 5, 3);
+    if (Lk.fem) { cx.strokeStyle = '#0c0a10'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(h[0] + face * r * .3, h[1] - r * .18); cx.lineTo(h[0] + face * r * .75, h[1] - r * .25); cx.stroke(); cx.fillStyle = '#c84a5a'; cx.fillRect(h[0] + face * r * .55, h[1] + r * .45, 4, 2); }
   }
   function poly(pts, col, noOut) {
     cx.beginPath(); pts.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.closePath();
@@ -328,9 +396,9 @@
       cx.restore();
     }
     const g = cx.createRadialGradient(x, y, 4, x, y, r);
-    g.addColorStop(0, 'rgba(255,255,240,.95)'); g.addColorStop(.35, c.kind === 'bolt' ? 'rgba(120,220,255,.7)' : 'rgba(255,150,40,.75)'); g.addColorStop(1, 'rgba(255,40,0,0)');
+    g.addColorStop(0, 'rgba(255,255,240,.95)'); g.addColorStop(.35, col); g.addColorStop(1, 'rgba(255,40,0,0)');
     cx.globalAlpha = Math.max(0, 1 - t / 32); cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r, 0, 7); cx.fill(); cx.globalAlpha = 1;
-    if (c.kind !== 'bolt' && t < 20) for (let i = 0; i < 4; i++) parts.push({ x: x + (Math.random() - .5) * 120, y: y + 60, vx: (Math.random() - .5) * 3, vy: -6 - Math.random() * 8, life: 30, max: 30, kind: 'ember', col: '#ffb040', r: 10 });
+    if (c.kind !== 'bolt' && t < 20) for (let i = 0; i < 4; i++) parts.push({ x: x + (Math.random() - .5) * 120, y: y + 60, vx: (Math.random() - .5) * 3, vy: -6 - Math.random() * 8, life: 30, max: 30, kind: 'ember', col, r: 10 });
     if (t >= 4 && t < 28) {
       const nm = c.nm, k = Math.min(1, (t - 4) / 5);
       cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.textAlign = 'center'; cx.globalAlpha = Math.min(1, (28 - t) / 6);
@@ -389,16 +457,24 @@
     if (p.kind === 'beam') {
       const dir2 = G.p[p.o].face, len = Math.min(p.w * 2 * K, p.t * 60), x0 = SX(p.x - dir2 * p.w);
       const x = x0 + dir2 * len, dir = dir2, y2 = y;
-      cx.save(); cx.shadowColor = '#ff6a20'; cx.shadowBlur = 40;
-      const g = cx.createLinearGradient(x - dir * len, 0, x, 0); g.addColorStop(0, 'rgba(255,80,20,0)'); g.addColorStop(.6, 'rgba(255,140,40,.8)'); g.addColorStop(1, '#fff6c0');
+      const BC = C.colors.aura;
+      cx.save(); cx.shadowColor = BC; cx.shadowBlur = 40;
+      const g = cx.createLinearGradient(x - dir * len, 0, x, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(.6, BC); g.addColorStop(1, '#fffaf0');
       cx.fillStyle = g; cx.fillRect(Math.min(x, x - dir * len), y - 50 - Math.random() * 6, len, 100 + Math.random() * 12); cx.restore();
-      flame([x, y], 70);
+      if (G.p[p.o].ch === 'homura') flame([x, y], 70); else sparkle([[x, y]], BC, 'wind');
       return;
     }
-    cx.save(); cx.shadowColor = '#ff7a20'; cx.shadowBlur = 30;
-    for (let i = 0; i < 5; i++) { const tx = x - dir * i * 16, r = 30 - i * 5; const g = cx.createRadialGradient(tx, y, 2, tx, y, r); g.addColorStop(0, '#fff8d0'); g.addColorStop(.4, p.od ? '#ff4ab0' : '#ffa030'); g.addColorStop(1, 'rgba(255,40,0,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(tx, y + (Math.random() - .5) * 6, r, 0, 7); cx.fill(); }
+    const PC = { fire: '#ffa030', wind: '#5affc0', poison: '#c05aff', ice: '#7ad8ff', bomb: '#ffb060' }[p.kind] || C.colors.aura;
+    if (p.kind === 'bomb') {   // 雷玉（缶）
+      const sp = p.t * .3; cx.save(); cx.translate(x, y); cx.rotate(sp); cx.fillStyle = '#3a3a48'; cx.fillRect(-9, -14, 18, 28); cx.fillStyle = '#ffb060'; cx.fillRect(-9, -4, 18, 8); cx.restore();
+      if (Math.random() < .7) parts.push({ x, y: y - 14, vx: (Math.random() - .5) * 3, vy: -2, life: 10, max: 10, kind: 'ember', col: '#ffe080', r: 3 });
+      return;
+    }
+    cx.save(); cx.shadowColor = PC; cx.shadowBlur = 30;
+    for (let i = 0; i < 5; i++) { const tx = x - dir * i * 16, r = 30 - i * 5; const g = cx.createRadialGradient(tx, y, 2, tx, y, r); g.addColorStop(0, '#fffaf0'); g.addColorStop(.4, p.od ? '#ff4ab0' : PC); g.addColorStop(1, 'rgba(0,0,0,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(tx, y + (Math.random() - .5) * 6, r, 0, 7); cx.fill(); }
+    if (p.kind === 'ice' || p.kind === 'wind') { cx.strokeStyle = '#fff'; cx.lineWidth = 3; cx.beginPath(); cx.arc(x, y, 18, p.t * .4, p.t * .4 + 4); cx.stroke(); }
     cx.restore();
-    if (Math.random() < .6) parts.push({ x: x - dir * 30, y: y + (Math.random() - .5) * 20, vx: -dir * 2, vy: -1, life: 16, max: 16, kind: 'ember', col: '#ff9a30', r: 5 });
+    if (Math.random() < .6) parts.push({ x: x - dir * 30, y: y + (Math.random() - .5) * 20, vx: -dir * 2, vy: -1, life: 16, max: 16, kind: 'ember', col: PC, r: 5 });
   }
 
   // ---------- エフェクト（イベントから） ----------

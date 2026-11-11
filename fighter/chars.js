@@ -227,7 +227,7 @@
         hool: { nm: '雷翔閃', in: [2, 3, 6], btn: 'P',
           v: [{ vx: 5.5, vy: 11 }, { vx: 7, vy: 12 }, { vx: 8.5, vy: 13 }, { vx: 9, vy: 12, od: 1 }],
           make: (s, v) => ({ st: 99, act: 0, rec: 0, dmg: 0, rise: { f: 6, vx: v.vx, vy: v.vy }, untilLand: 1, land: 4, landInto: s === 3 ? 'hoolSlideOD' : 'hoolSlide', lowInv: [6, 40],
-            follows: [{ from: 10, to: 60, kind: 'grab', mv: 'hoolGrab' }, { from: 10, to: 60, kind: 'rev', mv: 'hoolRev' }, { from: 10, to: 60, kind: 'stop', mv: 'hoolStop' }, { from: 10, to: 60, kind: 'strike', mv: 'hoolStrike' }],
+            follows: [{ from: 10, to: 60, btn: 'LPLK', km: 'f', mv: 'hoolGrab' }, { from: 10, to: 60, btn: 'K', dir: 'd', km: 'd', mv: 'hoolRev' }, { from: 10, to: 60, btn: 'P', km: 'b', mv: 'hoolStop' }, { from: 10, to: 60, btn: 'K', dir: 'nd', km: 'n', mv: 'hoolStrike' }],
             pose: [[0, 'stand'], [5, 'crouch'], [8, 'hool'], [60, 'hool']] }),
           subs: [
             { nm: '雷すべり', cmd: '（雷翔閃中）入力なし', cmdM: '（雷翔閃中）入力なし' },
@@ -250,7 +250,7 @@
         hoolStrike: N({ nm: '雷落とし', st: 3, act: 60, rec: 0, dmg: 700, hs: 20, bs: 14, hb: [10, -30, 60, 20], lvl: 'high', str: 2, airMove: 1, untilLand: 1, land: 8, bounce: 1, sp: 'hool', fx: 'bolt', vel: [[3, 99, 8, -12]], pose: [[0, 'air'], [3, 'dive'], [99, 'dive']] }),
         hoolRev: N({ nm: '逆雷脚', st: 6, act: 40, rec: 0, dmg: 800, hs: 22, bs: 16, hb: [-10, -20, 84, 70], lvl: 'high', str: 2, airMove: 1, untilLand: 1, land: 10, sp: 'hool', fx: 'bolt', vel: [[1, 99, 4, -7]], pose: [[0, 'air'], [4, 'jhk1'], [99, 'jhk1']] }),
         hoolStop: N({ nm: '雷静歩', st: 99, act: 0, rec: 0, dmg: 0, airMove: 1, untilLand: 1, land: 3, sp: 'hool', vel: [[1, 99, 1, -9]], pose: [[0, 'air'], [99, 'air']] }),
-        hoolGrab: N({ nm: '雷縛脚', st: 99, act: 0, rec: 0, dmg: 0, airMove: 1, untilLand: 1, land: 10, sp: 'hool', cmdGrab: 1600, vel: [[1, 99, 2, -8]], pose: [[0, 'air'], [99, 'grab']] }),
+        hoolGrab: N({ nm: '雷縛脚', st: 99, act: 0, rec: 0, dmg: 0, airMove: 1, untilLand: 1, land: 10, sp: 'hool', grab: { r: 120, dmg: 1600, from: 1, to: 2 }, vel: [[1, 99, 2, -8]], pose: [[0, 'air'], [99, 'grab']] }),
       },
       sa: [
         { nm: '雷鳴連脚', in: [2, 3, 6, 2, 3, 6], btn: 'K', cost: 1,
@@ -271,16 +271,18 @@
   };
 
   // ---------- キャラの技表を組み立てる ----------
-  for (const id in CH) {
+  FG.buildChar = function (id) {
     const c = CH[id], M = c.moves = {};
+    const sc = (c.look && c.look.scale) || 1;
     for (const k in NORMALS) {
       const m = Object.assign({}, NORMALS[k]);
+      if (sc !== 1) m.hb = [m.hb[0] * sc, m.hb[1] * sc, m.hb[2] * sc, m.hb[3] * sc];   // 体が大きいとリーチも長い
       if (c.kickRange && /k$/.test(k)) m.hb = [m.hb[0], m.hb[1], m.hb[2] + c.kickRange, m.hb[3]];
       if (c.dmgMul) m.dmg = Math.round(m.dmg * c.dmgMul / 10) * 10;
       M[k] = m;
     }
     Object.assign(M, COMMON, c.extra || {}, c.cmd || {});
-    for (const k in c.sp) for (let s = 0; s < 4; s++) M[k + s] = Object.assign({ sp: k, s, nm: c.sp[k].nm + (s === 3 ? '（OD）' : ''), lvl: 'mid', pb: 8, str: 1 }, c.sp[k].make(s, c.sp[k].v[s]));
+    for (const k in c.sp) for (let s = 0; s < 4; s++) { const v = c.sp[k].v[Math.min(s, c.sp[k].v.length - 1)]; M[k + s] = Object.assign({ sp: k, s, nm: c.sp[k].nm + (s === 3 && c.sp[k].v.length > 1 ? '（OD）' : ''), lvl: 'mid', pb: 8, str: 1 }, c.sp[k].make(s, v)); }
     c.sa.forEach((sa, i) => { M['sa' + (i + 1)] = Object.assign({ lvl: 'mid', pb: 8, saLv: sa.lv || i + 1, nm: sa.nm }, sa.make()); });
     // 共通：全体フレームと当たりの窓
     for (const k in M) {
@@ -289,6 +291,14 @@
       if (!m.win) m.win = [];
       if (m.total == null) m.total = m.untilLand ? 999 : m.st + m.act + m.rec;
       if (m.cx == null) m.cx = '';
+      if (m.lvl == null) m.lvl = 'mid';
+      if (m.str == null) m.str = 0;
+      if (m.win.length >= 3 && !m.pbFix) m.pb = Math.min(m.pb == null ? 8 : m.pb, 2);   // 多段技は最後まで当たるように押し返しを小さく
     }
-  }
+    // 必殺技を調べる順番（むずかしいコマンドが先、ボタン同時押しだけの技は最後）
+    const pri = sp => { const I = sp.in; let v = Array.isArray(I) ? (I.length === 3 && I[0] === 6 ? 100 : I.length * 10) : I.spin ? 200 + I.spin : I.ch ? 50 + (I.to.length > 1 ? 30 : 0) : 0; if (sp.cond) v += 5; return v; };
+    c.spOrder = Object.keys(c.sp).sort((a, b) => pri(c.sp[b]) - pri(c.sp[a]));
+  };
+  FG.H = { P, C, A, N, flow, POSE, BASE };
+  for (const id in CH) FG.buildChar(id);
 })();
