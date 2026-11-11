@@ -46,7 +46,7 @@ CARDS = [
  (93, 'leaf', 'U', 'I', '駅弁', '旅のいちばんの楽しみ。食べると元気が出る。', False,
   'a traditional japanese train station bento lunch box opened on a train window table, rice, grilled fish, vegetables, countryside scenery outside the window'),
  (94, 'leaf', 'R', 'F', '山あいの無人駅', '一日に三本。それでも駅はそこにある。', False,
-  'a tiny unmanned wooden railway station deep in the mountains, single platform, autumn leaves, quiet, empty'),
+  'a tiny unmanned rural japanese railway station deep in the mountains, one short concrete platform beside a single railway track, a small simple wooden waiting shelter with a bench, a lone street lamp, autumn maple leaves, overcast, quiet, empty, seen from the end of the platform'),
  (95, 'leaf', 'SR', 'M', '森をぬける観光列車', '大きな窓いっぱいに、緑があふれる。', False,
   'a scenic sightseeing train with large windows running through a deep green gorge along a river, lush forest'),
  (96, 'leaf', 'SR', 'S', 'スイッチバック', '前に進めないなら、いちど戻ればいい。', False,
