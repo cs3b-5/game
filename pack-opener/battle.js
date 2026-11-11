@@ -24,7 +24,7 @@ const EL_C = { fire: '#ff5a2a', water: '#2a8cff', leaf: '#2fb35a', bolt: '#f2b80
 // モンスターのATK+HPの合計（レア度が高いほど大きいが、ちから1あたりでは安いカードの方が得）
 const TOTAL = { C: 5, U: 7, R: 8, SR: 10, UR: 12, SEC: 13 };
 function power(c) {
-  const t = TOTAL[c.r] + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0);   // カードによって少しちがう（森の大物は少しタフ）
+  const t = TOTAL[c.r] + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0);   // カードによって少しちがう（森の大物は少しタフ）
   const share = .38 + ((Math.floor(c.seed / 7) % 7) / 6) * .26;  // ATK寄りか、HP寄りか
   const atk = Math.max(1, Math.round(t * share));
   return { atk, hp: Math.max(1, t - atk) };
@@ -37,16 +37,26 @@ const KW = {
   drain: { ic: '🩸', nm: '吸血', txt: '与えたダメージの半分、ライフが回復' },
   spark: { ic: '🔥', nm: '火の粉', txt: '出たとき、敵モンスター全員に1ダメージ' },
   bless: { ic: '✨', nm: '祝福', txt: '出たとき、ライフ回復' },
+  link: { ic: '🔗', nm: '連結', txt: '自分の場にほかの電車がいると、ATK+1' },
+  banish: { ic: '🌀', nm: '神隠し', txt: '出たとき、敵モンスター1体を異界へ連れていく（ゲームから消える）' },
+  nightmare: { ic: '🐒', nm: '悪夢の放送', txt: '自分のターンのはじめに、敵モンスター1体に2ダメージ' },
+  starlight: { ic: '🌌', nm: '星明かり', txt: '出たとき、味方の電車全員のHP+2' },
 };
 const EL_KW = { bolt: 'haste', water: 'guard', leaf: 'regen', dark: 'drain', fire: 'spark', light: 'bless' };
 function traits(c) {
   const k = {};
+  if (isTrain(c)) k.link = 1;                                  // 第二弾の電車はみんな連結（C・Uも）
   if (c.type !== 'M' || c.r === 'C' || c.r === 'U') return k;
   k[EL_KW[c.el]] = 1;
   if (c.no === 73) k.guard = 1;                                // 始祖ネコ：祝福＋守り
   if (c.no === 74) k.haste = 1;                                // 九尾：吸血＋速攻
+  if (c.no === 112) k.nightmare = 1;                           // 猿夢の電車
+  if (c.no === 113) { delete k.drain; k.banish = 1; }          // きさらぎ駅：吸血のかわりに神隠し
+  if (c.no === 120) k.starlight = 1;                           // 星空を走る列車
   return k;
 }
+function isTrain(c) { return c.type === 'M' && (c.set === 2 || c.no >= 75); }
+function linkText() { return LINK_CAP === 1 ? `自分の場にほかの電車がいると、ATK+${LINK_PER}${LINK_HP ? `・HP+${LINK_PER}` : ''}` : `場にいるほかの電車1両につき、ATK+${LINK_PER}${LINK_HP ? `・HP+${LINK_PER}` : ''}（${LINK_CAP}両まで）`; }
 function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).join(' '); }
 // アイテム：持たせると強くなって、属性の能力がつく
 const ITEM = {
@@ -58,7 +68,13 @@ const ITEM = {
   light: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2。ライフ+4' },
   light2: { atk: 1, hp: 1, kw: null, txt: 'ATK+1・HP+1。カードを1枚引く' },
 };
-const itemOf = c => ITEM[c.no === 67 ? 'light2' : c.el];
+const ITEM_NO = {
+  78: { atk: 3, hp: 0, kw: 'haste', txt: 'ATK+3。すぐに攻撃できる' },                      // 石炭
+  93: { atk: 0, hp: 3, kw: null, txt: 'HP+3。ライフ+4' },                                   // 駅弁
+  108: { atk: 1, hp: 2, kw: 'guard', txt: 'ATK+1・HP+2・守りがつく' },                     // 車掌のランタン
+  117: { atk: 1, hp: 1, kw: null, txt: 'ATK+1・HP+1。カードを1枚引く' },                    // 硬い切符
+};
+const itemOf = c => ITEM_NO[c.no] || ITEM[c.no === 67 ? 'light2' : c.el];
 // tgt: 相手を選ぶ魔法（'mon' モンスター、'any' モンスターか相手の顔）
 const SPELL = {
   fire:  { txt: '敵モンスター全員に2ダメージ' },
@@ -68,9 +84,15 @@ const SPELL = {
   dark:  { txt: '敵モンスター1体を倒す', tgt: 'mon' },
   light: { txt: '味方モンスター全員のATK+2・HP+1。カードを1枚引く' },
 };
+const SPELL_NO = {
+  89: { txt: '敵モンスター1体に3ダメージ。さらに2ターン止める（攻撃できない）。カードを1枚引く', tgt: 'mon' },     // 赤信号
+  96: { txt: '味方モンスター全員のHPが全回復。ライフ+5。カードを2枚引く' },                         // スイッチバック
+  103: { txt: '敵モンスター全員に2ダメージ。味方の電車全員のATK+1' },                                // 踏切の警報
+};
+const spellOf = c => SPELL_NO[c.no] || SPELL[c.el];
 function rulesText(c) {
-  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : KW[x].txt}`).join(''); }
-  if (c.type === 'S') return SPELL[c.el].txt;
+  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : x === 'link' ? linkText() : KW[x].txt}`).join(''); }
+  if (c.type === 'S') return spellOf(c).txt;
   if (c.type === 'F') return `味方モンスター全員のATK+1。${EL_NM[c.el]}のモンスターはさらにATK+1・HP+2。出たときカードを1枚引く（場に1枚）`;
   return `味方モンスター1体に：${itemOf(c).txt}（${EL_NM[c.el]}のモンスターならさらに+1/+1）`;
 }
@@ -100,7 +122,7 @@ function foeDeck(f) {
 
 // ---------------- デッキ ----------------
 function ownedCount(no) { return A.S.owned[no] || 0; }
-function cardValue(c) { const p = c.type === 'M' ? power(c) : { atk: 4, hp: 3 }; return (p.atk + p.hp) / Math.max(1, COST[c.r]) + COST[c.r] * .6 + (c.type === 'M' ? 1 : 0) + Object.keys(traits(c)).length * 1.2; }
+function cardValue(c) { const p = c.type === 'M' ? power(c) : { atk: 4, hp: 3 }; return (p.atk + p.hp) / Math.max(1, COST[c.r]) + COST[c.r] * .6 + (c.type === 'M' ? 1 : 0) + Object.keys(traits(c)).length * 1.2 - (isTrain(c) ? .6 : 0); }
 function autoDeck() {
   // 持っているカードから、モンスターを中心に、魔法・フィールド・アイテムも少し入れる
   const have = A.CARDS.filter(c => ownedCount(c.no) > 0).sort((a, b) => cardValue(b) - cardValue(a));
@@ -147,8 +169,12 @@ function newSide(nm, deckNos, rentals = []) {
   return { nm, lp: LP, maxLp: LP, mana: 0, maxMana: 0, deck, hand: [], field: [null, null, null], land: null, fatigue: 0 };
 }
 function cost(card) { return COST[card.c.r]; }
-function atkOf(side, m) { return m.atk + m.buff + (side.land ? (side.land.c.el === m.c.el ? 2 : 1) : 0); }
-function hpBonus(side, m) { return side.land && side.land.c.el === m.c.el ? 2 : 0; }
+function linkN(side, m) { return m.kw && m.kw.link ? Math.min(LINK_CAP, side.field.filter(x => x && x !== m && x.kw && x.kw.link).length) * LINK_PER : 0; }
+let LINK_PER = 1, LINK_CAP = 1;
+function atkOf(side, m) { return m.atk + m.buff + (side.land ? (side.land.c.el === m.c.el ? 2 : 1) : 0) + linkN(side, m); }
+function hpBonus(side, m) { return (side.land && side.land.c.el === m.c.el ? 2 : 0) + (LINK_HP ? linkN(side, m) : 0); }
+let LINK_HP = false;
+let TRAIN_MINUS = { C: 1, U: 1, R: 1, SR: 1, UR: 1, SEC: 1 };   // 電車は連結がある分、元の強さを少し低く
 function guards(side) { return side.field.filter(m => m && m.kw && m.kw.guard); }
 // 攻撃できる相手：守りがいれば守りだけ
 function canHit(attSide, target) {
@@ -183,6 +209,7 @@ function damage(side, m, n) {
   m.hp -= n;
   floatAt('u' + m.uid, '-' + n, '#ff4a5a');
 }
+function cleanupQuiet() { if (B) cleanup(); }
 function cleanup() {
   for (const side of [B.me, B.foe]) side.field = side.field.map(m => (m && hpOf(side, m) <= 0) ? (killFx(m), null) : m);
 }
@@ -201,13 +228,16 @@ function canPlay(side, card) {
   if (card.c.type === 'I') return side.field.some(f => f);
   if (card.c.type === 'S') {
     const foes = other(side).field.filter(Boolean), mine = side.field.filter(Boolean);
+    if (card.c.no === 89) return foes.length > 0;
+    if (card.c.no === 96) return true;
+    if (card.c.no === 103) return foes.length > 0 || mine.some(m => m.kw.link);
     if (card.c.el === 'water' || card.c.el === 'dark' || card.c.el === 'fire') return foes.length > 0;
     if (card.c.el === 'light') return mine.length > 0;
     return true;
   }
   return true;
 }
-function needsTarget(card) { return card.c.type === 'I' ? 'mine' : card.c.type === 'S' ? (SPELL[card.c.el].tgt || null) : null; }
+function needsTarget(card) { return card.c.type === 'I' ? 'mine' : card.c.type === 'S' ? (spellOf(card.c).tgt || null) : null; }
 const sideNm = side => side.nm;
 // target：アイテムは自分のモンスター、魔法は敵モンスター（bolt は null で顔）
 async function play(side, card, target) {
@@ -226,6 +256,11 @@ async function play(side, card, target) {
       const foes = foe.field.filter(Boolean);
       if (foes.length) { for (const m of foes) damage(foe, m, card.kw.spark); log(`🔥火の粉！ 敵モンスター全員に${card.kw.spark}ダメージ`, side); await wait(300); cleanup(); }
     }
+    if (card.kw.banish) {
+      const t = best(foe.field.filter(Boolean), m => threat(foe, m));
+      if (t) { foe.field[foe.field.indexOf(t)] = null; floatAt('u' + card.uid, '神隠し', '#b08aff'); log(`🌀「${t.c.nm}」は異界へ連れていかれた…`, side); }
+    }
+    if (card.kw.starlight) { const tr = side.field.filter(m => m && m.kw.link); for (const m of tr) { m.hp += 2; m.maxHp += 2; } log(`🌌星明かり！ 電車${tr.length}両のHP+2`, side); }
     if (card.kw.bless) {
       heal(side, blessN(card), '✨祝福');
     }
@@ -241,16 +276,20 @@ async function play(side, card, target) {
     if (it.kw) { m.kw = Object.assign({}, m.kw, { [it.kw]: Math.max(1, m.kw[it.kw] || 0) }); if (it.kw === 'haste') m.sleep = false; }
     render(); floatAt('u' + m.uid, `+${da}/+${dh}`, '#7be39a');
     log(`「${m.c.nm}」が「${card.c.nm}」を持った：+${da}/+${dh}${it.kw ? `・${KW[it.kw].ic}${KW[it.kw].nm}` : ''}`, side);
-    if (card.c.el === 'fire') { const foes = foe.field.filter(Boolean); for (const x of foes) damage(foe, x, 1); if (foes.length) { await wait(250); cleanup(); } }
+    if (card.c.no === 6) { const foes = foe.field.filter(Boolean); for (const x of foes) damage(foe, x, 1); if (foes.length) { await wait(250); cleanup(); } }
     if (card.c.no === 66) heal(side, 4, '天使の王冠');
-    if (card.c.no === 67) draw(side, 1);
+    if (card.c.no === 93) heal(side, 4, '駅弁');
+    if (card.c.no === 67 || card.c.no === 117) draw(side, 1);
   } else if (t === 'S') {
     render(); await showSpell(card);
     const foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
     const pickT = () => (target && foe.field.includes(target)) ? target : null;
-    switch (card.c.el) {
+    switch (SPELL_NO[card.c.no] ? card.c.no : card.c.el) {
+      case 89: { const m = pickT() || best(foes, m => threat(foe, m)); if (m) { damage(foe, m, 3); m.frozen = 2; m.sleep = true; log(`「${m.c.nm}」に3ダメージ、赤信号で止まった（2ターン）`, side); } draw(side, 1); break; }
+      case 96: { for (const m of mine) m.hp = m.maxHp; log(`味方モンスターのHPが全回復`, side); heal(side, 5); draw(side, 2); break; }
+      case 103: { for (const m of foes) damage(foe, m, 2); const tr = mine.filter(m => m.kw.link); for (const m of tr) m.buff += 1; log(`敵モンスター全員に2ダメージ${tr.length ? `、電車${tr.length}両のATK+1` : ''}`, side); break; }
       case 'fire': for (const m of foes) damage(foe, m, 2); log(`敵モンスター全員に2ダメージ`, side); break;
-      case 'water': for (const m of foes) { m.frozen = true; m.sleep = true; } log(`敵モンスター${foes.length}体が凍った`, side); draw(side, 2); break;
+      case 'water': for (const m of foes) { m.frozen = Math.max(m.frozen || 0, 1); m.sleep = true; } log(`敵モンスター${foes.length}体が凍った`, side); draw(side, 2); break;
       case 'leaf': heal(side, 8); for (const m of mine) { m.buff += 1; m.hp += 2; m.maxHp += 2; } log(`ライフ回復、味方は+1/+2`, side); break;
       case 'bolt': { const m = target === 'face' ? null : (pickT() || best(foes, m => Math.min(7, hpOf(foe, m)) * 2 + atkOf(foe, m)));
         if (m) { damage(foe, m, 7); log(`「${m.c.nm}」に7ダメージ`, side); } else { hurtFace(foe, 4); log(`${sideNm(foe)}のライフに4ダメージ`, side); } break; }
@@ -264,7 +303,7 @@ async function play(side, card, target) {
   await wait(side === B.foe ? 650 : 200);
 }
 function blessN(m) { return { R: 3, SR: 4, UR: 6, SEC: 6 }[m.c.r] || 3; }
-function resetCard(m) { const p = power(m.c); m.atk = p.atk; m.hp = p.hp; m.maxHp = p.hp; m.buff = 0; m.sleep = true; m.items = 0; m.kw = traits(m.c); m.frozen = false; }
+function resetCard(m) { const p = power(m.c); m.atk = p.atk; m.hp = p.hp; m.maxHp = p.hp; m.buff = 0; m.sleep = true; m.items = 0; m.kw = traits(m.c); m.frozen = 0; m.iced = false; }
 function best(arr, f) { let b = null, bv = -1e9; for (const x of arr) { const v = f(x); if (v > bv) { bv = v; b = x; } } return b; }
 async function attack(side, m, target) {
   const foe = other(side);
@@ -290,6 +329,11 @@ async function attack(side, m, target) {
 }
 // ターンのはじめ：再生
 function onTurnStart(side) {
+  for (const m of side.field) if (m && m.kw.nightmare) {
+    const foe = other(side), t = pick(foe.field.filter(Boolean));
+    if (t) { damage(foe, t, 2); log(`🐒「次は…」悪夢の放送で「${t.c.nm}」に2ダメージ`, side); }
+  }
+  cleanupQuiet();
   for (const m of side.field) if (m && m.kw.regen && m.hp < m.maxHp) { m.hp = m.maxHp; floatAt('u' + m.uid, '再生', '#7be39a'); }
 }
 
@@ -351,6 +395,9 @@ async function cpuTurn(me = B.foe, skill = FOES[B.lv].ai) {
 function spellPlan(side, card) {
   const foe = other(side), foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
   const top = best(foes, m => threat(foe, m));
+  if (card.c.no === 89) return top && threat(foe, top) >= 12 ? top : null;
+  if (card.c.no === 96) { const hurt = mine.filter(m => m.maxHp - m.hp >= 3); return hurt.length || side.lp <= side.maxLp - 8 || side.hand.length <= 1 ? true : null; }
+  if (card.c.no === 103) { const kills = foes.filter(m => hpOf(foe, m) <= 2).length; return kills >= 1 || foes.length >= 2 || mine.filter(m => m.kw.link).length >= 2 ? true : null; }
   switch (card.c.el) {
     case 'fire': { const kills = foes.filter(m => hpOf(foe, m) <= 2).length; return kills >= 2 || (kills >= 1 && foes.length >= 2) ? true : null; }
     case 'water': return foes.reduce((n, m) => n + atkOf(foe, m), 0) >= 7 || foes.length >= 2 ? true : null;
@@ -374,7 +421,7 @@ function beginTurn(side) {
   B.turn++;
   side.maxMana = Math.min(MANA_MAX, side.maxMana + 1);
   side.mana = side.maxMana + (B.turn === 2 ? SECOND_BONUS : 0);
-  for (const m of side.field) if (m) { m.sleep = !!m.frozen; m.frozen = false; m.attacked = false; }
+  for (const m of side.field) if (m) { m.iced = (m.frozen || 0) > 0; m.sleep = m.iced; m.frozen = Math.max(0, (m.frozen || 0) - 1); m.attacked = false; }
   onTurnStart(side);
   if (B.turn > 1) { log(`── ${sideNm(side)}のターン ──`, side, 'turn'); draw(side, 1); }
   else log(`── ${sideNm(side)}のターン（先攻） ──`, side, 'turn');
@@ -693,7 +740,7 @@ function showInfo(uid, no) {
     const base = traits(c), extra = Object.keys(f.m.kw || {}).filter(k => !base[k]);
     if (extra.length) rt += '\nアイテムでついた能力：' + extra.map(k => `${KW[k].ic}${KW[k].nm}（${KW[k].txt}）`).join('、');
     if (f.m.items) rt += `\n持っているアイテム：${f.m.items}こ`;
-    if (f.m.frozen) rt += '\n❄凍っている（次のターン攻撃できない）';
+    if (f.m.frozen || f.m.iced) rt += `\n❄止まっている（${f.m.frozen ? `あと${f.m.frozen}ターン` : 'このターン'}攻撃できない）`;
   }
   $('btInfoRt').textContent = rt;
   $('btInfoNow').textContent = f && f.onField ? `いま ATK ${atkOf(f.side, f.m)} / HP ${hpOf(f.side, f.m)}` : '';
@@ -707,9 +754,9 @@ function cardEl(side, m, opts = {}) {
     const a = side ? atkOf(side, m) : m.atk, h = side ? hpOf(side, m) : m.hp;
     st = `<span class="st a">${a}</span><span class="st h ${side && h < m.maxHp + hpBonus(side, m) ? 'hurt' : ''}">${h}</span>`;
   } else st = `<span class="ty">${{ S: '魔法', F: 'フィールド', I: 'アイテム' }[t]}</span>`;
-  const cls = ['bc', opts.cls || '', m.frozen ? 'frozen' : '', side && m.kw && m.kw.guard ? 'guardc' : ''].join(' ');
+  const cls = ['bc', opts.cls || '', m.frozen || m.iced ? 'frozen' : '', side && m.kw && m.kw.guard ? 'guardc' : ''].join(' ');
   return `<div class="${cls}" id="${opts.id || ''}" data-uid="${m.uid || ''}" data-no="${c.no}" style="--rc:${rc}">
-    <img class="pic" src="images/${String(c.no).padStart(3, '0')}.jpg" alt="" onerror="this.style.display='none'">
+    <img class="pic" data-no="${c.no}" src="images/${String(c.no).padStart(3, '0')}.jpg" alt="" onerror="window.__artFallback ? window.__artFallback(this) : (this.style.display='none')">
     <div class="shade"></div><div class="cost">${COST[c.r]}</div><div class="elb" style="background:${EL_C[c.el]}">${EL_NM[c.el]}</div>
     ${t === 'M' && m.kw && Object.keys(m.kw).length ? `<span class="kw">${Object.keys(m.kw).map(x => KW[x].ic).join('')}</span>` : ''}
     <div class="nm">${A.esc(c.nm)}</div>${st}${m.rental ? '<span class="rent">レンタル</span>' : ''}${opts.zz ? '<span class="zz">zz</span>' : ''}</div>`;
@@ -784,7 +831,7 @@ async function onTap(e) {
   if (bc && bc.closest('#meField')) {
     const m = me.field.find(x => x && x.uid === +bc.dataset.uid);
     if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) logRaw(guards(foe).length ? '攻撃する相手をタップ（🛡守りがいるので、守りだけ攻撃できる）' : '攻撃する相手（モンスターか顔）をタップ'); }
-    else if (m) logRaw(m.frozen ? '凍っていて動けない' : m.sleep && B.turnSide === B.me && m.attacked ? 'このターンはもう攻撃した' : '出したばかりのモンスターは次のターンから攻撃できる');
+    else if (m) logRaw(m.iced ? '凍っていて動けない' : m.sleep && B.turnSide === B.me && m.attacked ? 'このターンはもう攻撃した' : '出したばかりのモンスターは次のターンから攻撃できる');
     render(); return;
   }
   // 攻撃先
@@ -1103,7 +1150,7 @@ async function onMsg(d) {
 }
 
 // ---- バトルの状態を送る・受け取る ----
-function sc(m) { return m && { uid: m.uid, no: m.no, atk: m.atk, hp: m.hp, maxHp: m.maxHp, buff: m.buff, sleep: m.sleep, rental: m.rental, items: m.items, kw: m.kw, frozen: m.frozen, attacked: m.attacked }; }
+function sc(m) { return m && { uid: m.uid, no: m.no, atk: m.atk, hp: m.hp, maxHp: m.maxHp, buff: m.buff, sleep: m.sleep, rental: m.rental, items: m.items, kw: m.kw, frozen: m.frozen, iced: m.iced, attacked: m.attacked }; }
 function ss(s, hideHand) { return { nm: s.nm, lp: s.lp, maxLp: s.maxLp, mana: s.mana, maxMana: s.maxMana, deckN: s.deck.length, hand: hideHand ? s.hand.map(() => null) : s.hand.map(sc), field: s.field.map(sc), land: sc(s.land), fatigue: s.fatigue }; }
 function sync() {
   if (!NET || NET.role !== 'host' || !B || !B.online) return;
@@ -1263,7 +1310,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; },
+  get state() { return B; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });

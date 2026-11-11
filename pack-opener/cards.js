@@ -1,5 +1,5 @@
 // =============================================================
-//  カードの一覧（74種・すべてオリジナル）
+//  カードの一覧（第一弾74種＋第二弾46種・すべてオリジナル）
 //  [属性, レア, 種類, 名前, 画風, 背景, 題材, 説明]
 //  種類: M=モンスター S=魔法 F=フィールド I=アイテム
 // =============================================================
@@ -87,8 +87,58 @@ const D = [
   // ---------- シークレット ----------
   ['light', 'SEC', 'M', '星を抱く始祖ネコ', 'star', 'space', { k: 'quad', c: '#ffe9a8', belly: '#fff', ears: 'tri', tail: 'long', snout: 'flat', legs: 'mid', whisk: true, wings: true, wingC: '#fff' }, '星の始まりから生きている、名前のない存在。'],
   ['dark', 'SEC', 'M', '夜を食む九尾', 'sumi', 'night', { k: 'quad', c: '#f2e0b0', belly: '#fff6e0', ears: 'big', tail: 'nine', snout: 'long', legs: 'mid', eye: '#c8322a' }, '月が欠けるのは、この尾が触れたから。', '九尾', true],
+  // =========================================================
+  //  第二弾「夜汽車と異界の駅」（No.75〜）絵は images/075.jpg〜。写真風（Stable Diffusion）
+  //  題材の欄：eerie=都市伝説っぽいカード
+  // =========================================================
+  ["fire", "C", "M", "小さなタンク機関車", 'photo', "rail", { k: 'train' }, "小さいけれど、坂道ではいちばんがんばる。"],
+  ["fire", "C", "M", "石炭を運ぶ貨車", 'photo', "rail", { k: 'train' }, "積んだ石炭が、まだ少しあたたかい。"],
+  ["fire", "U", "M", "黒鉄のSL", 'photo', "rail", { k: 'train' }, "汽笛ひとつで、夜の山がふるえる。"],
+  ["fire", "U", "I", "石炭", 'photo', "rail", { k: 'train' }, "ひとすくいで、機関車の心臓が熱くなる。"],
+  ["fire", "R", "M", "峠越えの重連SL", 'photo', "rail", { k: 'train' }, "二台でひとつ。息を合わせて峠をこえる。"],
+  ["fire", "R", "F", "機関庫", 'photo', "rail", { k: 'train' }, "眠る機関車たちの、あたたかい寝床。"],
+  ["fire", "SR", "M", "煙を上げる大型SL", 'photo', "rail", { k: 'train' }, "空まで届く黒い煙が、出発の合図。"],
+  ["fire", "UR", "M", "蒸気の王", 'photo', "rail", { k: 'train' }, "炎を胸に抱いて、夜の鉄橋をわたる王。"],
+  ["water", "C", "M", "海ぞいの一両列車", 'photo', "rail", { k: 'train' }, "窓をあけると、潮のにおいがする。"],
+  ["water", "C", "M", "雨の日の各駅停車", 'photo', "rail", { k: 'train' }, "雨音にあわせて、ゆっくり走る。"],
+  ["water", "U", "M", "鉄橋を渡る列車", 'photo', "rail", { k: 'train' }, "川霧の上を、音だけが先にわたっていく。"],
+  ["water", "R", "M", "雪をかきわけるラッセル車", 'photo', "rail", { k: 'train' }, "雪の壁なんて、ただの道の一部。"],
+  ["water", "R", "F", "海が見える駅", 'photo', "rail", { k: 'train' }, "ホームのすぐ先が、もう海。"],
+  ["water", "SR", "M", "海の上を走る列車", 'photo', "rail", { k: 'train' }, "満ち潮の夜だけ、線路が海の上にあらわれる。"],
+  ["water", "SR", "S", "赤信号", 'photo', "rail", { k: 'train' }, "止まれ。この先は、まだ通れない。"],
+  ["leaf", "C", "M", "森林トロッコ", 'photo', "rail", { k: 'train' }, "昔は木を運んでいた。今は森の音を運ぶ。"],
+  ["leaf", "C", "M", "田んぼの中の気動車", 'photo', "rail", { k: 'train' }, "青い稲のあいだを、一両だけで走る。"],
+  ["leaf", "U", "M", "登山電車", 'photo', "rail", { k: 'train' }, "あじさいの坂を、行ったり来たり。"],
+  ["leaf", "U", "I", "駅弁", 'photo', "rail", { k: 'train' }, "旅のいちばんの楽しみ。食べると元気が出る。"],
+  ["leaf", "R", "F", "山あいの無人駅", 'photo', "rail", { k: 'train' }, "一日に三本。それでも駅はそこにある。"],
+  ["leaf", "SR", "M", "森をぬける観光列車", 'photo', "rail", { k: 'train' }, "大きな窓いっぱいに、緑があふれる。"],
+  ["leaf", "SR", "S", "スイッチバック", 'photo', "rail", { k: 'train' }, "前に進めないなら、いちど戻ればいい。"],
+  ["bolt", "C", "M", "路面電車", 'photo', "rail", { k: 'train' }, "町の中を、車といっしょにのんびり走る。"],
+  ["bolt", "C", "M", "朝の通勤電車", 'photo', "rail", { k: 'train' }, "毎朝、町の眠気をのせて走る。"],
+  ["bolt", "U", "M", "モノレール", 'photo', "rail", { k: 'train' }, "一本のレールの上を、空中散歩。"],
+  ["bolt", "U", "M", "架線の点検車", 'photo', "rail", { k: 'train' }, "真夜中、電車のための道を見回る。"],
+  ["bolt", "R", "M", "特急電車", 'photo', "rail", { k: 'train' }, "小さな駅は、全部とばして走る。"],
+  ["bolt", "SR", "M", "リニアの試験車", 'photo', "rail", { k: 'train' }, "浮かんで走る、未来の列車。"],
+  ["bolt", "SR", "S", "踏切の警報", 'photo', "rail", { k: 'train' }, "カンカンカン…音が鳴ったら、もう来る。"],
+  ["bolt", "UR", "M", "白い超特急", 'photo', "rail", { k: 'train' }, "雷より速く、白い光が走りぬける。"],
+  ["dark", "C", "M", "終電の地下鉄", 'photo', "eerie", { k: 'train' }, "最後の電車。乗っているのは、だれ？"],
+  ["dark", "C", "M", "廃線のトロッコ", 'photo', "eerie", { k: 'train' }, "もう走らないはずの線路に、車輪の跡。"],
+  ["dark", "U", "M", "夜行列車", 'photo', "rail", { k: 'train' }, "眠っているあいだに、遠くの町まで。"],
+  ["dark", "U", "I", "車掌のランタン", 'photo', "eerie", { k: 'train' }, "赤は止まれ、緑は進め。白は…知らないほうがいい。"],
+  ["dark", "R", "F", "やみ駅", 'photo', "eerie", { k: 'train' }, "真っ暗な駅。明かりはひとつだけ。"],
+  ["dark", "R", "M", "異界のトンネル", 'photo', "eerie", { k: 'train' }, "くぐったら、もう元の線路には戻れない。"],
+  ["dark", "SR", "M", "幽霊列車", 'photo', "eerie", { k: 'train' }, "時刻表にない列車が、霧の中を通りすぎる。"],
+  ["dark", "UR", "M", "猿夢の電車", 'photo', "eerie", { k: 'train' }, "「次は…」夢の中で、放送が聞こえる。"],
+  ["dark", "SEC", "M", "きさらぎ駅", 'photo', "eerie", { k: 'train' }, "地図にない駅。降りたら、帰れない。"],
+  ["light", "C", "M", "夜明けの始発", 'photo', "rail", { k: 'train' }, "一番の電車が、町に朝を配って走る。"],
+  ["light", "U", "M", "展望車", 'photo', "rail", { k: 'train' }, "いちばん後ろの、いちばんいい席。"],
+  ["light", "U", "M", "ケーブルカー", 'photo', "rail", { k: 'train' }, "夕焼けの町を見下ろしながら、ゆっくり登る。"],
+  ["light", "U", "I", "硬い切符", 'photo', "rail", { k: 'train' }, "パチンと穴があけば、旅のはじまり。"],
+  ["light", "R", "F", "月の宮駅", 'photo', "eerie", { k: 'train' }, "満月の夜にだけ行ける、銀色の駅。"],
+  ["light", "SR", "M", "光の観光列車", 'photo', "rail", { k: 'train' }, "何千もの明かりをまとって、雪の夜を走る。"],
+  ["light", "SEC", "M", "星空を走る列車", 'photo', "rail", { k: 'train' }, "天の川の下を、どこまでも。"],
 ];
 const TYPE_NM = { M: 'モンスター', S: '魔法', F: 'フィールド', I: 'アイテム' };
 const seedOf = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
-global.CARD_DEFS = D.map((d, i) => ({ no: i + 1, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
+global.CARD_DEFS = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : 2, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
 })(window);

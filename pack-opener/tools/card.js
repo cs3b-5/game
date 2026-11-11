@@ -16,9 +16,12 @@ if (process.env.TOT) PB.setTotal(JSON.parse(process.env.TOT));
 const N = +process.argv[2] || 240;
 const only = process.argv[3] ? process.argv[3].split(',').map(Number) : null;
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const commons = CARDS.filter(c => c.r === 'C' && c.type === 'M').map(c => c.no);
-const unc = CARDS.filter(c => c.r === 'U' && c.type === 'M').map(c => c.no);
-const rares = CARDS.filter(c => (c.r === 'R' || c.r === 'SR') && c.type === 'M').map(c => c.no);
+const SET = +(process.env.SET || 1);   // SET=2 で第二弾のカードを第二弾のデッキで調べる
+if (process.env.LINK) { const [n, hp, cap] = process.env.LINK.split(',').map(Number); PB.setLink(n, !!hp, cap ?? 2); }
+const inSet = c => (c.set || 1) === SET;
+const commons = CARDS.filter(c => inSet(c) && c.r === 'C' && c.type === 'M').map(c => c.no);
+const unc = CARDS.filter(c => inSet(c) && c.r === 'U' && c.type === 'M').map(c => c.no);
+const rares = CARDS.filter(c => inSet(c) && (c.r === 'R' || c.r === 'SR') && c.type === 'M').map(c => c.no);
 function baseDeck() {      // コモン10・アンコモン6・R/SR 4 くらいの、ふつうのデッキ
   const d = []; const add = (pool, n) => { for (let i = 0; i < n; i++) d.push(pick(pool)); };
   add(commons, 10); add(unc, 6); add(rares, 4); return d;
@@ -27,6 +30,7 @@ function baseDeck() {      // コモン10・アンコモン6・R/SR 4 くらい�
   const out = [];
   for (const c of CARDS) {
     if (only && !only.includes(c.no)) continue;
+    if (!only && !inSet(c)) continue;
     let w = 0, n = 0;
     for (let g = 0; g < N; g++) {
       const base = baseDeck();

@@ -906,6 +906,30 @@ function paper(g, seed, amt) { const n = noise2(seed + 7), id = g.getImageData(0
 function canvasTex(g, seed, amt) { const id = g.getImageData(0, 0, W, H), d = id.data; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = ((x % 4 < 1) || (y % 4 < 1) ? -1 : 1) * 255 * amt * .12, k = (y * W + x) * 4; d[k] += v; d[k + 1] += v; d[k + 2] += v; } g.putImageData(id, 0, 0); }
 function scanlines(g) { g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1); }
 
+// 第二弾（電車）：本番の絵（Stable Diffusionの写真風）が届くまでの仮の絵。夜の線路と列車のシルエット
+STYLES.photo = (g, c) => {
+  const EL = { fire: ['#3a1206', '#ff7a2a'], water: ['#06182e', '#3aa0ff'], leaf: ['#0a1e10', '#5ad07a'], bolt: ['#14122a', '#ffd84a'], dark: ['#07060c', '#8a6aff'], light: ['#14102a', '#ffd0f0'] }[c.el] || ['#0a0a14', '#fff'];
+  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, EL[0]); sky.addColorStop(.62, '#000'); sky.addColorStop(1, '#111');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  // 星
+  let r = c.seed; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 50; i++) g.fillRect(rnd() * W, rnd() * H * .5, 1.2, 1.2);
+  // 地平線と線路
+  const hy = H * .58; g.fillStyle = '#05050a'; g.fillRect(0, hy, W, H - hy);
+  g.strokeStyle = 'rgba(200,200,220,.45)'; g.lineWidth = 2;
+  for (const k of [-1, 1]) { g.beginPath(); g.moveTo(W / 2 + k * 6, hy); g.lineTo(W / 2 + k * 150, H); g.stroke(); }
+  for (let i = 0; i < 9; i++) { const t = Math.pow(i / 8, 1.8), y = hy + t * (H - hy), w = 14 + t * 300; g.fillStyle = 'rgba(120,110,100,.35)'; g.fillRect(W / 2 - w / 2, y, w, 2 + t * 5); }
+  // 列車（正面）
+  const tw = 70, th = 62, tx = W / 2 - tw / 2, ty = hy - th + 6;
+  g.fillStyle = '#16161e'; g.fillRect(tx, ty, tw, th); g.fillStyle = '#22222c'; g.fillRect(tx + 6, ty + 8, tw - 12, 20);
+  g.fillStyle = EL[1]; g.globalAlpha = .35; g.fillRect(tx + 8, ty + 10, tw - 16, 16); g.globalAlpha = 1;
+  const glow = g.createRadialGradient(W / 2, ty + th - 14, 2, W / 2, ty + th - 14, 120); glow.addColorStop(0, 'rgba(255,240,200,.9)'); glow.addColorStop(.15, 'rgba(255,230,180,.35)'); glow.addColorStop(1, 'rgba(255,230,180,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  // 都市伝説は霧
+  if (c.scene === 'eerie') { const f = g.createLinearGradient(0, hy - 60, 0, H); f.addColorStop(0, 'rgba(160,170,190,0)'); f.addColorStop(.4, 'rgba(160,170,190,.28)'); f.addColorStop(1, 'rgba(160,170,190,.1)'); g.fillStyle = f; g.fillRect(0, 0, W, H); }
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = 'bold 14px sans-serif'; g.textAlign = 'center'; g.fillText('絵を準備中', W / 2, 26);
+};
+
 // =============================================================
 //  公開する関数
 // =============================================================
@@ -919,6 +943,6 @@ function render(card) {
   cache.set(card.no, url);
   return url;
 }
-const STYLE_NAMES = { real: '厚塗り', oil: '油彩', water: '水彩', ukiyo: '浮世絵', pixel: 'ドット絵', neon: 'ネオン', paper: '切り絵', glass: 'ステンドグラス', sketch: '鉛筆画', comic: 'アメコミ', lowpoly: 'ローポリ', sumi: '墨絵', star: '星座' };
+const STYLE_NAMES = { real: '厚塗り', oil: '油彩', water: '水彩', ukiyo: '浮世絵', pixel: 'ドット絵', neon: 'ネオン', paper: '切り絵', glass: 'ステンドグラス', sketch: '鉛筆画', comic: 'アメコミ', lowpoly: 'ローポリ', sumi: '墨絵', star: '星座', photo: '写真風' };
 global.CardArt = { render, cached: no => cache.get(no), STYLE_NAMES, W, H, flame, bolt, leafAt, E, PL, PS, LN, GLOW };
 })(window);

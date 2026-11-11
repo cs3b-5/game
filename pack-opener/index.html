@@ -145,6 +145,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .filters { display: flex; gap: 6px; flex-wrap: wrap; }
 .filters button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-weight: 700; font-size: .85rem; }
 .filters button.on { background: var(--ink); color: #111; }
+.filters .sep { width: 1px; background: var(--line); margin: 2px 4px; }
 .binder { overflow-y: auto; padding: 8px 22px 40px; display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 18px 14px; justify-content: center; align-content: start; }
 .slot { position: relative; width: 120px; height: 168px; }
 .slot .card { --w: 120px; cursor: zoom-in; }
@@ -328,10 +329,11 @@ function cardHTML(c, opts = {}) {
 // =============================================================
 //  パックの種類と排出率
 // =============================================================
+// 第一弾・第二弾のパック（確率は同じ。5枚目はR以上）
+const RATES = { C: 60, U: 27, R: 10, SR: 2.5, UR: .45, SEC: .05 }, LAST = { R: 80, SR: 16, UR: 3.5, SEC: .5 };
 const PACKS = [
-  { id: 'normal',  nm: 'スタンダード', price: 100,  colors: ['#2a8cff', '#1a3a8a'], rates: { C: 60, U: 27, R: 10, SR: 2.5, UR: .45, SEC: .05 }, last: { R: 80, SR: 16, UR: 3.5, SEC: .5 }, sub: '5枚・最後の1枚はレア以上' },
-  { id: 'premium', nm: 'プレミアム',   price: 400,  colors: ['#c77dff', '#4a1a8a'], rates: { C: 40, U: 32, R: 18, SR: 8, UR: 1.8, SEC: .2 }, last: { SR: 82, UR: 15, SEC: 3 }, sub: '5枚・最後の1枚はSR以上' },
-  { id: 'legend',  nm: 'レジェンド',   price: 1500, colors: ['#ffb020', '#8a3a00'], rates: { U: 30, R: 40, SR: 24, UR: 5.5, SEC: .5 }, last: { UR: 90, SEC: 10 }, sub: '5枚・最後の1枚はUR以上' },
+  { id: 'set1', set: 1, nm: '第一弾パック', title: 'けものの星', price: 100, colors: ['#2a8cff', '#1a3a8a'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
+  { id: 'set2', set: 2, nm: '第二弾パック', title: '夜汽車と異界の駅', price: 100, colors: ['#3a2a6a', '#0a0a1e'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
 ];
 const FREE_EVERY = 180;  // 無料パックは3分ごとに1つ（最大3つ）
 function roll(rates) {
@@ -341,7 +343,7 @@ function roll(rates) {
 }
 function makePack(p) {
   const out = [];
-  for (let i = 0; i < 5; i++) { const r = roll(i === 4 ? p.last : p.rates); const pool = byRar(r); out.push(pool[Math.floor(Math.random() * pool.length)]); }
+  for (let i = 0; i < 5; i++) { const r = roll(i === 4 ? p.last : p.rates); const pool = byRar(r).filter(c => c.set === p.set); out.push(pool[Math.floor(Math.random() * pool.length)]); }
   return out;
 }
 
@@ -435,15 +437,15 @@ addEventListener('resize', layout);
 //  ショップ
 // =============================================================
 function packFace(p, big) {
-  return `<div class="face" style="color:#fff"><div class="set">けものの星・第1弾</div>
+  return `<div class="face" style="color:#fff"><div class="set">${esc(p.title)}・第${p.set}弾</div>
     <svg class="emb" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.6)" stroke-width="2"/><path d="M50 14 L57 43 L86 50 L57 57 L50 86 L43 57 L14 50 L43 43Z" fill="#fff" opacity=".9"/></svg>
-    <div class="ttl">けものの星</div><div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
+    <div class="ttl" style="${p.title.length > 6 ? 'font-size:.72em;white-space:nowrap' : ''}">${p.set === 2 ? '🚂 ' : ''}${esc(p.title)}</div><div class="kind">${esc(p.nm)}</div></div><div class="shine"></div>`;
 }
 function renderShop() {
   tickFree(); layout();
   const busy = state !== 'idle' && state !== 'done';
   let h = '';
-  if (S.free > 0) h += `<button class="buy" data-pack="normal" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${PACKS[0].colors[0]},${PACKS[0].colors[1]})"></div><b>無料パック ×${S.free}</b><span class="free">FREE<small>スタンダード1パック</small></span></button>`;
+  if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title)}</small></span></button>`;
   else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="buy" disabled><div class="mini" style="background:#333"></div><b>無料パック</b><span class="free">${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}<small>3分ごとにもらえる</small></span></button>`; }
   for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
   $('shop').innerHTML = h;
@@ -585,9 +587,10 @@ function finishPack(deck) {
   S.coins += gain;
   // 属性コンプのボーナス
   const msgs = [];
-  for (const el of ELEMENTS) {
-    if (S.bonus[el.id]) continue;
-    if (CARDS.filter(c => c.el === el.id && c.r !== 'SEC').every(c => S.owned[c.no])) { S.bonus[el.id] = 1; S.coins += 2000; msgs.push(`${el.nm}のカードをコンプリート！ +2,000`); }
+  for (const set of [1, 2]) for (const el of ELEMENTS) {
+    const key = set === 1 ? el.id : 's2-' + el.id;    // 第一弾は前と同じ名前で記録
+    if (S.bonus[key]) continue;
+    if (CARDS.filter(c => c.set === set && c.el === el.id && c.r !== 'SEC').every(c => S.owned[c.no])) { S.bonus[key] = 1; S.coins += 2000; msgs.push(`第${set}弾の${el.nm}のカードをコンプリート！ +2,000`); }
   }
   save();
   setTimeout(() => {
@@ -599,7 +602,7 @@ function finishPack(deck) {
     $('result').hidden = false;
     hint(T('下のカードをクリックすると大きく見られる', '下のカードをタップすると大きく見られる'));
     msgs.forEach((m, i) => setTimeout(() => toast(m), 400 + i * 2700));
-    if (ownedKinds() === TOTAL && !S.bonus.all) { S.bonus.all = 1; save(); setTimeout(() => toast('全74種コンプリート！ おめでとう！'), 600); sparkle(innerWidth / 2, innerHeight / 3, ['#ffc94a', '#ff4fa0', '#4aa3ff', '#fff'], 200, 14); }
+    if (ownedKinds() === TOTAL && !S.bonus.all) { S.bonus.all = 1; save(); setTimeout(() => toast(`全${TOTAL}種コンプリート！ おめでとう！`), 600); sparkle(innerWidth / 2, innerHeight / 3, ['#ffc94a', '#ff4fa0', '#4aa3ff', '#fff'], 200, 14); }
     hud(); renderShop();
   }, 250);
 }
@@ -641,16 +644,19 @@ $('inspect').addEventListener('click', () => { $('inspect').hidden = true; inspe
 // =============================================================
 //  図鑑
 // =============================================================
-let filter = 'all';
+let filter = 'all', binSet = 's1';
 function renderBinder() {
-  $('filters').innerHTML = [['all', 'すべて'], ...ELEMENTS.map(e => [e.id, e.nm]), ['SEC', '？']].map(([k, n]) => `<button data-f="${k}" class="${filter === k ? 'on' : ''}">${n}</button>`).join('');
-  const list = CARDS.filter(c => filter === 'all' || (filter === 'SEC' ? c.r === 'SEC' : c.el === filter && c.r !== 'SEC'));
+  $('filters').innerHTML = [['s1', '第一弾'], ['s2', '第二弾']].map(([k, n]) => `<button data-s="${k}" class="${binSet === k ? 'on' : ''}">${n}</button>`).join('') + '<span class="sep"></span>'
+    + [['all', 'すべて'], ...ELEMENTS.map(e => [e.id, e.nm]), ['SEC', '？']].map(([k, n]) => `<button data-f="${k}" class="${filter === k ? 'on' : ''}">${n}</button>`).join('');
+  const set = binSet === 's2' ? 2 : 1;
+  const list = CARDS.filter(c => c.set === set && (filter === 'all' || (filter === 'SEC' ? c.r === 'SEC' : c.el === filter && c.r !== 'SEC')));
+  const inSet = CARDS.filter(c => c.set === set), got = inSet.filter(c => S.owned[c.no]).length;
   $('binder').innerHTML = list.map(c => S.owned[c.no] ? `<div class="slot" data-no="${c.no}">${cardHTML(c)}${S.owned[c.no] > 1 ? `<span class="cnt">×${S.owned[c.no]}</span>` : ''}</div>` : `<div class="slot empty">${String(c.no).padStart(3, '0')}</div>`).join('');
-  $('comp2').textContent = `${ownedKinds()} / ${TOTAL}（${Math.floor(ownedKinds() / TOTAL * 100)}%）`;
+  $('comp2').textContent = `第${set}弾 ${got} / ${inSet.length}・全体 ${ownedKinds()} / ${TOTAL}`;
 }
 $('binderBtn').addEventListener('click', () => { filter = 'all'; renderBinder(); $('binderOv').hidden = false; });
 $('closeBinder').addEventListener('click', () => { $('binderOv').hidden = true; });
-$('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filter = b.dataset.f; renderBinder(); });
+$('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.s) binSet = b.dataset.s; else filter = b.dataset.f; renderBinder(); });
 $('binder').addEventListener('click', e => { const s = e.target.closest('.slot[data-no]'); if (s) inspect(CARDS.find(c => c.no === +s.dataset.no)); });
 
 // =============================================================

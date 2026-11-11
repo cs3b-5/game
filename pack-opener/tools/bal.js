@@ -16,7 +16,7 @@ if (process.env.SB) PB.setSecond(...process.env.SB.split(',').map(Number));   //
 const N = +process.argv[2] || 2000;
 const rnd = Math.random, pick = a => a[Math.floor(rnd() * a.length)];
 // 「パックを何回か開けた人」のデッキ：レア度の出やすさに合わせてランダムに持っていて、強い順に20枚
-const RW = { C: 60, U: 25, R: 9, SR: 4.5, UR: 1.3, SEC: .2 };
+const RW = { C: 48, U: 21.6, R: 24, SR: 5.2, UR: 1.06, SEC: .14 };   // パックの実際の確率（5枚の平均）
 function collection(packs) {
   const owned = {};
   for (let i = 0; i < packs * 5; i++) {

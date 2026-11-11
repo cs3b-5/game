@@ -9,7 +9,7 @@ eval(fs.readFileSync(path.join(dir, 'battle.js'), 'utf8'));
 const CARDS = window.CARD_DEFS, PB = window.PackBattle;
 const N = +process.argv[2] || 300;
 const rnd = Math.random, pick = a => a[Math.floor(rnd() * a.length)];
-const RW = { C: 60, U: 25, R: 9, SR: 4.5, UR: 1.3, SEC: .2 };
+const RW = { C: 48, U: 21.6, R: 24, SR: 5.2, UR: 1.06, SEC: .14 };   // パックの実際の確率（5枚の平均）
 function deckFor(packs) {
   const owned = {};
   for (let i = 0; i < packs * 5; i++) { let x = rnd() * 100, r = 'C'; for (const [k, w] of Object.entries(RW)) { x -= w; if (x <= 0) { r = k; break; } } const c = pick(CARDS.filter(c => c.r === r)); owned[c.no] = (owned[c.no] || 0) + 1; }
