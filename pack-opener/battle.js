@@ -457,7 +457,7 @@ async function play(side, card, target) {
     if (card.c.no === 159) m.hp = m.maxHp;
     if (card.c.no === 160) heal(side, 3, '進化のお守り');
     if (card.c.no === 292) { const a = atkOf(side, m); m.buff += a; m.hp = 1; m.maxHp = Math.max(1, m.maxHp); log(`「${m.c.nm}」のATKが${a * 2}に！ でもHPは1`, side); }
-    if (card.c.no === 293) { if (flipCoin(side)) { bigText('ラッキーセブン！', '#ffd25a'); log('コインは表！', side); } else { m.hp = -99; log(`コインは裏…「${m.c.nm}」は倒れた`, side); } }
+    if (card.c.no === 293) { const h = flipCoin(side); await luckAnim({ k: 'coin', h, nm: `「${m.c.nm}」にラッキーセブン` }); if (h) { bigText('ラッキーセブン！', '#ffd25a'); log('コインは表！', side); } else { m.hp = -99; log(`コインは裏…「${m.c.nm}」は倒れた`, side); } }
     if (card.c.no === 294) draw(side, 1);
     if (card.c.no === 245) gainT(side, 2, '金貨の袋');
     if (card.c.no === 249) { gainT(side, 1, '海賊の望遠鏡'); draw(side, 1); }
@@ -483,18 +483,19 @@ async function play(side, card, target) {
           else { m.buff += 2; m.hp += 2; m.maxHp += 2; log(`「${m.c.nm}」のATK+2・HP+2`, side); } }
         draw(side, 1); break; }
       case 299: { const r = rnd(), g = lucky(side) ? .2 : .1;
-        if (r < g) { bigText('🟢 緑！', '#3ad06a'); foe.lp = 0; log(`ルーレットは緑！ ${sideNm(foe)}のライフが0になった！`, side); }
+        await luckAnim({ k: 'roulette', c: r < g ? 'g' : r < g + (1 - g) / 2 ? 'r' : 'b', nm: '運命のルーレット' });
+        if (r < g) { foe.lp = 0; log(`ルーレットは緑！ ${sideNm(foe)}のライフが0になった！`, side); }
         else if (r < g + (1 - g) / 2) { for (const m of foes) damage(foe, m, 3); log('ルーレットは赤！ 敵モンスター全員に3ダメージ', side); }
         else { for (const m of mine) damage(side, m, 3); log('ルーレットは黒… 味方モンスター全員に3ダメージ', side); }
         break; }
-      case 300: { const pay = Math.floor(side.lp / 2); hurtFace(side, pay); if (flipCoin(side)) { hurtFace(foe, pay * 2); log(`オールイン！ コインは表！ ${sideNm(foe)}に${pay * 2}ダメージ`, side); } else log(`オールイン… コインは裏。ライフ${pay}を失っただけ`, side); break; }
+      case 300: { const pay = Math.floor(side.lp / 2); hurtFace(side, pay); render(); const h = flipCoin(side); await luckAnim({ k: 'coin', h, nm: 'オールイン' }); if (h) { hurtFace(foe, pay * 2); log(`オールイン！ コインは表！ ${sideNm(foe)}に${pay * 2}ダメージ`, side); } else log(`オールイン… コインは裏。ライフ${pay}を失っただけ`, side); break; }
       case 301: for (const x of [side, foe]) x.lp = Math.min(x.maxLp, 15); log('おたがいのライフが15になった', side); break;
       case 302: { for (const x of [side, foe]) { x.hand = []; draw(x, 5); } log('おたがいの手札を全部捨てて、5枚ずつ引いた', side); break; }
       case 303: { const m = (target && side.field.includes(target)) ? target : best(mine, x => threat(side, x));
-        if (m) { const a = atkOf(side, m); if (flipCoin(side)) { m.buff += a; m.hp *= 2; m.maxHp *= 2; log(`表！「${m.c.nm}」のATKとHPが2倍`, side); } else { m.buff -= Math.floor(a / 2); m.hp = Math.max(1, Math.ceil(m.hp / 2)); log(`裏…「${m.c.nm}」のATKとHPが半分`, side); } }
+        if (m) { const a = atkOf(side, m), h = flipCoin(side); await luckAnim({ k: 'coin', h, nm: `ダブルアップ：「${m.c.nm}」` }); if (h) { m.buff += a; m.hp *= 2; m.maxHp *= 2; log(`表！「${m.c.nm}」のATKとHPが2倍`, side); } else { m.buff -= Math.floor(a / 2); m.hp = Math.max(1, Math.ceil(m.hp / 2)); log(`裏…「${m.c.nm}」のATKとHPが半分`, side); } }
         break; }
-      case 304: { const d1 = rollDie(side), d2 = rollDie(side); log(`🎲🎲 ${d1}と${d2}`, side);
-        if (d1 === d2) { bigText('ゾロ目！', '#ffd25a'); for (const m of foes) m.hp = -99; log('ゾロ目！ 敵モンスターがすべて倒れた', side); }
+      case 304: { const d1 = rollDie(side), d2 = rollDie(side); await luckAnim({ k: 'dice', v: [d1, d2], nm: '大博打' }); log(`🎲🎲 ${d1}と${d2}`, side);
+        if (d1 === d2) { for (const m of foes) m.hp = -99; log('ゾロ目！ 敵モンスターがすべて倒れた', side); }
         else { hurtFace(foe, d1 + d2); log(`${sideNm(foe)}のライフに${d1 + d2}ダメージ`, side); }
         break; }
       case 254: gainT(side, 2, '宝の地図'); draw(side, 1); break;
@@ -577,7 +578,7 @@ async function luckFx(side, card, t) {
   const foe = other(side), foes = () => foe.field.filter(m => m && hpOf(foe, m) > 0 && !(m.kw && m.kw.ward)), face = side === B.me ? 'meFace' : 'foeFace';
   const hit = (n, why) => { const m = best(foes(), x => threat(foe, x)); if (m && n > 0) { damage(foe, m, n); log(`${why}「${m.c.nm}」に${n}ダメージ`, side); } };
   if (t.dice) {
-    const d = rollDie(side); floatAt('u' + card.uid, '🎲' + d, '#ffffff'); log(`🎲「${card.c.nm}」のサイコロは${d}`, side);
+    const d = rollDie(side); await luckAnim({ k: 'dice', v: [d], nm: `🎲 ${card.c.nm}` }); floatAt('u' + card.uid, '🎲' + d, '#ffffff'); log(`🎲「${card.c.nm}」のサイコロは${d}`, side);
     const half = Math.ceil(d / 2);
     switch (t.dice) {
       case 'snipeHalf': hit(half, '🎲'); break;
@@ -600,11 +601,12 @@ async function luckFx(side, card, t) {
   if (t.jackpot) {
     const win = rnd() < (lucky(side) ? 1 / 3 : 1 / 6), [f, v, mf, mv] = t.jackpot;
     const run = (fx, n) => { if (fx === 'aoe') { for (const m of foes()) damage(foe, m, n); log(`敵モンスター全員に${n}ダメージ`, side); } else if (fx === 'snipe') hit(n, ''); else if (fx === 'wipe') { for (const m of foes()) m.hp = -99; log(`敵モンスターがすべて吹き飛んだ！`, side); } };
-    if (win) { bigText('🎰 大当たり！', '#ffd25a'); A.chime('SEC'); log(`🎰「${card.c.nm}」のスロットが大当たり！`, side); run(f, v); }
+    await luckAnim({ k: 'slot', win, nm: `🎰 ${card.c.nm}` });
+    if (win) { A.chime('SEC'); log(`🎰「${card.c.nm}」のスロットが大当たり！`, side); run(f, v); }
     else { log(`🎰「${card.c.nm}」のスロットははずれ`, side); if (mf) run(mf, mv); }
   }
   if (t.allbet) {
-    const h = flipCoin(side);
+    const h = flipCoin(side); await luckAnim({ k: 'coin', h, nm: `😈 ${card.c.nm}：命がけ` });
     if (h) { const n = Math.ceil(foe.lp / 2); hurtFace(foe, n); log(`😈表！ ${sideNm(foe)}のライフが半分になった（${n}ダメージ）`, side); }
     else { const n = Math.ceil(side.lp / 2); hurtFace(side, n); log(`😈裏… 自分のライフが半分になった（${n}ダメージ）`, side); }
   }
@@ -642,7 +644,7 @@ async function attack(side, m, target) {
   if (!canHit(side, target, m)) return;
   m.sleep = true; m.attacked = true;
   let a = atkOf(side, m);
-  if (m.kw.coin) { const h = flipCoin(side); a = h ? a * 2 : 0; floatAt('u' + m.uid, h ? '表！×2' : '裏…0', h ? '#ffd25a' : '#9aa0b0'); log(`💫「${m.c.nm}」のコインは${h ? '表！ ダメージ2倍' : '裏…ダメージ0'}`, side); }
+  if (m.kw.coin) { const h = flipCoin(side); await luckAnim({ k: 'coin', h, nm: `💫 ${m.c.nm}：一か八か` }); a = h ? a * 2 : 0; floatAt('u' + m.uid, h ? '表！×2' : '裏…0', h ? '#ffd25a' : '#9aa0b0'); log(`💫「${m.c.nm}」のコインは${h ? '表！ ダメージ2倍' : '裏…ダメージ0'}`, side); }
   await lunge('u' + m.uid, target ? 'u' + target.uid : (foe === B.me ? 'meFace' : 'foeFace'));
   if (!target) {
     hurtFace(foe, a); log(`「${m.c.nm}」が${sideNm(foe)}に攻撃！ ライフに${a}ダメージ`, side, 'hit');
@@ -665,9 +667,10 @@ async function attack(side, m, target) {
 function onTurnStart(side) {
   for (const m of side.field) if (m && m.shell) m.shell = 0;   // 🥚殻は次の自分のターンまで
   if (landIs(side, 250)) gainT(side, 1, '宝島');
-  if (landIs(side, 296)) { const d = rollDie(side); if (d === 6) { const foe = other(side); for (const m of foe.field) if (m) damage(foe, m, 2); log(`ルーレット場：6！ 敵モンスター全員に2ダメージ`, side); } }
-  if (landIs(side, 297) && flipCoin(side)) heal(side, 3, '幸運の泉');
-  if (landIs(side, 298) && flipCoin(side)) { draw(side, 1); log('スロット通り：表！ カードを1枚引いた', side); }
+  if (landIs(side, 296)) { const d = rollDie(side); luckAnim({ k: 'dice', v: [d], nm: 'ルーレット場', at: side === B.me ? 'meFace' : 'foeFace' }); if (d === 6) { const foe = other(side); for (const m of foe.field) if (m) damage(foe, m, 2); log(`ルーレット場：6！ 敵モンスター全員に2ダメージ`, side); } }
+  const face = side === B.me ? 'meFace' : 'foeFace';
+  if (landIs(side, 297)) { const h = flipCoin(side); luckAnim({ k: 'coin', h, nm: '幸運の泉', at: face }); if (h) heal(side, 3, '幸運の泉'); }
+  if (landIs(side, 298)) { const h = flipCoin(side); luckAnim({ k: 'coin', h, nm: 'スロット通り', at: face }); if (h) { draw(side, 1); log('スロット通り：表！ カードを1枚引いた', side); } }
   for (const m of side.field) if (m && m.kw.nightmare) {
     const foe = other(side), t = pick(foe.field.filter(Boolean));
     if (t) { damage(foe, t, 2); log(`🐒「次は…」悪夢の放送で「${t.c.nm}」に2ダメージ`, side); }
@@ -913,6 +916,40 @@ function css() {
 .btSpell { position: fixed; inset: 0; z-index: 43; display: grid; place-items: center; pointer-events: none; background: rgba(0,0,0,.45); animation: btSp .9s ease forwards; }
 .btSpell .card { --w: min(200px, 46vw); }
 @keyframes btSp { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+/* 🎲💫🎰 運の演出 */
+.lk { position: fixed; z-index: 46; left: 50%; top: 42%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 8px; pointer-events: none; padding: 14px 20px 10px; border-radius: 18px; background: radial-gradient(circle, rgba(20,10,40,.88), rgba(10,6,20,.78)); box-shadow: 0 0 0 2px rgba(255,210,90,.35), 0 10px 40px rgba(0,0,0,.6); animation: lkIn .18s ease-out; transition: opacity .25s; }
+.lk.sm { top: auto; transform: translate(-50%, -50%) scale(.62); }
+.lk.out { opacity: 0; }
+.lk .lkNm { font-size: .8rem; font-weight: 800; color: #ffe6a0; white-space: nowrap; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; }
+.lk .lkRes { font-weight: 900; font-size: 1.25rem; min-height: 1.5em; white-space: nowrap; text-shadow: 0 2px 0 #000; }
+.lk .lkRow { display: flex; gap: 14px; }
+@keyframes lkIn { from { opacity: 0; scale: .7; } }
+.lkDice { width: 64px; height: 64px; border-radius: 14px; background: linear-gradient(145deg, #fff, #dcdce6); box-shadow: inset 0 -4px 0 rgba(0,0,0,.18), 0 6px 14px rgba(0,0,0,.5); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 9px; box-sizing: border-box; }
+.lkDice i { width: 11px; height: 11px; border-radius: 50%; background: #222; place-self: center; visibility: hidden; }
+.lkDice i.on { visibility: visible; } .lkDice.d1 i.on { background: #d0203c; width: 15px; height: 15px; }
+.lkDice.roll { animation: lkRoll .14s linear infinite; }
+.lkDice.land { animation: lkLand .35s cubic-bezier(.3,1.6,.5,1); }
+.lkDice.gold { box-shadow: 0 0 0 3px #ffd25a, 0 0 22px #ffd25a; }
+@keyframes lkRoll { 0% { transform: rotate(0) translateY(0); } 50% { transform: rotate(180deg) translateY(-10px) scale(.9); } 100% { transform: rotate(360deg) translateY(0); } }
+@keyframes lkLand { 0% { transform: scale(1.35) rotate(-12deg); } 100% { transform: none; } }
+.lkCoinW { perspective: 600px; }
+.lkCoin { width: 78px; height: 78px; position: relative; transform-style: preserve-3d; transition: transform 1s cubic-bezier(.2,.7,.25,1); }
+.lkCoin b { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; font-size: 1.7rem; font-weight: 900; backface-visibility: hidden; }
+.lkCoin .lkHd { background: radial-gradient(circle at 35% 30%, #fff3b0, #ffc93a 45%, #b07a10); color: #6a4300; box-shadow: inset 0 0 0 5px #e0a020; }
+.lkCoin .lkTl { background: radial-gradient(circle at 35% 30%, #f4f4f8, #a8acb8 50%, #5a5e6a); color: #2a2c34; box-shadow: inset 0 0 0 5px #8a8e9a; transform: rotateY(180deg); }
+.lkCoinW.up { animation: lkToss 1s cubic-bezier(.3,.1,.3,1); }
+@keyframes lkToss { 0% { transform: translateY(0); } 45% { transform: translateY(-46px); } 100% { transform: translateY(0); } }
+.lkSlot { display: flex; gap: 6px; padding: 8px; border-radius: 12px; background: linear-gradient(#b0182e, #5a0818); box-shadow: inset 0 0 0 3px #ffd25a; }
+.lkReel { width: 50px; height: 58px; border-radius: 8px; background: #fff; overflow: hidden; display: grid; place-items: center; font-size: 2rem; box-shadow: inset 0 6px 8px rgba(0,0,0,.35), inset 0 -6px 8px rgba(0,0,0,.35); }
+.lkReel.spin span { animation: lkReel .09s linear infinite; }
+@keyframes lkReel { from { transform: translateY(-40%); filter: blur(1.5px); } to { transform: translateY(40%); filter: blur(1.5px); } }
+.lkReel.stop span { animation: lkLand .3s cubic-bezier(.3,1.6,.5,1); }
+.lkSlot.win { animation: lkWin .25s 4 alternate; }
+@keyframes lkWin { to { box-shadow: inset 0 0 0 3px #fff, 0 0 30px #ffd25a; } }
+.lkRlW { position: relative; width: 150px; height: 150px; }
+.lkRl { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 0 0 5px #6a4300, 0 0 0 8px #ffd25a, 0 8px 20px rgba(0,0,0,.6); transition: transform 1.6s cubic-bezier(.15,.75,.2,1); }
+.lkRlW::after { content: ''; position: absolute; left: 50%; top: -12px; translate: -50% 0; border: 10px solid transparent; border-top: 18px solid #fff; filter: drop-shadow(0 2px 2px #000); }
+.lkRlW::before { content: ''; position: absolute; inset: 38%; border-radius: 50%; background: radial-gradient(#ffe6a0, #b07a10); z-index: 1; box-shadow: 0 0 6px #000; }
 .bt .top2 { display: flex; align-items: center; gap: 8px; padding: 6px 12px 0; }
 .bt .top2 .t { font-weight: 900; }
 .bt .x { margin-left: auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); font-weight: 700; font-size: .8rem; }
@@ -1011,7 +1048,7 @@ function css() {
   .bt .turnBtn { padding: 8px 10px; }
   .bt .hand { padding: 2px 8px 4px; min-height: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .bc, .btFloat, .btBanner, .btSpell { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .bc, .btFloat, .btBanner, .btSpell, .lk, .lk * { animation: none !important; transition: none !important; } }
 `;
   document.head.appendChild(st);
 }
@@ -1414,6 +1451,65 @@ async function lungeRaw(fromId, toId) {
   await wait(120);
 }
 function banner(t) { bannerRaw(t); }
+// 🎲💫🎰 運の演出：結果は先に決めておき、見せるだけ（オンラインでは同じ結果をゲストにも流す）
+//  o = { k:'dice', v:[d…] } | { k:'coin', h:true/false } | { k:'slot', win } | { k:'roulette', c:'g'|'r'|'b' }、nm=見出し、at=小さく出す場所（そのときは待たない）
+async function luckAnim(o) { emit({ k: 'luck', o }); return luckAnimRaw(o); }
+const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function dieFace(el, n) { el.className = el.className.replace(/\bd\d\b/g, '') + ' d' + n; [...el.children].forEach((p, i) => p.classList.toggle('on', PIPS[n].includes(i))); }
+async function luckAnimRaw(o, flip) {
+  if (FAST || typeof document === 'undefined') return;
+  const box = document.createElement('div'); box.className = 'lk';
+  const at = o.at && center(flip ? flipId(o.at) : o.at);
+  if (at) { box.classList.add('sm'); box.style.left = at.x + 'px'; box.style.top = at.y + 'px'; }
+  box.innerHTML = `<div class="lkNm">${A.esc(o.nm || '')}</div><div class="lkBody"></div><div class="lkRes"></div>`;
+  document.body.appendChild(box);
+  const body = box.querySelector('.lkBody'), res = box.querySelector('.lkRes');
+  const tick = (f, i) => A.tone(f, .03, 'square', .025, 0, i);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  if (o.k === 'dice') {
+    body.innerHTML = `<div class="lkRow">${o.v.map(() => `<div class="lkDice roll">${'<i></i>'.repeat(9)}</div>`).join('')}</div>`;
+    const ds = [...body.querySelectorAll('.lkDice')];
+    for (let t = 0; t < 9; t++) { ds.forEach(d => dieFace(d, 1 + Math.floor(Math.random() * 6))); tick(500 + t * 30); await sleep(70); }
+    ds.forEach((d, i) => { d.classList.remove('roll'); d.classList.add('land'); dieFace(d, o.v[i]); if (o.v[i] === 6 || (o.v.length > 1 && o.v.every(x => x === o.v[0]))) d.classList.add('gold'); });
+    A.tone(180, .12, 'square', .05, -40);
+    const z = o.v.length > 1 && o.v.every(x => x === o.v[0]);
+    res.textContent = z ? 'ゾロ目！' : o.v.join(' と ');
+    res.style.color = z || o.v.includes(6) ? '#ffd25a' : '#fff';
+    await sleep(at ? 450 : 650);
+  } else if (o.k === 'coin') {
+    body.innerHTML = `<div class="lkCoinW"><div class="lkCoin"><b class="lkHd">表</b><b class="lkTl">裏</b></div></div>`;
+    const w = body.firstChild, c = w.firstChild;
+    void c.offsetWidth; w.classList.add('up'); c.style.transform = `rotateY(${360 * 5 + (o.h ? 0 : 180)}deg)`;
+    for (let t = 0; t < 6; t++) tick(900 + t * 60, t * .13);
+    await sleep(1000);
+    res.textContent = o.h ? '表！' : '裏…'; res.style.color = o.h ? '#ffd25a' : '#a8acb8';
+    A.tone(o.h ? 1046 : 220, .15, 'triangle', .05);
+    await sleep(at ? 400 : 550);
+  } else if (o.k === 'slot') {
+    const S = ['🍒', '🔔', '💎', '🍀', '⭐', '🍋'], fin = o.win ? ['7️⃣', '7️⃣', '7️⃣'] : (() => { const a = [S[0], S[1], S[2]].map(() => S[Math.floor(Math.random() * S.length)]); if (a[0] === a[1] && a[1] === a[2]) a[2] = '7️⃣'; if (Math.random() < .4) { a[0] = a[1] = '7️⃣'; a[2] = S[Math.floor(Math.random() * S.length)]; } return a; })();
+    body.innerHTML = `<div class="lkSlot">${fin.map(() => '<div class="lkReel spin"><span></span></div>').join('')}</div>`;
+    const rs = [...body.querySelectorAll('.lkReel')];
+    const spin = setInterval(() => rs.forEach(r => { if (r.classList.contains('spin')) r.firstChild.textContent = S[Math.floor(Math.random() * S.length)]; }), 60);
+    for (let i = 0; i < 3; i++) { await sleep(i ? 300 : 500); rs[i].classList.replace('spin', 'stop'); rs[i].firstChild.textContent = fin[i]; A.tone(300 + i * 120, .06, 'square', .04); }
+    clearInterval(spin);
+    if (o.win) { body.firstChild.classList.add('win'); res.textContent = '🎰 大当たり！'; res.style.color = '#ffd25a'; }
+    else { res.textContent = 'はずれ'; res.style.color = '#a8acb8'; }
+    await sleep(o.win ? 900 : 500);
+  } else if (o.k === 'roulette') {
+    const N = 12, segs = [];   // 0番が緑、あとは赤と黒
+    for (let i = 0; i < N; i++) segs.push(i === 0 ? '#1a9a4a' : i % 2 ? '#c81e2c' : '#1a1a22');
+    const deg = 360 / N, g = segs.map((c, i) => `${c} ${i * deg}deg ${(i + 1) * deg}deg`).join(',');
+    body.innerHTML = `<div class="lkRlW"><div class="lkRl" style="background: conic-gradient(${g})"></div></div>`;
+    const idx = o.c === 'g' ? [0] : segs.map((c, i) => i).filter(i => i && (o.c === 'r' ? i % 2 : !(i % 2)));
+    const k = idx[Math.floor(Math.random() * idx.length)], wheel = body.querySelector('.lkRl');
+    void wheel.offsetWidth; wheel.style.transform = `rotate(${360 * 5 - (k + .5) * deg + (Math.random() - .5) * deg * .6}deg)`;
+    for (let t = 0; t < 16; t++) tick(700, t * t * .007);
+    await sleep(1650);
+    res.textContent = { g: '🟢 緑！', r: '🔴 赤！', b: '⚫ 黒…' }[o.c]; res.style.color = { g: '#3ad06a', r: '#ff5a6a', b: '#a8acb8' }[o.c];
+    await sleep(700);
+  }
+  box.classList.add('out'); setTimeout(() => box.remove(), 260);
+}
 function bannerRaw(t, col) {
   if (FAST) return; const b = document.createElement('div'); b.className = 'btBanner'; b.textContent = t; if (col) b.style.color = col; document.body.appendChild(b); setTimeout(() => b.remove(), 1150); }
 function bigText(t, col) { emit({ k: 'big', text: t, col }); bannerRaw(t, col); return; const b = document.createElement('div'); b.className = 'btBanner'; b.textContent = t; b.style.color = col; document.body.appendChild(b); setTimeout(() => b.remove(), 1150); }
@@ -1695,6 +1791,7 @@ function guestFx(f) {
   else if (f.k === 'spell') { const c = A.CARDS[f.no - 1]; showSpellRaw(c); }
   else if (f.k === 'turn') { bannerRaw(f.host ? `${NET ? NET.opp : '相手'}のターン` : 'あなたのターン'); if (!f.host) A.tone(660, .1, 'triangle', .05); }
   else if (f.k === 'big') bannerRaw(f.text, f.col);
+  else if (f.k === 'luck') luckAnimRaw(f.o, true);
   else if (f.k === 'log') addLog(f.text, f.who === 'me' ? 'foe' : f.who === 'foe' ? 'me' : '', f.kind);
   else if (f.k === 'logreset') clearLog();
   else if (f.k === 'evolve') { A.tone(392, .1, 'triangle', .05); A.tone(523, .12, 'triangle', .05, 0, .08); A.tone(784, .2, 'triangle', .05, 0, .16); }
@@ -1906,7 +2003,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, setCounterMinus(n) { COUNTER_MINUS = n; SET_MINUS[4] = n; }, setSetMinus(set, o) { SET_MINUS[set] = o; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.baseHp != null) BASE_HP = o.baseHp; if (o.midHp != null) MID_HP = o.midHp; if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
+  get state() { return B; }, luckAnim(o) { return luckAnimRaw(o); }, setCounterMinus(n) { COUNTER_MINUS = n; SET_MINUS[4] = n; }, setSetMinus(set, o) { SET_MINUS[set] = o; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.baseHp != null) BASE_HP = o.baseHp; if (o.midHp != null) MID_HP = o.midHp; if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });
