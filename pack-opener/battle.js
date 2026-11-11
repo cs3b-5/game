@@ -28,19 +28,21 @@ function evoStage(c) { let n = 1, e = c.evo; const L = (typeof A !== 'undefined'
 let COUNTER_MINUS = { R: 1, SR: 1, UR: 1, SEC: 1 };
 // 弾ごとに、能力がある分だけ元の強さを下げる（第四弾＝カウンター能力、第五弾＝宝の能力）
 let SET_MINUS = { 4: COUNTER_MINUS, 5: { U: 1, R: 1 } };              // 第四弾はカウンター能力がある分、元の強さを少し低く
-let EVO_TOTAL = { 2: 12, 3: 15 };  // 進化したモンスターのATK+HPの合計（レア度ではなく段階で決まる）
+let EVO_TOTAL = { 2: 11, 3: 14 };  // 進化したモンスターのATK+HPの合計（レア度ではなく段階で決まる）
 let EVO_R = { SR: 1, UR: 1, SEC: 2 };   // レア度が高いと少しだけ上乗せ
 let EVO_COST = { 2: 1, 3: 2 };    // 進化にかかるちから（レア度ではなく段階で決まる。UR・SECは+1）
 let EVO_DRAW = 1;                 // 進化したらカードを1枚引く（2枚で1体になる分のおぎない）
 // カードごとのちから（書いていないものはレア度どおり）。魔法・フィールド・アイテムは強さに合わせて決める
 let CARD_COST = {
   // 魔法（強いものは重く、弱いものは軽く）
-  11: 6, 47: 6, 89: 5, 164: 5, 166: 5, 165: 2,
+  11: 6, 47: 6, 89: 5, 164: 5, 166: 5,
   // アイテム
   19: 1, 78: 1, 158: 1, 160: 1, 6: 3, 67: 4, 117: 4, 157: 2,
   // 第四弾：相手しだいで効くカウンターなので軽め
   199: 1, 201: 1, 202: 1, 203: 1, 200: 2,
   208: 4, 210: 2, 211: 2, 209: 4, 212: 5,
+  // Ver.1.13：先祖返りが強すぎたので 2→3
+  165: 3,
   // 第五弾：宝がたまっていないと弱いので軽め。海の藻屑は強いので重め
   254: 1, 256: 2, 255: 2, 257: 5, 245: 1, 246: 1,
 };
@@ -177,7 +179,7 @@ const SPELL_NO = {
   96: { txt: '味方モンスター全員のHPが全回復。ライフ+5。カードを2枚引く' },                         // スイッチバック
   103: { txt: '敵モンスター全員に2ダメージ。味方の電車全員のATK+1' },                                // 踏切の警報
   164: { txt: '味方モンスター全員のATK+2・HP+2' },                                                    // 急成長
-  165: { txt: '敵モンスター1体を進化前の姿にもどす（進化前がなければ手札にもどす）。カードを1枚引く', tgt: 'mon' },      // 先祖返り
+  165: { txt: '敵モンスター1体を進化前の姿にもどす（進化前がなければ手札にもどす）', tgt: 'mon' },      // 先祖返り
   166: { txt: '味方モンスター1体を、山札の進化カードですぐ進化させる（ちから0）。なければATK+2・HP+2。どちらでもカードを1枚引く', tgt: 'mine' },  // 突然変異
   254: { txt: '🪙宝+2。カードを1枚引く' },                                                            // 宝の地図
   255: { txt: '敵モンスター全員に1ダメージ。🪙宝を3まで使い、1つにつきさらに1ダメージ' },                // 一斉砲撃
@@ -428,7 +430,7 @@ async function play(side, card, target) {
         if (m) { const i = foe.field.indexOf(m), prev = evoOf(m.c);
           if (prev) { const pc = mkCard(prev); foe.field[i] = pc; log(`「${m.c.nm}」は「${pc.c.nm}」にもどった`, side); }
           else { foe.field[i] = null; resetCard(m); if (foe.hand.length < HAND_MAX) foe.hand.push(m); log(`「${m.c.nm}」は手札にもどった`, side); } }
-        draw(side, 1); break; }
+        break; }
       case 166: { const m = (target && side.field.includes(target)) ? target : best(mine, m => side.deck.some(x => evoOf(x.c) === m.no) ? 10 + cost(m) : cost(m));
         if (m) { const k = side.deck.findIndex(x => evoOf(x.c) === m.no);
           if (k >= 0) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); cleanup(); await evolve(side, e, m, true); }

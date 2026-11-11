@@ -288,7 +288,7 @@ const D = [
 const TYPE_NM = { M: 'モンスター', S: '魔法', F: 'フィールド', I: 'アイテム' };
 const seedOf = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 // 公開している弾（絵ができてから増やす）。バランス調整のツールは SHOW_ALL_SETS で全部の弾を読む
-const RELEASED_SET = 4;
+const RELEASED_SET = 5;
 global.CARD_DEFS_ALL = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : i < 120 ? 2 : i < 166 ? 3 : i < 212 ? 4 : 5, evo: (d[6] && d[6].evo) || null, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
 global.CARD_DEFS = global.SHOW_ALL_SETS ? global.CARD_DEFS_ALL : global.CARD_DEFS_ALL.filter(c => c.set <= RELEASED_SET);
 })(window);
