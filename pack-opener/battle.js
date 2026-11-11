@@ -32,7 +32,8 @@ let EVO_TOTAL = { 2: 12, 3: 15 };  // 進化したモンスターのATK+HPの合
 let EVO_R = { SR: 1, UR: 1, SEC: 2 };   // レア度が高いと少しだけ上乗せ
 let EVO_COST = { 2: 1, 3: 2 };    // 進化にかかるちから（レア度ではなく段階で決まる。UR・SECは+1）
 // 🥚殻：進化前のモンスター（種）は、場に出てから次の自分のターンまで、ダメージを SHELL だけ防ぐ
-let BASE_HP = 4;
+let BASE_HP = 4, MID_HP = 2;   // 🥚殻：種は4、途中の進化カードは2
+function shellOf(c) { return isBase(c) ? (c.evo ? MID_HP : BASE_HP) : 0; }
 function isBase(c) { const L = (typeof A !== 'undefined' && A && A.CARDS) || window.CARD_DEFS || []; return c.type === 'M' && L.some(x => x.evo === c.no); }
 let EVO_DRAW = 1;                 // 進化したらカードを1枚引く（2枚で1体になる分のおぎない）
 // カードごとのちから（書いていないものはレア度どおり）。魔法・フィールド・アイテムは強さに合わせて決める
@@ -85,7 +86,7 @@ const KW = {
   hoard: { ic: '💰', nm: '財宝', txt: '🪙宝の数だけATKアップ' },
   dig: { ic: '🪙', nm: '宝拾い', txt: '出たとき、🪙宝を手に入れる' },
   spend: { ic: '💎', nm: '宝使い', txt: '出たとき、🪙宝を使って追加効果' },
-  shell: { ic: '🥚', nm: '殻', txt: '進化前のモンスター（種）は、場に出てから次の自分のターンまで、ダメージを4防ぐ' },
+  shell: { ic: '🥚', nm: '殻', txt: '進化前のモンスターは、場に出てから次の自分のターンまでダメージを防ぐ（種は4、途中の進化カードは2）' },
   dice: { ic: '🎲', nm: 'サイコロ', txt: '出たとき、サイコロを振る。出た目で効果が変わる' },
   coin: { ic: '💫', nm: '一か八か', txt: '攻撃のたびにコインを投げる。表ならダメージ2倍、裏ならダメージ0' },
   luck: { ic: '🍀', nm: 'ツキ', txt: 'この場にいるかぎり、自分のサイコロは2回振って高いほう、コインは2回投げて表があれば表' },
@@ -430,7 +431,7 @@ async function play(side, card, target) {
   log(`${sideNm(side)}は「${card.c.nm}」を出した（ちから${cost(card)}）`, side, 'play');
   if (B.rec) B.rec.played[side === B.me ? 0 : 1].push(card.no);
   if (t === 'M') {
-    const i = side.field.findIndex(f => !f); side.field[i] = card; card.enteredTurn = B.turn; if (isBase(card.c) && BASE_HP) card.shell = BASE_HP;
+    const i = side.field.findIndex(f => !f); side.field[i] = card; card.enteredTurn = B.turn; if (shellOf(card.c)) card.shell = shellOf(card.c);
     card.sleep = !card.kw.haste;
     if (card.c.r === 'UR' || card.c.r === 'SEC') { A.chime(card.c.r); bigText(card.c.nm, EL_C[card.c.el]); }
     render();
@@ -533,7 +534,7 @@ async function evolve(side, card, base, free) {
   const itemHp = base.maxHp - power(base.c).hp;
   card.buff += base.buff; card.items = base.items; card.maxHp += Math.max(0, itemHp); card.hp = card.maxHp;
   card.kw = Object.assign({}, card.kw, extra); card.sleep = false; card.frozen = 0; card.iced = false;
-  side.field[i] = card; card.enteredTurn = B.turn; if (isBase(card.c) && BASE_HP) card.shell = BASE_HP;
+  side.field[i] = card; card.enteredTurn = B.turn; if (shellOf(card.c)) card.shell = shellOf(card.c);
   A.tone(392, .1, 'triangle', .05); A.tone(523, .12, 'triangle', .05, 0, .08); A.tone(784, .2, 'triangle', .05, 0, .16);
   log(`🌱「${base.c.nm}」が「${card.c.nm}」に進化した！`, side, 'play');
   if (B.rec) B.rec.played[side === B.me ? 0 : 1].push(card.no);
@@ -1091,7 +1092,7 @@ function shell() {
     <p>・毎ターン<b>ちから</b>（青い玉）が1つずつ増える（最大8）。カードの左上の数字がちから。後攻は最初のターンだけちから+1<br>
     ・<b>モンスター</b>は場に3体まで。出したターンは休み<br>
     ・ターンのはじめに、出せるカードが手札になく、場にモンスターもいないときは、<b>ちから+1</b><br>
-    ・🌱<b>進化</b>：進化カードは、場にいる進化前のモンスターに重ねてだけ出せる（2段階目はちから1、3段階目はちから2）。進化前が場に出たターン（進化したターンも）は、次の自分のターンまで進化できない。そのかわり、進化前のモンスター（種）は🥚殻で、次の自分のターンまでダメージを4防ぐ。進化するとぐっと強くなって、HPが全回復、カードを1枚引いて、すぐ攻撃できる<br>
+    ・🌱<b>進化</b>：進化カードは、場にいる進化前のモンスターに重ねてだけ出せる（2段階目はちから1、3段階目はちから2）。進化前が場に出たターン（進化したターンも）は、次の自分のターンまで進化できない。そのかわり、進化前のモンスターは🥚殻で、次の自分のターンまでダメージを防ぐ（種は4、途中の進化カードは2）。進化するとぐっと強くなって、HPが全回復、カードを1枚引いて、すぐ攻撃できる<br>
     ・自分のモンスターをタップ→相手のモンスターか相手の顔をタップで攻撃。モンスター同士はお互いにダメージ<br>
     ・<b>属性の相性</b>：炎→森→雷→水→炎、光⇔闇。有利なら1.5倍<br>
     ・<b>R以上のモンスターは能力</b>を持つ：⚡速攻（すぐ攻撃できる）／🛡守り（いる間、相手は守りしか攻撃できない）／♻再生（ターンのはじめに全回復）／🩸吸血（与えたダメージの半分ライフ回復）／🔥火の粉（出たとき敵全員に1ダメージ）／✨祝福（出たときライフ回復）<br>
@@ -1905,7 +1906,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, setCounterMinus(n) { COUNTER_MINUS = n; SET_MINUS[4] = n; }, setSetMinus(set, o) { SET_MINUS[set] = o; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.baseHp != null) BASE_HP = o.baseHp; if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
+  get state() { return B; }, setCounterMinus(n) { COUNTER_MINUS = n; SET_MINUS[4] = n; }, setSetMinus(set, o) { SET_MINUS[set] = o; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.baseHp != null) BASE_HP = o.baseHp; if (o.midHp != null) MID_HP = o.midHp; if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });
