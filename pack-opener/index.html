@@ -158,6 +158,13 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .stk3d { position: relative; width: var(--sw); height: calc(var(--sw) * 1.4); transform-style: preserve-3d; --sw: min(250px, 62vw, 44vh); }
 .stk3d .card { --w: var(--sw); position: absolute; left: 0; top: 0; transition: transform .35s cubic-bezier(.2,.9,.3,1), opacity .35s; will-change: transform; }
 .stk3d .card.face-down .new { display: none; }
+.stkPack { position: absolute; left: 50%; top: 50%; width: 240px; height: 350px; transform: translate(-50%, -50%) scale(var(--pks, 1)); z-index: 5; }
+.stkPack .pack { animation: packIn .45s cubic-bezier(.2,1.4,.4,1); }
+.stkCount .pk { color: #ffe08a; }
+.stkCount > span { white-space: nowrap; }
+.stkCount b { font-size: 1.5rem; }
+@media (max-width: 520px) { .stkTop { flex-wrap: wrap; gap: 6px 8px; } .stkCount { order: 3; width: 100%; font-size: .95rem; gap: 8px; } .stkCount b { font-size: 1.25rem; } .stkTop .ghost { padding: 7px 12px; font-size: .82rem; } }
+.stkCount span { font-family: var(--num); }
 .stkHint { text-align: center; color: var(--muted); padding: 8px 0 calc(14px + env(safe-area-inset-bottom, 0px)); font-size: .9rem; }
 .flipAll { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; }
 .buy .mini { position: relative; }
@@ -296,8 +303,8 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="binder" id="binder"></div>
 </section>
 <section class="stackOv" id="stackOv" hidden>
-  <div class="stkTop"><div class="stkCount" id="stkCount"></div><span style="flex:1"></span><button class="ghost" id="stkAuto">自動でめくる ⏩</button><button class="ghost" id="stkSkip">一覧へ</button></div>
-  <div class="stk3dWrap"><div class="stk3d" id="stk3d"></div></div>
+  <div class="stkTop"><div class="stkCount" id="stkCount"></div><span style="flex:1"></span><button class="ghost" id="stkAuto">自動でむく・めくる ⏩</button><button class="ghost" id="stkSkip">一覧へ</button></div>
+  <div class="stk3dWrap"><div class="stkPack" id="stkPack" hidden></div><div class="stk3d" id="stk3d"></div></div>
   <div class="stkHint" id="stkHint"></div>
 </section>
 <section class="over bulkOv" id="bulkOv" hidden>
@@ -546,16 +553,20 @@ $('shop').addEventListener('click', e => {
 let state = 'idle', current = null, pulls = [], revealed = 0, lastPack = null, newOnes = new Set(), gain = 0;
 function hint(html) { $('hint').innerHTML = html; }
 function clearStage() { $('stage').querySelectorAll('.pack,.deck,.flipAll').forEach(n => n.remove()); }
-function showPack(p) {
-  lastPack = p;
-  clearStage(); $('row').innerHTML = ''; $('result').hidden = true;
-  state = 'pack'; renderShop();
+function packEl(p, noId) {
   const el = document.createElement('div');
   el.className = 'pack';
   const bg = `linear-gradient(160deg,${p.colors[0]},${p.colors[1]})`;
   const art = p.img ? `url(${p.img}) 0 -44px / 240px 350px no-repeat, ` : '', artTop = p.img ? `url(${p.img}) 0 0 / 240px 350px no-repeat, ` : '';
   if (p.img) el.classList.add('hasArt');
-  el.innerHTML = `<div class="body" style="background:${art}${bg}">${packFace(p)}</div><div class="strip" id="strip" style="background:${artTop}${bg}"><div class="crimp"></div><div class="tearline"></div><div class="rip" id="rip"></div></div>`;
+  el.innerHTML = `<div class="body" style="background:${art}${bg}">${packFace(p)}</div><div class="strip" ${noId ? '' : 'id="strip"'} style="background:${artTop}${bg}"><div class="crimp"></div><div class="tearline"></div><div class="rip" ${noId ? '' : 'id="rip"'}></div></div>`;
+  return el;
+}
+function showPack(p) {
+  lastPack = p;
+  clearStage(); $('row').innerHTML = ''; $('result').hidden = true;
+  state = 'pack'; renderShop();
+  const el = packEl(p);
   $('stage').prepend(el);
   current = el;
   hint(T('<b>上のギザギザを左から右へドラッグ</b>して封を破る', '<b>上のギザギザを指で左から右へなぞって</b>封を破る'));
@@ -710,12 +721,13 @@ function bulkOpen(p) {
   S.coins -= p.price * BULK;
   gain = 0; newOnes = new Set();
   const got = [];
-  for (let i = 0; i < BULK; i++) for (const c of makePack(p)) got.push({ c, isNew: gainCard(c) });
+  const packs = [];
+  for (let i = 0; i < BULK; i++) { const one = makePack(p).map(c => ({ c, isNew: gainCard(c) })); packs.push(one); got.push(...one); }
   S.opened += BULK; S.coins += gain;
   const msgs = checkBonus();
   save(); hud(); renderShop();
   const info = { gain, nNew: newOnes.size };
-  startStack(got, () => showBulkList(p, got.slice(), msgs, info));
+  startStack(p, packs, () => showBulkList(p, got.slice(), msgs, info));
 }
 function showBulkList(p, got, msgs, info) {
   // 並び：レアが高い順、同じなら番号順
@@ -733,12 +745,40 @@ function showBulkList(p, got, msgs, info) {
 }
 // ---- 奥に並んだカードを、タップで次々めくる ----
 let STK = null;
-function startStack(got, done) {
-  const ov = $('stackOv'), box = $('stk3d');
-  box.innerHTML = got.map((g, i) => cardHTML(g.c, { down: true, isNew: g.isNew }).replace('class="card ', `data-i="${i}" class="card stk `)).join('');
-  STK = { got, done, cur: -1, auto: false, timer: null, cnt: {} };
-  ov.hidden = false; $('stkHint').textContent = T('クリックでめくる（スペースキーでも可）', 'タップでめくる');
+function startStack(pdef, packs, done) {
+  STK = { pdef, packs, pi: 0, phase: 'pack', got: [], cur: -1, done, auto: false, timer: null, cnt: {}, seen: 0, total: packs.reduce((n, x) => n + x.length, 0) };
+  $('stackOv').hidden = false;
+  showStackPack();
+}
+// パックを出す（タップでむく）
+function showStackPack() {
+  STK.phase = 'pack'; STK.cur = -1; STK.got = [];
+  $('stk3d').innerHTML = '';
+  const holder = $('stkPack'); holder.innerHTML = '';
+  const el = packEl(STK.pdef, true); holder.appendChild(el);
+  holder.hidden = false;
+  const wr = holder.parentElement.getBoundingClientRect(); holder.style.setProperty('--pks', Math.min(1.15, (wr.height - 20) / 350, (wr.width - 30) / 240).toFixed(3));
+  $('stkHint').textContent = T('クリックでパックをむく', 'タップでパックをむく');
+  tone(300, .1, 'sine', .035, 200);
+  stackCount();
+  if (STK.auto) { clearTimeout(STK.timer); STK.timer = setTimeout(stackNext, 450); }
+}
+function tearStackPack() {
+  const st = STK; st.phase = 'tearing';
+  const el = $('stkPack').querySelector('.pack');
+  el.querySelector('.strip').classList.add('off'); el.querySelector('.body').classList.add('off');
+  for (let i = 0; i < 6; i++) setTimeout(() => crinkle(.09), i * 25);
+  tone(200, .25, 'sawtooth', .03, 400);
+  const r = el.getBoundingClientRect(); sparkle(r.left + r.width / 2, r.top + 40, ['#fff', '#ffc94a', st.pdef.colors[0]], 40, 8);
+  setTimeout(() => { if (STK !== st) return; $('stkPack').hidden = true; $('stkPack').innerHTML = ''; showStackCards(); }, 620);
+}
+// むいたパックの5枚を奥に並べる（タップでめくる）
+function showStackCards() {
+  STK.phase = 'cards'; STK.got = STK.packs[STK.pi]; STK.cur = -1;
+  $('stk3d').innerHTML = STK.got.map((g, i) => cardHTML(g.c, { down: true, isNew: g.isNew }).replace('class="card ', `data-i="${i}" class="card stk `)).join('');
+  $('stkHint').textContent = T('クリックでめくる（スペースキーでも可）', 'タップでめくる');
   layoutStack(); stackCount();
+  if (STK.auto) { clearTimeout(STK.timer); STK.timer = setTimeout(stackNext, 250); }
 }
 function layoutStack() {
   if (!STK) return;
@@ -756,17 +796,25 @@ function layoutStack() {
   if (nx && g && ['SR', 'UR', 'SEC'].includes(g.c.r)) nx.classList.add('glow-' + g.c.r);
 }
 function stackCount() {
-  const n = STK.got.length, k = STK.cur + 1;
-  $('stkCount').innerHTML = `<b>${k}</b> / ${n}` + RORDER.slice().reverse().filter(r => STK.cnt[r]).map(r => `<span style="color:${RAR[r].c}">${r}×${STK.cnt[r]}</span>`).join('');
+  $('stkCount').innerHTML = `<span class="pk">パック <b>${STK.pi + 1}</b> / ${STK.packs.length}</span><span>${STK.seen} / ${STK.total}枚</span>` + RORDER.slice().reverse().filter(r => STK.cnt[r]).map(r => `<span style="color:${RAR[r].c}">${r}×${STK.cnt[r]}</span>`).join('');
 }
 function stackNext() {
   if (!STK) return;
   audio();
+  if (STK.phase === 'pack') { tearStackPack(); return; }
+  if (STK.phase !== 'cards') return;
   const cards = $('stk3d').children;
   // 今見ているカードは飛んでいく
   if (STK.cur >= 0 && cards[STK.cur]) { const el = cards[STK.cur]; el.style.transition = 'transform .38s ease-in, opacity .38s'; el.style.transform = `translate3d(${(STK.cur % 2 ? -1 : 1) * 70}vw, 30vh, 200px) rotate(${(STK.cur % 2 ? -1 : 1) * 25}deg)`; el.style.opacity = 0; }
   STK.cur++;
-  if (STK.cur >= STK.got.length) { endStack(); return; }
+  if (STK.cur >= STK.got.length) {
+    // このパックはおしまい → 次のパック（なければ一覧）
+    STK.phase = 'next';
+    const st = STK;
+    setTimeout(() => { if (STK !== st) return; if (st.pi + 1 < st.packs.length) { st.pi++; showStackPack(); } else endStack(); }, 300);
+    return;
+  }
+  STK.seen++;
   const idx = STK.cur, el = cards[idx], g = STK.got[idx];
   layoutStack();
   setTimeout(() => el.classList.remove('face-down'), 80);
@@ -784,16 +832,16 @@ function stackNext() {
     } else if (ri === 2) sparkle(innerWidth / 2, innerHeight / 2, [RAR.R.c, '#fff'], 20, 5);
     if (g.isNew) tone(1320, .12, 'sine', .03, 0, .12);
   }, 260);
-  if (STK.auto) { clearTimeout(STK.timer); STK.timer = setTimeout(stackNext, ri >= 4 ? 1400 : ri === 3 ? 900 : 300); }
+  if (STK.auto) { clearTimeout(STK.timer); STK.timer = setTimeout(stackNext, ri >= 4 ? 1400 : ri === 3 ? 900 : 320); }
 }
 function endStack() {
   const st = STK; if (!st) return;
   clearTimeout(st.timer); STK = null;
-  $('stackOv').hidden = true; $('stk3d').innerHTML = '';
+  $('stackOv').hidden = true; $('stk3d').innerHTML = ''; $('stkPack').innerHTML = '';
   st.done();
 }
-$('stackOv').addEventListener('click', e => { if (e.target.closest('button')) return; if (STK) { STK.auto = false; clearTimeout(STK.timer); $('stkAuto').textContent = '自動でめくる ⏩'; } stackNext(); });
-$('stkAuto').addEventListener('click', () => { if (!STK) return; STK.auto = !STK.auto; $('stkAuto').textContent = STK.auto ? '止める ⏸' : '自動でめくる ⏩'; clearTimeout(STK.timer); if (STK.auto) stackNext(); });
+$('stackOv').addEventListener('click', e => { if (e.target.closest('button')) return; if (STK) { STK.auto = false; clearTimeout(STK.timer); $('stkAuto').textContent = '自動でむく・めくる ⏩'; } stackNext(); });
+$('stkAuto').addEventListener('click', () => { if (!STK) return; STK.auto = !STK.auto; $('stkAuto').textContent = STK.auto ? '止める ⏸' : '自動でむく・めくる ⏩'; clearTimeout(STK.timer); if (STK.auto) stackNext(); });
 $('stkSkip').addEventListener('click', () => { audio(); endStack(); });
 
 $('closeBulk').addEventListener('click', () => { $('bulkOv').hidden = true; renderShop(); });
