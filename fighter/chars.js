@@ -121,9 +121,8 @@
       extra: {
         tcA: N({ st: 9, act: 4, rec: 24, dmg: 700, hs: 26, bs: 16, hb: [30, 110, 96, 156], str: 2, kd: 1, launch: [4, 7], pb: 10, vel: [[1, 9, 4]], pose: [[0, 'hp1'], [4, 'hk0'], [9, 'hk1'], [13, 'hk1'], [37, 'stand']] }),
       },
-      // アシストコンボ（AUTO＋同じボタン連打）。d〜 は ↓ を入れながら始めたとき。SA はゲージで出せるいちばん高いレベル
-      assist: { L: ['lp', 'clp', 'lp', 'tatsu0'], M: ['mp', '6hp', 'hado1'], H: ['mp', 'hp', 'hado2', 'SA'],
-        dL: ['clk', 'clp', 'clp', 'hado0'], dM: ['cmk', 'hado1'], dH: ['cmp', 'hp', 'sokuto2'] },
+      // アシストコンボ（AUTO＋同じボタン連打）。SA はゲージで出せるいちばん高いレベル
+      assist: { L: ['lp', 'clp', 'lp', 'tatsu0'], M: ['mp', '6hp', 'hado1'], H: ['mp', 'hp', 'hado2', 'SA'] },
       sp: {
         hado: { nm: '焔弾', in: [2, 3, 6], btn: 'P', proj: 1,
           v: [{ st: 13, spd: 6 }, { st: 13, spd: 8 }, { st: 13, spd: 10.5 }, { st: 11, spd: 11, hits: 2 }],
@@ -171,8 +170,7 @@
         '3hk': N({ nm: '雷滑り', cmd: '↘ ＋ 強K', st: 9, act: 6, rec: 20, dmg: 800, hs: 30, bs: 12, hb: [30, 0, 104, 30], lvl: 'low', str: 2, kd: 1, vel: [[5, 15, 6.5]], pose: [[0, 'crouch'], [6, 'slide'], [24, 'slide'], [35, 'crouch']] }),
       },
       tc: [{ from: 'mp', btn: 'HK', to: 'tcA', nm: '雷光二段', cmd: '中P ▶ 強K' }, { from: 'lk', btn: 'MK', to: 'tcB', nm: 'つむじ連脚', cmd: '弱K ▶ 中K' }],
-      assist: { L: ['lp', 'clp', 'lk', 'tcB', 'rkick0'], M: ['mp', 'mk', 'rkick1'], H: ['hp', 'mk', 'rkick2', 'SA'],
-        dL: ['clk', 'clk', 'clp', 'rkick0'], dM: ['cmk', 'rkick1'], dH: ['cmp', 'hp', 'rkick2'] },
+      assist: { L: ['lp', 'clp', 'lk', 'tcB', 'rkick0'], M: ['mp', 'mk', 'rkick1'], H: ['hp', 'mk', 'rkick2', 'SA'] },
       sp: {
         rkick: { nm: '迅雷脚', in: [2, 3, 6], btn: 'K',
           v: [{ st: 12, vx: 7, dmg: 800, bs: 16 }, { st: 14, vx: 9, dmg: 900, bs: 15 }, { st: 16, vx: 11, dmg: 1000, bs: 14 }, { st: 12, vx: 11, dmg: 600, hits: 2, bs: 20 }],
