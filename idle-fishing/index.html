@@ -67,6 +67,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .row .d { color: var(--muted); font-size: .74rem; font-weight: 700; line-height: 1.4; }
 .row .d em { color: #8affa0; font-style: normal; }
 .buy { border: 0; border-radius: 10px; padding: 8px 10px; min-width: 88px; background: linear-gradient(#ffd040, #e8a020); color: #3a2200; font-weight: 900; line-height: 1.1; box-shadow: 0 3px 0 #9a5a00; }
+.buy small, .buy * { pointer-events: none; }
 .buy small { display: block; font-size: .64rem; font-weight: 700; }
 .buy:disabled { background: #34465e; color: #7a8ca4; box-shadow: 0 3px 0 #22303f; cursor: default; }
 .buy.max { background: #2a4a3a; color: #8affa0; box-shadow: none; }
@@ -718,10 +719,10 @@ const RENDER = {
         const row = sh.querySelector(`.row[data-k="${u.k}"]`), lv = S.lv[u.k], max = lv >= u.max;
         row.querySelector('.lv').textContent = `Lv${lv}${max ? '（MAX）' : ''}`;
         const e = upEffect(u.k);
-        row.querySelector('.d').innerHTML = max ? esc(u.desc) : `${esc(e.d)}${e.gain > 0 ? `<br><em>+${e.gain < 100 ? e.gain.toFixed(1) : fmt(e.gain)} / 秒</em>` : ''}`;
+        { const dd = row.querySelector('.d'), hh = max ? esc(u.desc) : `${esc(e.d)}${e.gain > 0 ? `<br><em>+${e.gain < 100 ? e.gain.toFixed(1) : fmt(e.gain)} / 秒</em>` : ''}`; if (dd.innerHTML !== hh) dd.innerHTML = hh; }
         const b = row.querySelector('.buy');
-        if (max) { b.className = 'buy max'; b.disabled = true; b.innerHTML = 'MAX'; }
-        else { const c = F.upCost(u.k, lv, S.pond); b.className = 'buy'; b.disabled = S.coins < c; b.innerHTML = `買う<small class="num" style="font-size:.9rem">${fmt(c)}</small>`; }
+        if (max) { b.className = 'buy max'; b.disabled = true; if (b.dataset.h !== 'MAX') { b.dataset.h = 'MAX'; b.innerHTML = 'MAX'; } }
+        else { const c = F.upCost(u.k, lv, S.pond); b.className = 'buy'; b.disabled = S.coins < c; const h = `買う<small class="num" style="font-size:.9rem">${fmt(c)}</small>`; if (b.dataset.h !== h) { b.dataset.h = h; b.innerHTML = h; } }
       });
       const st = S.stats, zk = Object.keys(S.zukan).length;
       sh.querySelector('#stats').innerHTML = [['釣った数', fmt(st.catches)], ['ナイス', fmt(st.nice)], ['図鑑', zk + '/45'], ['宝箱', st.chests], ['ガチャ', st.gacha], ['遊んだ時間', fmtT(st.playT)]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('');
