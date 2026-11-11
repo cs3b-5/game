@@ -906,6 +906,15 @@ function paper(g, seed, amt) { const n = noise2(seed + 7), id = g.getImageData(0
 function canvasTex(g, seed, amt) { const id = g.getImageData(0, 0, W, H), d = id.data; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = ((x % 4 < 1) || (y % 4 < 1) ? -1 : 1) * 255 * amt * .12, k = (y * W + x) * 4; d[k] += v; d[k + 1] += v; d[k + 2] += v; } g.putImageData(id, 0, 0); }
 function scanlines(g) { g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1); }
 
+// 第三弾（進化）：本番の絵が届くまでの仮の絵。属性の色の光と、たまごのシルエット
+STYLES.pending = (g, c) => {
+  const col = { fire: '#ff7a2a', water: '#3aa0ff', leaf: '#5ad07a', bolt: '#ffd84a', dark: '#8a6aff', light: '#ffd0f0' }[c.el] || '#fff';
+  const bg = g.createRadialGradient(W / 2, H * .55, 10, W / 2, H * .55, W * .7); bg.addColorStop(0, col); bg.addColorStop(.35, '#1a1430'); bg.addColorStop(1, '#07060e');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.save(); g.translate(W / 2, H * .58); g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.ellipse(0, 0, 46, 60, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = col; g.lineWidth = 3; g.beginPath(); g.moveTo(-40, -6); g.lineTo(-20, 6); g.lineTo(-4, -8); g.lineTo(12, 6); g.lineTo(28, -6); g.lineTo(42, 4); g.stroke(); g.restore();
+  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = 'bold 14px sans-serif'; g.textAlign = 'center'; g.fillText('絵を準備中', W / 2, 26);
+};
 // 第二弾（電車）：本番の絵（Stable Diffusionの写真風）が届くまでの仮の絵。夜の線路と列車のシルエット
 STYLES.photo = (g, c) => {
   const EL = { fire: ['#3a1206', '#ff7a2a'], water: ['#06182e', '#3aa0ff'], leaf: ['#0a1e10', '#5ad07a'], bolt: ['#14122a', '#ffd84a'], dark: ['#07060c', '#8a6aff'], light: ['#14102a', '#ffd0f0'] }[c.el] || ['#0a0a14', '#fff'];
@@ -937,7 +946,7 @@ const cache = new Map();
 function render(card) {
   if (cache.has(card.no)) return cache.get(card.no);
   const c = canvas(), g = c.getContext('2d');
-  try { (STYLES[card.style] || STYLES.real)(g, card); }
+  try { ((card.sub && card.sub.k === 'pending') ? STYLES.pending : (STYLES[card.style] || STYLES.real))(g, card); }
   catch (e) { g.fillStyle = '#333'; g.fillRect(0, 0, W, H); g.fillStyle = '#fff'; g.fillText('絵の描画に失敗: ' + e.message, 10, 20); console.error(card.nm, e); }
   const url = c.toDataURL('image/jpeg', .9);
   cache.set(card.no, url);

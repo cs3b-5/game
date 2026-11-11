@@ -23,8 +23,9 @@ const EL_NM = { fire: '炎', water: '水', leaf: '森', bolt: '雷', dark: '闇'
 const EL_C = { fire: '#ff5a2a', water: '#2a8cff', leaf: '#2fb35a', bolt: '#f2b800', dark: '#7a4aff', light: '#ff9ad0' };
 // モンスターのATK+HPの合計（レア度が高いほど大きいが、ちから1あたりでは安いカードの方が得）
 const TOTAL = { C: 5, U: 7, R: 8, SR: 10, UR: 12, SEC: 13 };
+let EVO_PLUS = 1;   // 進化したモンスターは、進化前を育てた分だけ少し強い
 function power(c) {
-  const t = TOTAL[c.r] + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0);   // カードによって少しちがう（森の大物は少しタフ）
+  const t = TOTAL[c.r] + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) + (c.evo && TOTAL[c.r] >= 8 ? EVO_PLUS : 0);   // カードによって少しちがう（森の大物は少しタフ）
   const share = .38 + ((Math.floor(c.seed / 7) % 7) / 6) * .26;  // ATK寄りか、HP寄りか
   const atk = Math.max(1, Math.round(t * share));
   return { atk, hp: Math.max(1, t - atk) };
@@ -41,11 +42,13 @@ const KW = {
   banish: { ic: '🌀', nm: '神隠し', txt: '出たとき、敵モンスター1体を異界へ連れていく（ゲームから消える）' },
   nightmare: { ic: '🐒', nm: '悪夢の放送', txt: '自分のターンのはじめに、敵モンスター1体に2ダメージ' },
   starlight: { ic: '🌌', nm: '星明かり', txt: '出たとき、味方の電車全員のHP+2' },
+  evo: { ic: '🌱', nm: '進化', txt: '進化前のモンスターに重ねて出せる（ちからは差の分だけ・すぐ攻撃できる）' },
 };
 const EL_KW = { bolt: 'haste', water: 'guard', leaf: 'regen', dark: 'drain', fire: 'spark', light: 'bless' };
 function traits(c) {
   const k = {};
   if (isTrain(c)) k.link = 1;                                  // 第二弾の電車はみんな連結（C・Uも）
+  if (c.type === 'M' && evoOf(c)) k.evo = 1;                   // 第三弾の進化カード
   if (c.type !== 'M' || c.r === 'C' || c.r === 'U') return k;
   k[EL_KW[c.el]] = 1;
   if (c.no === 73) k.guard = 1;                                // 始祖ネコ：祝福＋守り
@@ -55,8 +58,13 @@ function traits(c) {
   if (c.no === 120) k.starlight = 1;                           // 星空を走る列車
   return k;
 }
-function isTrain(c) { return c.type === 'M' && (c.set === 2 || c.no >= 75); }
+function isTrain(c) { return c.type === 'M' && (c.set ? c.set === 2 : c.no >= 75 && c.no <= 120); }
+// 進化：進化前のカード番号（第三弾）
+function evoOf(c) { return c.evo || null; }
 function linkText() { return LINK_CAP === 1 ? `自分の場にほかの電車がいると、ATK+${LINK_PER}${LINK_HP ? `・HP+${LINK_PER}` : ''}` : `場にいるほかの電車1両につき、ATK+${LINK_PER}${LINK_HP ? `・HP+${LINK_PER}` : ''}（${LINK_CAP}両まで）`; }
+function evoCostOf(c, base, side) { return Math.max(1, COST[c.r] - COST[base.r] - (side && side.land && EVO_LAND.includes(side.land.c.no) ? 1 : 0)); }
+const EVO_LAND = [161, 162, 163];   // 進化のちからが1少なくなるフィールド
+function evoText(c) { const b = A && A.CARDS ? A.CARDS[evoOf(c) - 1] : null; return b ? `「${b.nm}」に重ねて出せる（ちから${evoCostOf(c, b)}）。進化したターンにすぐ攻撃できる` : KW.evo.txt; }
 function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).join(' '); }
 // アイテム：持たせると強くなって、属性の能力がつく
 const ITEM = {
@@ -73,6 +81,10 @@ const ITEM_NO = {
   93: { atk: 0, hp: 3, kw: null, txt: 'HP+3。ライフ+4' },                                   // 駅弁
   108: { atk: 1, hp: 2, kw: 'guard', txt: 'ATK+1・HP+2・守りがつく' },                     // 車掌のランタン
   117: { atk: 1, hp: 1, kw: null, txt: 'ATK+1・HP+1。カードを1枚引く' },                    // 硬い切符
+  157: { atk: 1, hp: 2, kw: null, txt: 'ATK+1・HP+2。そのモンスターの進化カードを山札から1枚手札に（なければ1枚引く）' },  // 成長のしずく
+  158: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2' },                                    // 骨つき肉
+  159: { atk: 0, hp: 3, kw: null, txt: 'HP+3。HPが全回復' },                                // 海のミルク
+  160: { atk: 2, hp: 1, kw: null, txt: 'ATK+2・HP+1。ライフ+3' },                          // 進化のお守り
 };
 const itemOf = c => ITEM_NO[c.no] || ITEM[c.no === 67 ? 'light2' : c.el];
 // tgt: 相手を選ぶ魔法（'mon' モンスター、'any' モンスターか相手の顔）
@@ -88,10 +100,13 @@ const SPELL_NO = {
   89: { txt: '敵モンスター1体に3ダメージ。さらに2ターン止める（攻撃できない）。カードを1枚引く', tgt: 'mon' },     // 赤信号
   96: { txt: '味方モンスター全員のHPが全回復。ライフ+5。カードを2枚引く' },                         // スイッチバック
   103: { txt: '敵モンスター全員に2ダメージ。味方の電車全員のATK+1' },                                // 踏切の警報
+  164: { txt: '味方モンスター全員のATK+2・HP+2' },                                                    // 急成長
+  165: { txt: '敵モンスター1体を進化前の姿にもどす（進化前がなければ手札にもどす）。カードを1枚引く', tgt: 'mon' },      // 先祖返り
+  166: { txt: '味方モンスター1体を、山札の進化カードですぐ進化させる（ちから0）。なければATK+2・HP+2。どちらでもカードを1枚引く', tgt: 'mine' },  // 突然変異
 };
 const spellOf = c => SPELL_NO[c.no] || SPELL[c.el];
 function rulesText(c) {
-  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : x === 'link' ? linkText() : KW[x].txt}`).join(''); }
+  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : x === 'link' ? linkText() : x === 'evo' ? evoText(c) : KW[x].txt}`).join(''); }
   if (c.type === 'S') return spellOf(c).txt;
   if (c.type === 'F') return `味方モンスター全員のATK+1。${EL_NM[c.el]}のモンスターはさらにATK+1・HP+2。出たときカードを1枚引く（場に1枚）`;
   return `味方モンスター1体に：${itemOf(c).txt}（${EL_NM[c.el]}のモンスターならさらに+1/+1）`;
@@ -133,6 +148,17 @@ function autoDeck() {
   for (const c of have.filter(c => c.type === 'M')) {
     const k = COST[c.r];
     while (cnt(c.no) < Math.min(COPIES, ownedCount(c.no)) && (used[k] || 0) < cap[k] && deck.filter(no => A.CARDS[no - 1].type === 'M').length < 16) { deck.push(c.no); used[k] = (used[k] || 0) + 1; }
+  }
+  // 1b. 進化カードが入っていて、進化前を持っているなら、進化前も入れる（進化に関係ない弱いモンスターと入れかえ）
+  const inLine = no => deck.some(x => A.CARDS[x - 1].evo === no) || !!A.CARDS[no - 1].evo;
+  for (const no of [...new Set(deck)]) {
+    const base = A.CARDS[no - 1].evo;
+    if (!base || deck.includes(base) || ownedCount(base) <= 0) continue;
+    for (let k = 0; k < Math.min(2, ownedCount(base), COPIES); k++) {
+      let j = -1, low = Infinity;
+      deck.forEach((x, i) => { const c = A.CARDS[x - 1]; if (!inLine(x) && cardValue(c) < low) { low = cardValue(c); j = i; } });
+      if (j < 0) break; deck[j] = base;
+    }
   }
   // 2. 魔法2枚・アイテム1枚・フィールド1枚まで
   const spells = have.filter(c => c.type === 'S').sort((a, b) => ({ fire: 5, bolt: 5, dark: 4, water: 3, light: 2, leaf: 1 }[b.el] - { fire: 5, bolt: 5, dark: 4, water: 3, light: 2, leaf: 1 }[a.el]));
@@ -222,14 +248,21 @@ function spellTargets(side, card) {
   const foe = other(side);
   return foe.field.filter(Boolean);
 }
+function evoTargets(side, card) {
+  const e = evoOf(card.c); if (!e) return [];
+  return side.field.filter(m => m && m.no === e && evoCostOf(card.c, m.c, side) <= side.mana);
+}
 function canPlay(side, card) {
+  if (card.c.type === 'M' && evoTargets(side, card).length) return true;
   if (cost(card) > side.mana) return false;
-  if (card.c.type === 'M') return side.field.some(f => !f);
+  if (card.c.type === 'M') return evoTargets(side, card).length > 0 || side.field.some(f => !f);
   if (card.c.type === 'I') return side.field.some(f => f);
   if (card.c.type === 'S') {
     const foes = other(side).field.filter(Boolean), mine = side.field.filter(Boolean);
     if (card.c.no === 89) return foes.length > 0;
     if (card.c.no === 96) return true;
+    if (card.c.no === 164 || card.c.no === 166) return mine.length > 0;
+    if (card.c.no === 165) return foes.length > 0;
     if (card.c.no === 103) return foes.length > 0 || mine.some(m => m.kw.link);
     if (card.c.el === 'water' || card.c.el === 'dark' || card.c.el === 'fire') return foes.length > 0;
     if (card.c.el === 'light') return mine.length > 0;
@@ -241,6 +274,8 @@ function needsTarget(card) { return card.c.type === 'I' ? 'mine' : card.c.type =
 const sideNm = side => side.nm;
 // target：アイテムは自分のモンスター、魔法は敵モンスター（bolt は null で顔）
 async function play(side, card, target) {
+  if (card.c.type === 'M' && target && target !== 'face' && side.field.includes(target) && evoOf(card.c) === target.no) return evolve(side, card, target);
+  if (card.c.type === 'M' && !side.field.some(f => !f)) { const b = evoTargets(side, card)[0]; return b ? evolve(side, card, b) : undefined; }
   side.mana -= cost(card);
   side.hand = side.hand.filter(h => h !== card);
   const foe = other(side), t = card.c.type;
@@ -252,18 +287,7 @@ async function play(side, card, target) {
     card.sleep = !card.kw.haste;
     if (card.c.r === 'UR' || card.c.r === 'SEC') { A.chime(card.c.r); bigText(card.c.nm, EL_C[card.c.el]); }
     render();
-    if (card.kw.spark) {
-      const foes = foe.field.filter(Boolean);
-      if (foes.length) { for (const m of foes) damage(foe, m, card.kw.spark); log(`🔥火の粉！ 敵モンスター全員に${card.kw.spark}ダメージ`, side); await wait(300); cleanup(); }
-    }
-    if (card.kw.banish) {
-      const t = best(foe.field.filter(Boolean), m => threat(foe, m));
-      if (t) { foe.field[foe.field.indexOf(t)] = null; floatAt('u' + card.uid, '神隠し', '#b08aff'); log(`🌀「${t.c.nm}」は異界へ連れていかれた…`, side); }
-    }
-    if (card.kw.starlight) { const tr = side.field.filter(m => m && m.kw.link); for (const m of tr) { m.hp += 2; m.maxHp += 2; } log(`🌌星明かり！ 電車${tr.length}両のHP+2`, side); }
-    if (card.kw.bless) {
-      heal(side, blessN(card), '✨祝福');
-    }
+    await onEnter(side, card);
   } else if (t === 'F') {
     if (side.land) log(`「${side.land.c.nm}」は消えた`, side);
     side.land = card;
@@ -280,6 +304,9 @@ async function play(side, card, target) {
     if (card.c.no === 66) heal(side, 4, '天使の王冠');
     if (card.c.no === 93) heal(side, 4, '駅弁');
     if (card.c.no === 67 || card.c.no === 117) draw(side, 1);
+    if (card.c.no === 157) { const k = side.deck.findIndex(x => evoOf(x.c) === m.no); if (k >= 0 && side.hand.length < HAND_MAX) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); log(`進化カード「${e.c.nm}」を手札に加えた`, side); } else draw(side, 1); }
+    if (card.c.no === 159) m.hp = m.maxHp;
+    if (card.c.no === 160) heal(side, 3, '進化のお守り');
   } else if (t === 'S') {
     render(); await showSpell(card);
     const foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
@@ -287,6 +314,17 @@ async function play(side, card, target) {
     switch (SPELL_NO[card.c.no] ? card.c.no : card.c.el) {
       case 89: { const m = pickT() || best(foes, m => threat(foe, m)); if (m) { damage(foe, m, 3); m.frozen = 2; m.sleep = true; log(`「${m.c.nm}」に3ダメージ、赤信号で止まった（2ターン）`, side); } draw(side, 1); break; }
       case 96: { for (const m of mine) m.hp = m.maxHp; log(`味方モンスターのHPが全回復`, side); heal(side, 5); draw(side, 2); break; }
+      case 164: for (const m of mine) { m.buff += 2; m.hp += 2; m.maxHp += 2; } log(`味方モンスター全員のATK+2・HP+2`, side); break;
+      case 165: { const m = pickT() || best(foes, m => threat(foe, m) + (evoOf(m.c) ? 5 : 0));
+        if (m) { const i = foe.field.indexOf(m), prev = evoOf(m.c);
+          if (prev) { const pc = mkCard(prev); foe.field[i] = pc; log(`「${m.c.nm}」は「${pc.c.nm}」にもどった`, side); }
+          else { foe.field[i] = null; resetCard(m); if (foe.hand.length < HAND_MAX) foe.hand.push(m); log(`「${m.c.nm}」は手札にもどった`, side); } }
+        draw(side, 1); break; }
+      case 166: { const m = (target && side.field.includes(target)) ? target : best(mine, m => side.deck.some(x => evoOf(x.c) === m.no) ? 10 + cost(m) : cost(m));
+        if (m) { const k = side.deck.findIndex(x => evoOf(x.c) === m.no);
+          if (k >= 0) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); cleanup(); await evolve(side, e, m, true); }
+          else { m.buff += 2; m.hp += 2; m.maxHp += 2; log(`「${m.c.nm}」のATK+2・HP+2`, side); } }
+        draw(side, 1); break; }
       case 103: { for (const m of foes) damage(foe, m, 2); const tr = mine.filter(m => m.kw.link); for (const m of tr) m.buff += 1; log(`敵モンスター全員に2ダメージ${tr.length ? `、電車${tr.length}両のATK+1` : ''}`, side); break; }
       case 'fire': for (const m of foes) damage(foe, m, 2); log(`敵モンスター全員に2ダメージ`, side); break;
       case 'water': for (const m of foes) { m.frozen = Math.max(m.frozen || 0, 1); m.sleep = true; } log(`敵モンスター${foes.length}体が凍った`, side); draw(side, 2); break;
@@ -303,6 +341,40 @@ async function play(side, card, target) {
   await wait(side === B.foe ? 650 : 200);
 }
 function blessN(m) { return { R: 3, SR: 4, UR: 6, SEC: 6 }[m.c.r] || 3; }
+// 進化：場のモンスターに重ねる（ダメージは回復、アイテムの強化はそのまま、すぐ攻撃できる）
+async function evolve(side, card, base, free) {
+  if (!free) side.mana -= evoCostOf(card.c, base.c, side);
+  side.hand = side.hand.filter(h => h !== card);
+  const i = side.field.indexOf(base); if (i < 0) return;
+  const extra = {}; for (const k of Object.keys(base.kw || {})) if (!traits(base.c)[k]) extra[k] = base.kw[k];
+  const itemHp = base.maxHp - power(base.c).hp;
+  card.buff += base.buff; card.items = base.items; card.maxHp += Math.max(0, itemHp); card.hp = card.maxHp;
+  card.kw = Object.assign({}, card.kw, extra); card.sleep = false; card.frozen = 0; card.iced = false;
+  side.field[i] = card;
+  A.tone(392, .1, 'triangle', .05); A.tone(523, .12, 'triangle', .05, 0, .08); A.tone(784, .2, 'triangle', .05, 0, .16);
+  log(`🌱「${base.c.nm}」が「${card.c.nm}」に進化した！`, side, 'play');
+  if (B.rec) B.rec.played[side === B.me ? 0 : 1].push(card.no);
+  render(); floatAt('u' + card.uid, '進化！', '#7be39a');
+  if (['SR', 'UR', 'SEC'].includes(card.c.r)) { A.chime(card.c.r); bigText(card.c.nm, EL_C[card.c.el]); }
+  emit({ k: 'evolve', id: 'u' + card.uid });
+  await onEnter(side, card);
+  render(); await wait(side === B.foe ? 650 : 250);
+}
+async function onEnter(side, card) {
+  const foe = other(side);
+    if (card.kw.spark) {
+    const foes = foe.field.filter(Boolean);
+    if (foes.length) { for (const m of foes) damage(foe, m, card.kw.spark); log(`🔥火の粉！ 敵モンスター全員に${card.kw.spark}ダメージ`, side); await wait(300); cleanup(); }
+  }
+  if (card.kw.banish) {
+    const t = best(foe.field.filter(Boolean), m => threat(foe, m));
+    if (t) { foe.field[foe.field.indexOf(t)] = null; floatAt('u' + card.uid, '神隠し', '#b08aff'); log(`🌀「${t.c.nm}」は異界へ連れていかれた…`, side); }
+  }
+  if (card.kw.starlight) { const tr = side.field.filter(m => m && m.kw.link); for (const m of tr) { m.hp += 2; m.maxHp += 2; } log(`🌌星明かり！ 電車${tr.length}両のHP+2`, side); }
+  if (card.kw.bless) {
+    heal(side, blessN(card), '✨祝福');
+  }
+}
 function resetCard(m) { const p = power(m.c); m.atk = p.atk; m.hp = p.hp; m.maxHp = p.hp; m.buff = 0; m.sleep = true; m.items = 0; m.kw = traits(m.c); m.frozen = 0; m.iced = false; }
 function best(arr, f) { let b = null, bv = -1e9; for (const x of arr) { const v = f(x); if (v > bv) { bv = v; b = x; } } return b; }
 async function attack(side, m, target) {
@@ -350,7 +422,7 @@ async function cpuTurn(me = B.foe, skill = FOES[B.lv].ai) {
     const mineN = me.field.filter(Boolean).length;
     const land = playable.find(c => c.c.type === 'F' && (!me.land || (me.land.c.el !== c.c.el && me.field.filter(m => m && m.c.el === c.c.el).length > me.field.filter(m => m && m.c.el === me.land.c.el).length)));
     const spells = playable.filter(c => c.c.type === 'S').map(c => ({ c, t: spellPlan(me, c) })).filter(x => x.t);
-    const mons = playable.filter(c => c.c.type === 'M').sort((a, b) => cost(b) - cost(a) || (power(b.c).atk + power(b.c).hp) - (power(a.c).atk + power(a.c).hp));
+    const mons = playable.filter(c => c.c.type === 'M' && cost(c) <= me.mana && me.field.some(f => !f)).sort((a, b) => cost(b) - cost(a) || (power(b.c).atk + power(b.c).hp) - (power(a.c).atk + power(a.c).hp));
     // ちからを使い切れる組み合わせを少し考える：高いのを出すと何も出せないなら、安いのを2体
     let mon = mons[0] || null;
     if (mon && mons.length >= 2 && me.field.filter(f => !f).length >= 2) {
@@ -358,12 +430,14 @@ async function cpuTurn(me = B.foe, skill = FOES[B.lv].ai) {
       if (rest === 0 && two && cost(two) < cost(mon) && rnd() < .5) mon = two;
     }
     const items = playable.filter(c => c.c.type === 'I' && mineN > 0);
+    const evos = playable.filter(c => c.c.type === 'M' && evoTargets(me, c).length).sort((a, b) => cost(b) - cost(a));
     let choice = null, target = null;
     if (land) choice = land;
+    else if (evos.length && !sloppy()) { choice = evos[0]; target = best(evoTargets(me, choice), m => m.maxHp - m.hp + m.items * 3); }
     else if (spells.length) { choice = spells[0].c; target = spells[0].t === true ? null : spells[0].t; }
     else if (mon) choice = mon;
     else if (items.length) { choice = items[0]; target = itemTarget(me, choice); }
-    if (choice && sloppy() && mon && choice !== mon) { choice = mon; target = null; }
+    if (choice && sloppy() && mon && choice !== mon && !evos.includes(choice)) { choice = mon; target = null; }
     if (!choice) break;
     await play(me, choice, target === 'none' ? null : target);
   }
@@ -396,6 +470,9 @@ function spellPlan(side, card) {
   const foe = other(side), foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
   const top = best(foes, m => threat(foe, m));
   if (card.c.no === 89) return top && threat(foe, top) >= 12 ? top : null;
+  if (card.c.no === 164) return mine.length >= 2 ? true : null;
+  if (card.c.no === 165) { const t = best(foes, m => threat(foe, m) + (evoOf(m.c) ? 6 : 0)); return t && (evoOf(t.c) || threat(foe, t) >= 12) ? t : null; }
+  if (card.c.no === 166) { const t = best(mine, m => side.deck.some(x => evoOf(x.c) === m.no) ? 10 + cost(m) : -1); return t && side.deck.some(x => evoOf(x.c) === t.no) ? t : (mine.length ? best(mine, m => threat(side, m)) : null); }
   if (card.c.no === 96) { const hurt = mine.filter(m => m.maxHp - m.hp >= 3); return hurt.length || side.lp <= side.maxLp - 8 || side.hand.length <= 1 ? true : null; }
   if (card.c.no === 103) { const kills = foes.filter(m => hpOf(foe, m) <= 2).length; return kills >= 1 || foes.length >= 2 || mine.filter(m => m.kw.link).length >= 2 ? true : null; }
   switch (card.c.el) {
@@ -410,6 +487,7 @@ function spellPlan(side, card) {
 }
 function itemTarget(side, card) {
   const mine = side.field.filter(Boolean), it = itemOf(card.c);
+  if (card.c.no === 157) { const t = mine.find(m => side.deck.some(x => evoOf(x.c) === m.no)); if (t) return t; }
   if (it.kw === 'haste') return best(mine, m => (m.sleep ? 10 : 0) + atkOf(side, m)) || null;
   if (it.kw === 'guard') return best(mine, m => hpOf(side, m) + (m.kw.guard ? -10 : 0)) || null;
   return best(mine, m => atkOf(side, m) + hpOf(side, m) + (m.sleep ? 0 : 2) + (m.c.el === card.c.el ? 3 : 0)) || null;
@@ -568,6 +646,14 @@ function css() {
 .foe small { color: var(--muted); font-size: .72rem; }
 .foe .rw { grid-row: span 2; font-family: var(--num); font-size: 1.2rem; color: var(--gold); }
 .btSheet .box.dkBox { width: min(100%, 980px); align-content: start; }
+.dkTabs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 8px 0 2px; }
+.dkTabs .lb { font-size: .75rem; color: var(--muted); margin-right: 2px; }
+.dkTabs button { display: flex; align-items: baseline; gap: 5px; padding: 5px 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.04); font: inherit; font-size: .8rem; color: inherit; cursor: pointer; }
+.dkTabs button small { font-size: .68rem; color: var(--muted); font-family: var(--num); }
+.dkTabs button.on { background: rgba(255,210,90,.18); border-color: var(--gold); font-weight: 700; }
+#btDeckPick { justify-content: center; }
+.dkTabs button.warn { border-color: #ff6a7a; background: rgba(255,80,110,.2); }
+.dkTabs input { font: inherit; font-size: .85rem; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--gold); background: rgba(0,0,0,.3); color: inherit; width: 11em; }
 .dkHead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
 .dkList { display: flex; flex-wrap: wrap; gap: 5px; }
 .dkList button { display: flex; align-items: center; gap: 5px; padding: 4px 9px 4px 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); font: inherit; font-size: .76rem; color: inherit; cursor: pointer; }
@@ -662,6 +748,7 @@ function shell() {
       <div class="onStatus" id="onStatus">友達と同じページを開いて遊ぶ。勝つとコイン+${ONLINE_REWARD}（1日${ONLINE_DAILY}回まで）</div>
       <button class="ghost" id="onCancel" hidden>やめる</button>
     </div>
+    <div class="dkTabs" id="btDeckPick"></div>
     <div class="btRow"><button class="ghost" id="btDeck">デッキを見る・組む</button><button class="ghost" id="btHow">遊び方</button><button class="ghost" id="btClose">もどる</button></div>
   </div>`;
   document.body.appendChild(menu);
@@ -672,6 +759,7 @@ function shell() {
       <h2>デッキ <span id="dkCount" style="font-family:var(--num);font-weight:400"></span></h2>
       <div class="btRow"><button class="bigbtn" id="dkAuto">おまかせで組む</button><button class="ghost" id="dkClear">全部はずす</button><button class="ghost" id="dkDone">決定</button></div>
     </div>
+    <div class="dkTabs" id="dkTabs"></div>
     <p id="dkNote"></p>
     <div class="dkList" id="dkList"></div>
     <details class="dkFilter" id="dkFilter">
@@ -701,6 +789,7 @@ function shell() {
   how.innerHTML = `<div class="box"><h2>遊び方</h2>
     <p>・毎ターン<b>ちから</b>（青い玉）が1つずつ増える（最大8）。カードの左上の数字がちから。後攻は最初のターンだけちから+1<br>
     ・<b>モンスター</b>は場に3体まで。出したターンは休み<br>
+    ・🌱<b>進化</b>：進化カードは、場の進化前のモンスターに重ねて出せる（ちからは差の分だけ・最低1）。HPが全回復して、すぐ攻撃できる<br>
     ・自分のモンスターをタップ→相手のモンスターか相手の顔をタップで攻撃。モンスター同士はお互いにダメージ<br>
     ・<b>属性の相性</b>：炎→森→雷→水→炎、光⇔闇。有利なら1.5倍<br>
     ・<b>R以上のモンスターは能力</b>を持つ：⚡速攻（すぐ攻撃できる）／🛡守り（いる間、相手は守りしか攻撃できない）／♻再生（ターンのはじめに全回復）／🩸吸血（与えたダメージの半分ライフ回復）／🔥火の粉（出たとき敵全員に1ダメージ）／✨祝福（出たときライフ回復）<br>
@@ -747,13 +836,29 @@ function shell() {
   $('btHow').onclick = () => { $('btHowSheet').hidden = false; };
   $('howOk').onclick = () => { $('btHowSheet').hidden = true; };
   $('btDeck').onclick = openDeck;
-  $('dkAuto').onclick = () => { A.S.deck = autoDeck(); A.save(); renderDeck(); };
-  $('dkClear').onclick = () => { A.S.deck = []; A.S.deckEmpty = true; A.save(); renderDeck(); };
-  $('dkDone').onclick = () => { $('btDeckSheet').hidden = true; renderMenu(); };
+  $('dkAuto').onclick = () => { A.S.deck = autoDeck(); A.S.deckEmpty = false; keepDeck(); renderDeck(); };
+  $('dkClear').onclick = () => { A.S.deck = []; A.S.deckEmpty = true; keepDeck(); renderDeck(); };
+  $('dkTabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const ds = deckSlots();
+    if (b.dataset.slot != null) useDeck(+b.dataset.slot);
+    else if (b.dataset.act === 'add') { keepDeck(); let k = ds.length + 1; while (ds.some(d => d.nm === 'デッキ' + k)) k++; ds.push({ nm: 'デッキ' + k, cards: [] }); useDeck(ds.length - 1); }
+    else if (b.dataset.act === 'ren') {
+      const t = $('dkTabs'); t.innerHTML = `<input id="dkName" maxlength="12" value="${A.esc(ds[A.S.deckSel].nm)}"><button data-act="ok">OK</button>`;
+      const inp = $('dkName'); inp.focus(); inp.select();
+      inp.onkeydown = ev => { if (ev.key === 'Enter') $('dkTabs').querySelector('[data-act=ok]').click(); if (ev.key === 'Escape') renderDeck(); };
+      return;
+    }
+    else if (b.dataset.act === 'ok') { const v = ($('dkName').value || '').trim(); if (v) { ds[A.S.deckSel].nm = v.slice(0, 12); keepDeck(); } }
+    else if (b.dataset.act === 'del') { b.dataset.act = 'del2'; b.textContent = `「${ds[A.S.deckSel].nm}」を消す？ もう一度タップ`; b.classList.add('warn'); return; }
+    else if (b.dataset.act === 'del2') { if (ds.length > 1) { ds.splice(A.S.deckSel, 1); A.S.deckSel = Math.min(A.S.deckSel, ds.length - 1); A.S.deck = ds[A.S.deckSel].cards.slice(); A.S.deckEmpty = !A.S.deck.length; A.save(); } }
+    renderDeck();
+  });
+  $('dkDone').onclick = () => { keepDeck(); $('btDeckSheet').hidden = true; renderMenu(); };
   $('dkList').addEventListener('click', e => {
     const b = e.target.closest('button[data-no]'); if (!b) return;
     const d = A.S.deck || [], i = d.lastIndexOf(+b.dataset.no); if (i >= 0) d.splice(i, 1);
-    A.save(); renderDeck();
+    keepDeck(); renderDeck();
   });
   $('dkFilter').addEventListener('click', e => {
     const b = e.target.closest('.chips button'); if (!b) return;
@@ -771,7 +876,7 @@ function shell() {
     const n = d.filter(x => x === no).length, max = Math.min(COPIES, ownedCount(no));
     if (n < max && d.length < DECK) d.push(no);
     else { let k = d.length; while (k--) if (d[k] === no) { d.splice(k, 1); break; } if (n >= max) while (d.includes(no)) d.splice(d.indexOf(no), 1); }
-    A.save(); renderDeck();
+    A.S.deckEmpty = !d.length; keepDeck(); renderDeck();
   });
   // 盤面のタップ
   $('bt').addEventListener('click', onTap);
@@ -850,6 +955,7 @@ function render() {
       let cls = '';
       if (isMe && myTurn && !m.sleep) cls = sel === m ? 'sel' : 'ready';
       if (isMe && targeting && targeting.type === 'item') cls = 'tgt';
+      if (isMe && targeting && targeting.type === 'evo' && evoTargets(me, targeting.card).includes(m)) cls = 'tgt';
       if (!isMe && sel && canHit(me, m)) cls = 'tgt';
       if (!isMe && targeting && targeting.type === 'spell') cls = 'tgt';
       h += `<div class="bslot">${cardEl(side, m, { id: 'u' + m.uid, cls, zz: m.sleep && isMe })}</div>`;
@@ -872,13 +978,33 @@ async function onTap(e) {
     const card = me.hand.find(h => h.uid === +bc.dataset.uid);
     sel = null;
     if (!card || !canPlay(me, card)) { A.tone(200, .08, 'square', .03); logRaw(card ? (cost(card) > me.mana ? 'ちからが足りない' : card.c.type === 'M' ? '場がいっぱい' : card.c.type === 'I' ? '持たせるモンスターがいない' : '今は使えない') : ''); render(); return; }
-    if (targeting && targeting.card === card) { targeting = null; logRaw('やめた'); render(); return; }
+    if (targeting && targeting.card === card) {
+      // 進化先を選んでいる途中でもう一度タップ：空きがあれば普通に出す
+      if (targeting.type === 'evo' && cost(card) <= me.mana && me.field.some(f => !f)) { targeting = null; if (B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid }); return; } busy = true; await play(me, card); busy = false; render(); sync(); if (over()) finish(); return; }
+      targeting = null; logRaw('やめた'); render(); return;
+    }
+    if (card.c.type === 'M' && evoTargets(me, card).length) {
+      const bases = evoTargets(me, card), canNormal = cost(card) <= me.mana && me.field.some(f => !f);
+      targeting = { type: 'evo', card };
+      logRaw(`🌱「${A.CARDS[evoOf(card.c) - 1].nm}」をタップして進化（ちから${evoCostOf(card.c, bases[0].c, me)}）${canNormal ? `。進化させずに出すなら、もう一度カードをタップ（ちから${cost(card)}）` : ''}`);
+      render(); return;
+    }
     const need = needsTarget(card);
     if (need === 'mine') { targeting = { type: 'item', card }; logRaw(`「${card.c.nm}」を持たせるモンスターをタップ（${itemOf(card.c).txt}）`); render(); return; }
     if (need) { targeting = { type: 'spell', card, any: need === 'any' }; logRaw(need === 'any' ? `「${card.c.nm}」：当てる相手のモンスターか、相手の顔をタップ` : `「${card.c.nm}」：相手のモンスターをタップ`); render(); return; }
     targeting = null;
     if (B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid }); return; }
     busy = true; await play(me, card); busy = false; render(); sync(); if (over()) finish(); return;
+  }
+  // 進化させる先
+  if (targeting && targeting.type === 'evo') {
+    const base = bc && bc.closest('#meField') ? me.field.find(m => m && m.uid === +bc.dataset.uid) : null;
+    const card = targeting.card; targeting = null;
+    if (base && evoTargets(me, card).includes(base)) {
+      if (B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid, target: base.uid }); return; }
+      busy = true; await play(me, card, base); busy = false; render(); sync(); if (over()) finish(); return;
+    }
+    logRaw('やめた'); render(); return;
   }
   // アイテムを持たせる先
   if (targeting && targeting.type === 'item') {
@@ -1249,6 +1375,7 @@ function guestFx(f) {
   else if (f.k === 'big') bannerRaw(f.text, f.col);
   else if (f.k === 'log') addLog(f.text, f.who === 'me' ? 'foe' : f.who === 'foe' ? 'me' : '', f.kind);
   else if (f.k === 'logreset') clearLog();
+  else if (f.k === 'evolve') { A.tone(392, .1, 'triangle', .05); A.tone(523, .12, 'triangle', .05, 0, .08); A.tone(784, .2, 'triangle', .05, 0, .16); }
   else if (f.k === 'kill') { const el = $(f.id); if (el) el.classList.add('dying'); A.tone(180, .2, 'sawtooth', .04, -80); }
 }
 // ---- ホスト：ゲストの行動を実行 ----
@@ -1263,6 +1390,7 @@ async function hostAct(d) {
       const need = card && needsTarget(card);
       let target = null;
       if (need === 'mine') target = me.field.find(m => m && m.uid === d.target) || null;
+      else if (card && card.c.type === 'M' && d.target) target = me.field.find(m => m && m.uid === d.target) || null;
       else if (need) target = d.target === -1 ? (need === 'any' ? 'face' : null) : (them.field.find(m => m && m.uid === d.target) || null);
       if (card && canPlay(me, card) && (!need || target)) await play(me, card, target);
     } else if (d.a === 'attack') {
@@ -1337,6 +1465,9 @@ function showResult(title, col, html, online) {
 
 // ---------------- 開く・閉じる ----------------
 function renderMenu() {
+  deckSlots();
+  const pk = $('btDeckPick'); pk.innerHTML = deckSlots().length > 1 ? '<span class="lb">使うデッキ</span>' + deckTabsHTML(true) : '';
+  pk.onclick = e => { const b = e.target.closest('button[data-slot]'); if (b) { useDeck(+b.dataset.slot); renderMenu(); } };
   const bt = A.S.battle || { cleared: 0, wins: 0, losses: 0 };
   $('btFoes').innerHTML = FOES.map((f, i) => `<button class="foe" data-lv="${i}" ${i > bt.cleared ? 'disabled' : ''}>
     <span class="ic">${i > bt.cleared ? '🔒' : f.icon}</span><b>${i + 1}. ${f.nm}</b><span class="rw">+${f.reward}</span>
@@ -1344,8 +1475,24 @@ function renderMenu() {
   $('btFoes').onclick = e => { const b = e.target.closest('.foe'); if (!b || b.disabled) return; $('btMenu').hidden = true; startBattle(+b.dataset.lv); };
 }
 function openMenu() { css(); shell(); renderMenu(); $('btMenu').hidden = false; }
+// ---- デッキは何個でも（DECK_SLOTS まで）。A.S.deck はいま使っているデッキの中身 ----
+const DECK_SLOTS = 6;
+function deckSlots() {
+  const S = A.S;
+  if (!Array.isArray(S.decks) || !S.decks.length) { S.decks = [{ nm: 'デッキ1', cards: (S.deck || []).slice() }]; S.deckSel = 0; }
+  if (!(S.deckSel >= 0 && S.deckSel < S.decks.length)) S.deckSel = 0;
+  return S.decks;
+}
+function keepDeck() { const ds = deckSlots(); ds[A.S.deckSel].cards = (A.S.deck || []).slice(); A.save(); }
+function useDeck(i) { const ds = deckSlots(); keepDeck(); A.S.deckSel = i; A.S.deck = ds[i].cards.slice(); A.S.deckEmpty = !A.S.deck.length; A.save(); }
+function deckTabsHTML(menu) {
+  const ds = deckSlots();
+  return ds.map((d, i) => `<button data-slot="${i}" class="${i === A.S.deckSel ? 'on' : ''}">${A.esc(d.nm)}<small>${d.cards.length}枚</small></button>`).join('')
+    + (menu ? '' : (ds.length < DECK_SLOTS ? '<button data-act="add" title="新しいデッキ">＋</button>' : '') + '<button data-act="ren" title="名前を変える">✎</button>' + (ds.length > 1 ? '<button data-act="del" title="このデッキを消す">🗑</button>' : ''));
+}
 function openDeck() {
-  if (!A.S.deck && !A.S.deckEmpty) A.S.deck = autoDeck();
+  deckSlots();
+  if (!A.S.deck && !A.S.deckEmpty) { A.S.deck = autoDeck(); keepDeck(); }
   $('dkFilter').open = innerWidth >= 760;
   renderDeck(); $('btDeckSheet').hidden = false;
 }
@@ -1357,7 +1504,7 @@ function chipsHTML() {
   const one = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k] === v ? 'on' : ''}">${nm}</button>`).join('');
   const many = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k].includes(v) ? 'on' : ''}">${nm}</button>`).join('');
   return {
-    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾']]),
+    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾']]),
     el: '<span class="lb">属性</span>' + one('el', [['all', 'すべて'], ...Object.keys(EL_NM).map(e => [e, EL_NM[e]])]),
     type: '<span class="lb">種類</span>' + one('type', [['all', 'すべて'], ['M', 'モンスター'], ['S', '魔法'], ['F', 'フィールド'], ['I', 'アイテム']]),
     r: '<span class="lb">レア</span>' + many('r', R_ORDER.map(r => [r, r])),
@@ -1375,6 +1522,7 @@ function deckFiltered(have, d) {
 }
 function renderDeck() {
   const d = A.S.deck || [];
+  $('dkTabs').innerHTML = deckTabsHTML(false);
   const have = A.CARDS.filter(c => ownedCount(c.no) > 0);
   $('dkCount').textContent = `${d.length}/${DECK}`;
   const cs = d.map(no => A.CARDS[no - 1]), n = t => cs.filter(c => c.type === t).length;

@@ -1,5 +1,5 @@
 // =============================================================
-//  カードの一覧（第一弾74種＋第二弾46種・すべてオリジナル）
+//  カードの一覧（第一弾74種＋第二弾46種＋第三弾46種・すべてオリジナル）
 //  [属性, レア, 種類, 名前, 画風, 背景, 題材, 説明]
 //  種類: M=モンスター S=魔法 F=フィールド I=アイテム
 // =============================================================
@@ -137,8 +137,57 @@ const D = [
   ["light", "R", "F", "月の宮駅", 'photo', "eerie", { k: 'train' }, "満月の夜にだけ行ける、銀色の駅。"],
   ["light", "SR", "M", "光の観光列車", 'photo', "rail", { k: 'train' }, "何千もの明かりをまとって、雪の夜を走る。"],
   ["light", "SEC", "M", "星空を走る列車", 'photo', "rail", { k: 'train' }, "天の川の下を、どこまでも。"],
+  // =========================================================
+  //  第三弾「成長と進化」（No.121〜）絵は images/121.jpg〜。題材の evo＝進化前のカード番号
+  // =========================================================
+  ["fire", "U", "M", "カエンギツネ", 'pixel', 'night', { k: 'pending', evo: 1 }, "尻尾が三本に増えた。焚き火なら一瞬でつく。"],
+  ["fire", "SR", "M", "炎天の大狐", 'real', 'night', { k: 'pending', evo: 121 }, "九つの炎の尾で、夜空を真昼に変える。"],
+  ["fire", "U", "M", "ほのおスライム", 'paper', 'night', { k: 'pending', evo: 4 }, "頭の火が王冠みたいに大きくなった。"],
+  ["fire", "SR", "M", "マグマの大王", 'real', 'night', { k: 'pending', evo: 123 }, "火山の中で育った、どろどろの王さま。"],
+  ["water", "U", "M", "なみスライム", 'pixel', 'night', { k: 'pending', evo: 13 }, "小さな波に乗れるようになった。"],
+  ["water", "SR", "M", "大海の主", 'real', 'night', { k: 'pending', evo: 125 }, "海そのものが、ひとつの体になった。"],
+  ["water", "R", "M", "氷河ペンギン", 'paper', 'night', { k: 'pending', evo: 16 }, "翼に霜がおりても、へっちゃら。"],
+  ["water", "UR", "M", "南極の皇帝", 'real', 'night', { k: 'pending', evo: 127 }, "オーロラの下で、氷の冠をかぶる。"],
+  ["leaf", "U", "M", "若葉の野ウサギ", 'water', 'night', { k: 'pending', evo: 26 }, "耳の葉っぱが枝になった。足も速くなった。"],
+  ["leaf", "SR", "M", "森の月うさぎ", 'real', 'night', { k: 'pending', evo: 129 }, "満月の夜、森じゅうの花がこのうさぎに咲く。"],
+  ["leaf", "R", "M", "花のアゲハ", 'paper', 'night', { k: 'pending', evo: 28 }, "羽の模様が、そのまま花びらになった。"],
+  ["leaf", "SR", "M", "大樹の蝶王", 'real', 'night', { k: 'pending', evo: 131 }, "ひと羽ばたきで、森に春がくる。"],
+  ["bolt", "U", "M", "雷鳴リス", 'pixel', 'night', { k: 'pending', evo: 37 }, "しっぽが稲妻の形になってしまった。"],
+  ["bolt", "SR", "M", "稲妻の大リス", 'real', 'night', { k: 'pending', evo: 133 }, "雲から雲へ、雷といっしょに跳ぶ。"],
+  ["bolt", "R", "M", "雷光ホタル", 'paper', 'night', { k: 'pending', evo: 40 }, "一匹で、池ぜんぶを照らせる。"],
+  ["bolt", "SR", "M", "夜空の雷蛍", 'real', 'night', { k: 'pending', evo: 135 }, "この蛍が光ると、夜空に雷が走る。"],
+  ["dark", "R", "M", "夜のヤマネコ", 'sumi', 'night', { k: 'pending', evo: 50 }, "影の毛皮は、月明かりも吸いこむ。"],
+  ["dark", "SEC", "M", "影の王ネコ", 'real', 'night', { k: 'pending', evo: 137 }, "すべての影は、この王の領土。"],
+  ["dark", "U", "M", "ゆうれい", 'pixel', 'night', { k: 'pending', evo: 49 }, "もう、自分で自分におどろかない。"],
+  ["dark", "SR", "M", "大怨霊", 'real', 'night', { k: 'pending', evo: 139 }, "百年分のうらみが、青い炎になった。"],
+  ["light", "U", "M", "天馬うさぎ", 'water', 'night', { k: 'pending', evo: 62 }, "小さかった羽が、空を運ぶ翼になった。"],
+  ["light", "SR", "M", "天空の聖兎", 'real', 'night', { k: 'pending', evo: 141 }, "六枚の翼で、雲の上の国を守る。"],
+  ["light", "R", "M", "光の精", 'pixel', 'night', { k: 'pending', evo: 61 }, "光の玉に、小さな羽と手足が生えた。"],
+  ["light", "UR", "M", "夜明けの守護者", 'real', 'night', { k: 'pending', evo: 143 }, "毎朝、この光から一日がはじまる。"],
+  ["leaf", "C", "M", "小さな種", 'water', 'night', { k: 'pending' }, "千年先の森が、この中に入っている。"],
+  ["leaf", "R", "M", "若木の精", 'water', 'night', { k: 'pending', evo: 145 }, "頭の若木が、毎日少しずつのびる。"],
+  ["leaf", "UR", "M", "千年の大樹", 'real', 'night', { k: 'pending', evo: 146 }, "森の歴史を、すべて覚えている。"],
+  ["water", "C", "M", "海亀のたまご", 'ukiyo', 'night', { k: 'pending' }, "月の夜に、そっと海の音を聞いている。"],
+  ["water", "R", "M", "子ガメ", 'ukiyo', 'night', { k: 'pending', evo: 148 }, "波の向こうに、まだ見ぬ島がある。"],
+  ["water", "UR", "M", "島をせおう大亀", 'real', 'night', { k: 'pending', evo: 149 }, "背中の島には、小さな神社まである。"],
+  ["bolt", "C", "M", "雷のたまご", 'comic', 'night', { k: 'pending' }, "さわるとビリッ。中で何かが動いている。"],
+  ["bolt", "R", "M", "雷のひな竜", 'comic', 'night', { k: 'pending', evo: 151 }, "生まれてすぐ、くしゃみで雷を出した。"],
+  ["bolt", "UR", "M", "雷雲の竜王", 'real', 'night', { k: 'pending', evo: 152 }, "雷雲そのものを、翼にまとう。"],
+  ["light", "C", "M", "光る卵", 'star', 'night', { k: 'pending' }, "夜空から落ちてきた、星のかけら。"],
+  ["light", "SR", "M", "星のひな", 'star', 'night', { k: 'pending', evo: 154 }, "鳴き声が、流れ星の音に似ている。"],
+  ["light", "SEC", "M", "星を生む鳥", 'star', 'night', { k: 'pending', evo: 155 }, "この鳥が羽ばたくたび、夜空に星がひとつ増える。"],
+  ["leaf", "U", "I", "成長のしずく", 'water', 'night', { k: 'pending' }, "一滴で、つぼみが花になる。"],
+  ["fire", "U", "I", "骨つき肉", 'comic', 'night', { k: 'pending' }, "たくさん食べて、大きくなあれ。"],
+  ["water", "U", "I", "海のミルク", 'lowpoly', 'night', { k: 'pending' }, "海の底でしか作れない、ひみつの栄養。"],
+  ["light", "U", "I", "進化のお守り", 'gold', 'night', { k: 'pending' }, "持っていると、少しだけ未来の自分に近づける。"],
+  ["leaf", "R", "F", "ゆりかごの森", 'oil', 'night', { k: 'pending' }, "小さな命が、ここで大きくなる。"],
+  ["fire", "R", "F", "孵化の火山", 'oil', 'night', { k: 'pending' }, "火山のぬくもりで、卵がかえる。"],
+  ["bolt", "R", "F", "雷の巣", 'oil', 'night', { k: 'pending' }, "雷が落ちるたび、ひなが元気になる。"],
+  ["light", "SR", "S", "急成長", 'glass', 'night', { k: 'pending' }, "一晩で、子どもが大人になる魔法。"],
+  ["dark", "SR", "S", "先祖返り", 'neon', 'night', { k: 'pending' }, "時を巻きもどして、昔の姿にもどす。"],
+  ["leaf", "SR", "S", "突然変異", 'glass', 'night', { k: 'pending' }, "何に変わるかは、だれにもわからない。"],
 ];
 const TYPE_NM = { M: 'モンスター', S: '魔法', F: 'フィールド', I: 'アイテム' };
 const seedOf = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
-global.CARD_DEFS = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : 2, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
+global.CARD_DEFS = D.map((d, i) => ({ no: i + 1, set: i < 74 ? 1 : i < 120 ? 2 : 3, evo: (d[6] && d[6].evo) || null, el: d[0], r: d[1], type: d[2], typeNm: TYPE_NM[d[2]], nm: d[3], style: d[4], scene: d[5], sub: d[6], txt: d[7], sfx: d[4] === 'comic' ? d[8] : undefined, stamp: d[4] !== 'comic' ? d[8] : undefined, gold: d[9], seed: seedOf(d[3]) % 100000 }));
 })(window);
