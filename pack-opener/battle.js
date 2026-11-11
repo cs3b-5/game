@@ -2,9 +2,10 @@
 //  開封の儀：カードバトル
 //  集めたカードで20枚のデッキを作って、夜祭りの相手と戦う。
 //  ・ライフ30。毎ターン「ちから」が1ずつ増える（最大8）
-//  ・モンスターは場に3体まで。出したターンは休み（UR・SECはすぐ攻撃できる）
+//  ・モンスターは場に3体まで。出したターンは休み
 //  ・攻撃するとお互いにダメージ（相手が反撃）。属性の相性で1.5倍
-//  ・魔法：その場で効果。フィールド：同じ属性のモンスターが強くなる。アイテム：モンスターに持たせて強化
+//  ・R以上のモンスターは属性ごとの能力を持つ（速攻・守り・再生・吸血・火の粉・祝福）
+//  ・魔法：その場で効果（相手を選べるものもある）。フィールド：味方を強化。アイテム：モンスターに持たせて強化＋能力
 // =============================================================
 (function () {
 'use strict';
@@ -20,33 +21,66 @@ const COST = { C: 1, U: 2, R: 3, SR: 4, UR: 6, SEC: 7 };
 const BEATS = { fire: 'leaf', leaf: 'bolt', bolt: 'water', water: 'fire', light: 'dark', dark: 'light' };
 const EL_NM = { fire: '炎', water: '水', leaf: '森', bolt: '雷', dark: '闇', light: '光' };
 const EL_C = { fire: '#ff5a2a', water: '#2a8cff', leaf: '#2fb35a', bolt: '#f2b800', dark: '#7a4aff', light: '#ff9ad0' };
-const BASE = { C: 600, U: 1000, R: 1500, SR: 2100, UR: 2800, SEC: 3500 };
+// モンスターのATK+HPの合計（レア度が高いほど大きいが、ちから1あたりでは安いカードの方が得）
+const TOTAL = { C: 5, U: 7, R: 8, SR: 10, UR: 12, SEC: 13 };
 function power(c) {
-  // 図鑑のATK/DEFをバトル用の数字にする
-  const atk = BASE[c.r] + (c.seed % 9) * 50, def = BASE[c.r] - 200 + (Math.floor(c.seed / 9) % 9) * 50;
-  return { atk: Math.max(1, Math.round(atk / 250)), hp: Math.max(1, Math.round(def / 250)) };
+  const t = TOTAL[c.r] + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0);   // カードによって少しちがう（森の大物は少しタフ）
+  const share = .38 + ((Math.floor(c.seed / 7) % 7) / 6) * .26;  // ATK寄りか、HP寄りか
+  const atk = Math.max(1, Math.round(t * share));
+  return { atk, hp: Math.max(1, t - atk) };
 }
+// ---------------- 能力 ----------------
+const KW = {
+  haste: { ic: '⚡', nm: '速攻', txt: '出したターンに攻撃できる' },
+  guard: { ic: '🛡', nm: '守り', txt: 'これがいる間、相手は守りのモンスターしか攻撃できない' },
+  regen: { ic: '♻', nm: '再生', txt: '自分のターンのはじめにHPが全回復' },
+  drain: { ic: '🩸', nm: '吸血', txt: '与えたダメージの半分、ライフが回復' },
+  spark: { ic: '🔥', nm: '火の粉', txt: '出たとき、敵モンスター全員に1ダメージ' },
+  bless: { ic: '✨', nm: '祝福', txt: '出たとき、ライフ回復' },
+};
+const EL_KW = { bolt: 'haste', water: 'guard', leaf: 'regen', dark: 'drain', fire: 'spark', light: 'bless' };
+function traits(c) {
+  const k = {};
+  if (c.type !== 'M' || c.r === 'C' || c.r === 'U') return k;
+  k[EL_KW[c.el]] = 1;
+  if (c.no === 73) k.guard = 1;                                // 始祖ネコ：祝福＋守り
+  if (c.no === 74) k.haste = 1;                                // 九尾：吸血＋速攻
+  return k;
+}
+function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).join(' '); }
+// アイテム：持たせると強くなって、属性の能力がつく
+const ITEM = {
+  fire: { atk: 3, hp: 1, kw: null, txt: 'ATK+3・HP+1。持たせたとき敵モンスター全員に1ダメージ' },
+  water: { atk: 0, hp: 4, kw: 'guard', txt: 'HP+4・守りがつく' },
+  leaf: { atk: 0, hp: 2, kw: 'regen', txt: 'HP+2・再生がつく' },
+  bolt: { atk: 3, hp: 1, kw: 'haste', txt: 'ATK+3・HP+1。すぐに攻撃できる' },
+  dark: { atk: 2, hp: 2, kw: 'drain', txt: 'ATK+2・HP+2・吸血がつく' },
+  light: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2。ライフ+4' },
+  light2: { atk: 1, hp: 1, kw: null, txt: 'ATK+1・HP+1。カードを1枚引く' },
+};
+const itemOf = c => ITEM[c.no === 67 ? 'light2' : c.el];
+// tgt: 相手を選ぶ魔法（'mon' モンスター、'any' モンスターか相手の顔）
 const SPELL = {
-  fire:  { txt: '敵のモンスター全員に3ダメージ' },
-  water: { txt: '敵のいちばん強いモンスターを手札にもどす' },
-  leaf:  { txt: 'ライフを8回復。味方のモンスター全員のHP+2' },
-  bolt:  { txt: '敵のいちばん強いモンスターに8ダメージ（いなければライフに5）' },
-  dark:  { txt: '敵のいちばんATKが高いモンスターを倒す' },
-  light: { txt: '味方のモンスター全員のATK+2。カードを1枚引く' },
+  fire:  { txt: '敵モンスター全員に2ダメージ' },
+  water: { txt: '敵モンスター全員を凍らせる（次のターン攻撃できない）。カードを2枚引く' },
+  leaf:  { txt: 'ライフ+8。味方モンスター全員のATK+1・HP+2' },
+  bolt:  { txt: '敵モンスター1体に7ダメージ、または相手のライフに4ダメージ', tgt: 'any' },
+  dark:  { txt: '敵モンスター1体を倒す', tgt: 'mon' },
+  light: { txt: '味方モンスター全員のATK+2・HP+1。カードを1枚引く' },
 };
 function rulesText(c) {
-  if (c.type === 'M') { const p = power(c); return `ATK ${p.atk} / HP ${p.hp}${c.r === 'UR' || c.r === 'SEC' ? '・速攻（出したターンに攻撃できる）' : ''}`; }
+  if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : KW[x].txt}`).join(''); }
   if (c.type === 'S') return SPELL[c.el].txt;
-  if (c.type === 'F') return `${EL_NM[c.el]}のモンスターのATK+2・HP+1（場に1枚）`;
-  return `味方のモンスター1体にATK+3・HP+2（${EL_NM[c.el]}のモンスターならさらに+1/+1）`;
+  if (c.type === 'F') return `味方モンスター全員のATK+1。${EL_NM[c.el]}のモンスターはさらにATK+1・HP+2。出たときカードを1枚引く（場に1枚）`;
+  return `味方モンスター1体に：${itemOf(c).txt}（${EL_NM[c.el]}のモンスターならさらに+1/+1）`;
 }
 
 // ---------------- 相手 ----------------
 // mix: デッキに入れるレア度ごとの枚数（安いカードも入れて、序盤から動けるように）
 const FOES = [
-  { nm: '金魚すくいの子', icon: '🐟', mix: { C: 14, U: 6 }, lp: 26, reward: 150, ai: .55 },
-  { nm: '射的屋のおやじ', icon: '🎯', mix: { C: 8, U: 8, R: 4 }, lp: 30, reward: 300, ai: .75 },
-  { nm: '夜店の番長', icon: '🏮', mix: { C: 4, U: 8, R: 6, SR: 2 }, lp: 30, reward: 500, ai: .9 },
+  { nm: '金魚すくいの子', icon: '🐟', mix: { C: 17, U: 3 }, lp: 22, reward: 150, ai: .5 },
+  { nm: '射的屋のおやじ', icon: '🎯', mix: { C: 11, U: 7, R: 2 }, lp: 25, reward: 300, ai: .7 },
+  { nm: '夜店の番長', icon: '🏮', mix: { C: 5, U: 8, R: 5, SR: 2 }, lp: 28, reward: 500, ai: .85 },
   { nm: '花火師のおばば', icon: '🎆', mix: { C: 2, U: 7, R: 6, SR: 3, UR: 2 }, lp: 32, reward: 800, ai: 1 },
   { nm: '祭りの主', icon: '👹', mix: { C: 2, U: 6, R: 5, SR: 4, UR: 2, SEC: 1 }, lp: 36, reward: 1500, ai: 1 },
 ];
@@ -66,21 +100,28 @@ function foeDeck(f) {
 
 // ---------------- デッキ ----------------
 function ownedCount(no) { return A.S.owned[no] || 0; }
-function cardValue(c) { const p = c.type === 'M' ? power(c) : { atk: 4, hp: 3 }; return (p.atk + p.hp) / Math.max(1, COST[c.r]) + COST[c.r] * .6 + (c.type === 'M' ? 1 : 0); }
+function cardValue(c) { const p = c.type === 'M' ? power(c) : { atk: 4, hp: 3 }; return (p.atk + p.hp) / Math.max(1, COST[c.r]) + COST[c.r] * .6 + (c.type === 'M' ? 1 : 0) + Object.keys(traits(c)).length * 1.2; }
 function autoDeck() {
-  // 持っているカードから強い順に、ちからのバランスを見ながら選ぶ
+  // 持っているカードから、モンスターを中心に、魔法・フィールド・アイテムも少し入れる
   const have = A.CARDS.filter(c => ownedCount(c.no) > 0).sort((a, b) => cardValue(b) - cardValue(a));
-  const deck = [];
-  const cap = { 1: 4, 2: 6, 3: 5, 4: 4, 6: 3, 7: 2 };
-  const usedCost = {};
-  for (const pass of [0, 1]) for (const c of have) {
-    const k = COST[c.r], n = Math.min(COPIES, ownedCount(c.no));
-    for (let i = deck.filter(x => x === c.no).length; i < n && deck.length < DECK; i++) {
-      if (pass === 0 && (usedCost[k] || 0) >= cap[k]) break;
-      deck.push(c.no); usedCost[k] = (usedCost[k] || 0) + 1;
-    }
+  const deck = [], cnt = no => deck.filter(x => x === no).length;
+  const add = (c, max) => { const n = Math.min(COPIES, ownedCount(c.no), max); while (cnt(c.no) < n && deck.length < DECK) deck.push(c.no); };
+  // 1. モンスター16枚まで（ちからが偏らないように）
+  const cap = { 1: 4, 2: 5, 3: 4, 4: 3, 6: 2, 7: 2 }, used = {};
+  for (const c of have.filter(c => c.type === 'M')) {
+    const k = COST[c.r];
+    while (cnt(c.no) < Math.min(COPIES, ownedCount(c.no)) && (used[k] || 0) < cap[k] && deck.filter(no => A.CARDS[no - 1].type === 'M').length < 16) { deck.push(c.no); used[k] = (used[k] || 0) + 1; }
   }
-  return deck;
+  // 2. 魔法2枚・アイテム1枚・フィールド1枚まで
+  const spells = have.filter(c => c.type === 'S').sort((a, b) => ({ fire: 5, bolt: 5, dark: 4, water: 3, light: 2, leaf: 1 }[b.el] - { fire: 5, bolt: 5, dark: 4, water: 3, light: 2, leaf: 1 }[a.el]));
+  let room = 2; for (const c of spells) { if (room <= 0) break; const b = deck.length; add(c, 1); room -= deck.length - b; }
+  room = 1; for (const c of have.filter(c => c.type === 'I')) { if (room <= 0) break; const b = deck.length; add(c, 1); room -= deck.length - b; }
+  const els = {}; for (const no of deck) { const c = A.CARDS[no - 1]; if (c.type === 'M') els[c.el] = (els[c.el] || 0) + 1; }
+  const land = have.filter(c => c.type === 'F').sort((a, b) => (els[b.el] || 0) - (els[a.el] || 0))[0];
+  if (land && (els[land.el] || 0) >= 4) add(land, 1);
+  // 3. 残りはモンスターで埋める
+  for (const c of have.filter(c => c.type === 'M')) add(c, COPIES);
+  return deck.slice(0, DECK);
 }
 function playerDeck() {
   let d = (A.S.deck || []).filter(no => ownedCount(no) > 0);
@@ -98,16 +139,29 @@ function playerDeck() {
 let B = null, uid = 0, busy = false, sel = null, targeting = null;
 function mkCard(no, rental) {
   const c = A.CARDS[no - 1], p = power(c);
-  return { uid: ++uid, no, c, atk: p.atk, hp: p.hp, maxHp: p.hp, buff: 0, sleep: true, rental: !!rental, items: 0 };
+  return { uid: ++uid, no, c, atk: p.atk, hp: p.hp, maxHp: p.hp, buff: 0, sleep: true, rental: !!rental, items: 0, kw: traits(c) };
 }
 function newSide(nm, deckNos, rentals = []) {
   const deck = deckNos.map(no => mkCard(no)).concat(rentals.map(no => mkCard(no, true)));
   for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
-  return { nm, lp: LP, mana: 0, maxMana: 0, deck, hand: [], field: [null, null, null], land: null, fatigue: 0 };
+  return { nm, lp: LP, maxLp: LP, mana: 0, maxMana: 0, deck, hand: [], field: [null, null, null], land: null, fatigue: 0 };
 }
 function cost(card) { return COST[card.c.r]; }
-function atkOf(side, m) { return m.atk + m.buff + (side.land && side.land.c.el === m.c.el ? 2 : 0); }
-function hpBonus(side, m) { return side.land && side.land.c.el === m.c.el ? 1 : 0; }
+function atkOf(side, m) { return m.atk + m.buff + (side.land ? (side.land.c.el === m.c.el ? 2 : 1) : 0); }
+function hpBonus(side, m) { return side.land && side.land.c.el === m.c.el ? 2 : 0; }
+function guards(side) { return side.field.filter(m => m && m.kw && m.kw.guard); }
+// 攻撃できる相手：守りがいれば守りだけ
+function canHit(attSide, target) {
+  const foe = other(attSide), g = guards(foe);
+  if (!g.length) return true;
+  return !!target && g.includes(target);
+}
+function heal(side, n, why) {
+  const before = side.lp; side.lp = Math.min(side.maxLp, side.lp + n);
+  const got = side.lp - before;
+  if (got > 0) { floatAt(side === B.me ? 'meFace' : 'foeFace', '+' + got, '#7be39a'); if (why) log(`${why}で${side.nm}のライフ+${got}`, side); }
+  return got;
+}
 function hpOf(side, m) { return m.hp + hpBonus(side, m); }
 function mult(a, d) { return BEATS[a.c.el] === d.c.el ? 1.5 : 1; }
 function other(side) { return side === B.me ? B.foe : B.me; }
@@ -137,46 +191,71 @@ function killFx(m) {
   if (FAST) return; const el = $('u' + m.uid); if (el) { el.classList.add('dying'); } A.tone(180, .2, 'sawtooth', .04, -80); }
 
 // ---------------- 行動 ----------------
+function spellTargets(side, card) {
+  const foe = other(side);
+  return foe.field.filter(Boolean);
+}
 function canPlay(side, card) {
   if (cost(card) > side.mana) return false;
   if (card.c.type === 'M') return side.field.some(f => !f);
   if (card.c.type === 'I') return side.field.some(f => f);
   if (card.c.type === 'S') {
-    const foe = other(side), foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
+    const foes = other(side).field.filter(Boolean), mine = side.field.filter(Boolean);
     if (card.c.el === 'water' || card.c.el === 'dark' || card.c.el === 'fire') return foes.length > 0;
     if (card.c.el === 'light') return mine.length > 0;
     return true;
   }
   return true;
 }
+function needsTarget(card) { return card.c.type === 'I' ? 'mine' : card.c.type === 'S' ? (SPELL[card.c.el].tgt || null) : null; }
+const sideNm = side => side.nm;
+// target：アイテムは自分のモンスター、魔法は敵モンスター（bolt は null で顔）
 async function play(side, card, target) {
   side.mana -= cost(card);
   side.hand = side.hand.filter(h => h !== card);
   const foe = other(side), t = card.c.type;
   A.tone(520, .08, 'triangle', .04); A.tone(780, .1, 'triangle', .04, 0, .06);
-  log(`${side.nm}：「${card.c.nm}」`);
+  log(`${sideNm(side)}は「${card.c.nm}」を出した（ちから${cost(card)}）`, side, 'play');
+  if (B.rec) B.rec.played[side === B.me ? 0 : 1].push(card.no);
   if (t === 'M') {
     const i = side.field.findIndex(f => !f); side.field[i] = card;
-    card.sleep = !(card.c.r === 'UR' || card.c.r === 'SEC');
+    card.sleep = !card.kw.haste;
     if (card.c.r === 'UR' || card.c.r === 'SEC') { A.chime(card.c.r); bigText(card.c.nm, EL_C[card.c.el]); }
+    render();
+    if (card.kw.spark) {
+      const foes = foe.field.filter(Boolean);
+      if (foes.length) { for (const m of foes) damage(foe, m, card.kw.spark); log(`🔥火の粉！ 敵モンスター全員に${card.kw.spark}ダメージ`, side); await wait(300); cleanup(); }
+    }
+    if (card.kw.bless) {
+      heal(side, blessN(card), '✨祝福');
+    }
   } else if (t === 'F') {
+    if (side.land) log(`「${side.land.c.nm}」は消えた`, side);
     side.land = card;
+    draw(side, 1);
   } else if (t === 'I') {
-    const m = target || best(side.field.filter(Boolean), m => atkOf(side, m) + hpOf(side, m));
-    const bonus = m.c.el === card.c.el ? 1 : 0;
-    m.buff += 3 + bonus; m.hp += 2 + bonus; m.maxHp += 2 + bonus; m.items++;
-    render(); floatAt('u' + m.uid, `+${3 + bonus}/+${2 + bonus}`, '#7be39a');
+    const m = target || best(side.field.filter(Boolean), m => atkOf(side, m) + hpOf(side, m) + (m.sleep ? 0 : 2));
+    const it = itemOf(card.c), bonus = m.c.el === card.c.el ? 1 : 0;
+    const da = it.atk + bonus, dh = it.hp + bonus;
+    m.buff += da; m.hp += dh; m.maxHp += dh; m.items++;
+    if (it.kw) { m.kw = Object.assign({}, m.kw, { [it.kw]: Math.max(1, m.kw[it.kw] || 0) }); if (it.kw === 'haste') m.sleep = false; }
+    render(); floatAt('u' + m.uid, `+${da}/+${dh}`, '#7be39a');
+    log(`「${m.c.nm}」が「${card.c.nm}」を持った：+${da}/+${dh}${it.kw ? `・${KW[it.kw].ic}${KW[it.kw].nm}` : ''}`, side);
+    if (card.c.el === 'fire') { const foes = foe.field.filter(Boolean); for (const x of foes) damage(foe, x, 1); if (foes.length) { await wait(250); cleanup(); } }
+    if (card.c.no === 66) heal(side, 4, '天使の王冠');
+    if (card.c.no === 67) draw(side, 1);
   } else if (t === 'S') {
     render(); await showSpell(card);
     const foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
-    const strongest = best(foes, m => atkOf(foe, m) * 2 + hpOf(foe, m));
+    const pickT = () => (target && foe.field.includes(target)) ? target : null;
     switch (card.c.el) {
-      case 'fire': for (const m of foes) damage(foe, m, 3); break;
-      case 'water': if (strongest) { foe.field[foe.field.indexOf(strongest)] = null; strongest.hp = strongest.maxHp; strongest.buff = 0; strongest.sleep = true; if (foe.hand.length < HAND_MAX) foe.hand.push(strongest); log(`「${strongest.c.nm}」が手札にもどった`); } break;
-      case 'leaf': side.lp = Math.min(LP + 10, side.lp + 8); floatAt(side === B.me ? 'meFace' : 'foeFace', '+8', '#7be39a'); for (const m of mine) { m.hp += 2; m.maxHp += 2; } break;
-      case 'bolt': if (strongest) damage(foe, strongest, 8); else hurtFace(foe, 5); break;
-      case 'dark': { const m = best(foes, m => atkOf(foe, m)); if (m) { m.hp = -99; log(`「${m.c.nm}」は闇に飲まれた`); } break; }
-      case 'light': for (const m of mine) m.buff += 2; draw(side, 1); break;
+      case 'fire': for (const m of foes) damage(foe, m, 2); log(`敵モンスター全員に2ダメージ`, side); break;
+      case 'water': for (const m of foes) { m.frozen = true; m.sleep = true; } log(`敵モンスター${foes.length}体が凍った`, side); draw(side, 2); break;
+      case 'leaf': heal(side, 8); for (const m of mine) { m.buff += 1; m.hp += 2; m.maxHp += 2; } log(`ライフ回復、味方は+1/+2`, side); break;
+      case 'bolt': { const m = target === 'face' ? null : (pickT() || best(foes, m => Math.min(7, hpOf(foe, m)) * 2 + atkOf(foe, m)));
+        if (m) { damage(foe, m, 7); log(`「${m.c.nm}」に7ダメージ`, side); } else { hurtFace(foe, 4); log(`${sideNm(foe)}のライフに4ダメージ`, side); } break; }
+      case 'dark': { const m = pickT() || best(foes, m => atkOf(foe, m) * 2 + hpOf(foe, m) + m.items * 3); if (m) { m.hp = -99; log(`「${m.c.nm}」は闇に飲まれた`, side); } break; }
+      case 'light': for (const m of mine) { m.buff += 2; m.hp += 1; m.maxHp += 1; } log(`味方のATK+2・HP+1`, side); draw(side, 1); break;
     }
     await wait(350);
     cleanup();
@@ -184,84 +263,127 @@ async function play(side, card, target) {
   render();
   await wait(side === B.foe ? 650 : 200);
 }
+function blessN(m) { return { R: 3, SR: 4, UR: 6, SEC: 6 }[m.c.r] || 3; }
+function resetCard(m) { const p = power(m.c); m.atk = p.atk; m.hp = p.hp; m.maxHp = p.hp; m.buff = 0; m.sleep = true; m.items = 0; m.kw = traits(m.c); m.frozen = false; }
 function best(arr, f) { let b = null, bv = -1e9; for (const x of arr) { const v = f(x); if (v > bv) { bv = v; b = x; } } return b; }
 async function attack(side, m, target) {
   const foe = other(side);
-  m.sleep = true;
+  if (!canHit(side, target)) return;
+  m.sleep = true; m.attacked = true;
   const a = atkOf(side, m);
   await lunge('u' + m.uid, target ? 'u' + target.uid : (foe === B.me ? 'meFace' : 'foeFace'));
   if (!target) {
-    hurtFace(foe, a); log(`「${m.c.nm}」の攻撃！ ${foe.nm}に${a}ダメージ`);
+    hurtFace(foe, a); log(`「${m.c.nm}」が${sideNm(foe)}に攻撃！ ライフに${a}ダメージ`, side, 'hit');
     A.tone(140, .15, 'square', .05, -40);
+    if (m.kw.drain) heal(side, Math.ceil(a / 2), '吸血');
   } else {
     const d1 = Math.ceil(a * mult(m, target)), d2 = Math.ceil(atkOf(foe, target) * mult(target, m));
     damage(foe, target, d1); damage(side, m, d2);
-    log(`「${m.c.nm}」→「${target.c.nm}」 ${d1}${mult(m, target) > 1 ? '（相性◎）' : ''}／反撃 ${d2}`);
+    const kills = [hpOf(foe, target) <= 0 ? `「${target.c.nm}」を倒した` : '', hpOf(side, m) <= 0 ? `「${m.c.nm}」も倒れた` : ''].filter(Boolean).join('・');
+    log(`「${m.c.nm}」→「${target.c.nm}」に${d1}ダメージ${mult(m, target) > 1 ? '（相性◎）' : ''}、反撃${d2}${kills ? '。' + kills : ''}`, side, 'hit');
     A.tone(200, .1, 'square', .05, -60); A.tone(120, .14, 'sawtooth', .04, 0, .05);
+    if (m.kw.drain) heal(side, Math.ceil(d1 / 2), '吸血');
+    if (target.kw.drain && d2 > 0) heal(foe, Math.ceil(d2 / 2), '吸血');
   }
   render(); await wait(320); cleanup(); render();
   await wait(side === B.foe ? 450 : 150);
 }
+// ターンのはじめ：再生
+function onTurnStart(side) {
+  for (const m of side.field) if (m && m.kw.regen && m.hp < m.maxHp) { m.hp = m.maxHp; floatAt('u' + m.uid, '再生', '#7be39a'); }
+}
 
 // ---------------- 相手（CPU）の考え ----------------
+// 価値：モンスターの強さのめやす
+function threat(side, m) { return atkOf(side, m) * 2 + hpOf(side, m) + (m.kw.guard ? 2 : 0) + (m.kw.drain ? 2 : 0) + (m.kw.regen ? 2 : 0) + m.items * 2; }
 async function cpuTurn(me = B.foe, skill = FOES[B.lv].ai) {
   const you = other(me);
   const sloppy = () => rnd() > skill;
-  // 1. フィールド → 魔法 → モンスター → アイテム
+  // 1. 出す順番：フィールド → 魔法 → モンスター（高い順） → アイテム
   for (let guard = 0; guard < 12 && !over(); guard++) {
     const playable = me.hand.filter(c => canPlay(me, c));
     if (!playable.length) break;
-    let choice = null;
-    const land = playable.find(c => c.c.type === 'F' && (!me.land || me.land.c.el !== c.c.el) && me.field.some(m => m && m.c.el === c.c.el));
-    const spells = playable.filter(c => c.c.type === 'S' && spellGood(me, c));
-    const mons = playable.filter(c => c.c.type === 'M').sort((a, b) => cost(b) - cost(a));
-    const items = playable.filter(c => c.c.type === 'I');
-    choice = land || spells[0] || mons[0] || items[0] || null;
-    if (!choice || (sloppy() && choice !== mons[0])) choice = mons[0] || choice;
+    const mineN = me.field.filter(Boolean).length;
+    const land = playable.find(c => c.c.type === 'F' && (!me.land || (me.land.c.el !== c.c.el && me.field.filter(m => m && m.c.el === c.c.el).length > me.field.filter(m => m && m.c.el === me.land.c.el).length)));
+    const spells = playable.filter(c => c.c.type === 'S').map(c => ({ c, t: spellPlan(me, c) })).filter(x => x.t);
+    const mons = playable.filter(c => c.c.type === 'M').sort((a, b) => cost(b) - cost(a) || (power(b.c).atk + power(b.c).hp) - (power(a.c).atk + power(a.c).hp));
+    // ちからを使い切れる組み合わせを少し考える：高いのを出すと何も出せないなら、安いのを2体
+    let mon = mons[0] || null;
+    if (mon && mons.length >= 2 && me.field.filter(f => !f).length >= 2) {
+      const rest = me.mana - cost(mon), two = mons.find((x, k) => k > 0 && cost(x) + cost(mons[mons.length - 1]) <= me.mana && cost(x) + cost(mons[mons.length - 1]) > cost(mon));
+      if (rest === 0 && two && cost(two) < cost(mon) && rnd() < .5) mon = two;
+    }
+    const items = playable.filter(c => c.c.type === 'I' && mineN > 0);
+    let choice = null, target = null;
+    if (land) choice = land;
+    else if (spells.length) { choice = spells[0].c; target = spells[0].t === true ? null : spells[0].t; }
+    else if (mon) choice = mon;
+    else if (items.length) { choice = items[0]; target = itemTarget(me, choice); }
+    if (choice && sloppy() && mon && choice !== mon) { choice = mon; target = null; }
     if (!choice) break;
-    await play(me, choice);
+    await play(me, choice, target === 'none' ? null : target);
   }
   // 2. 攻撃
-  for (const m of me.field.slice()) {
-    if (over()) break;
-    if (!m || m.sleep || !me.field.includes(m)) continue;
-    const foes = you.field.filter(Boolean);
+  for (let loop = 0; loop < 6 && !over(); loop++) {
     const ready = me.field.filter(x => x && !x.sleep);
-    const lethal = ready.reduce((s, x) => s + atkOf(me, x), 0) >= you.lp;
+    if (!ready.length) break;
+    const m = best(ready, x => atkOf(me, x));
+    const foes = you.field.filter(Boolean), g = guards(you);
+    const total = ready.reduce((s, x) => s + atkOf(me, x), 0);
     let target = null;
-    if (!lethal && foes.length) {
+    if (g.length) {
+      // 守りがいる：倒しやすい守りから
+      target = best(g, f => (Math.ceil(atkOf(me, m) * mult(m, f)) >= hpOf(you, f) ? 50 : 0) - hpOf(you, f));
+    } else if (total < you.lp && foes.length) {
       const a = atkOf(me, m);
-      // 倒せて生き残る相手 → 倒せる強い相手 → 何もしない（顔）
+      // 倒せて生き残る相手 → 倒せる強い相手 → 顔
       const good = foes.filter(f => Math.ceil(a * mult(m, f)) >= hpOf(you, f) && Math.ceil(atkOf(you, f) * mult(f, m)) < hpOf(me, m));
-      const trade = foes.filter(f => Math.ceil(a * mult(m, f)) >= hpOf(you, f) && atkOf(you, f) >= 4);
-      target = best(good, f => atkOf(you, f)) || (rnd() < .7 ? best(trade, f => atkOf(you, f)) : null);
+      const trade = foes.filter(f => Math.ceil(a * mult(m, f)) >= hpOf(you, f) && threat(you, f) >= threat(me, m) * .8);
+      const race = me.lp > you.lp + 6 || (you.lp <= 12 && foes.reduce((s, f) => s + atkOf(you, f), 0) < me.lp / 2);
+      target = best(good, f => threat(you, f)) || (!race && rnd() < .8 ? best(trade, f => threat(you, f)) : null);
       if (sloppy()) target = rnd() < .5 ? pick(foes) : null;
     }
     await attack(me, m, target);
+    if (m.sleep === false) m.sleep = true;   // 攻撃できなかったときの空回り防止
   }
 }
-function spellGood(side, card) {
+// 魔法を使うか、だれに使うか（使わないなら null、相手を選ばないなら true）
+function spellPlan(side, card) {
   const foe = other(side), foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
-  const top = best(foes, m => atkOf(foe, m));
+  const top = best(foes, m => threat(foe, m));
   switch (card.c.el) {
-    case 'fire': return foes.length >= 2 || foes.some(m => hpOf(foe, m) <= 3 && atkOf(foe, m) >= 4);
-    case 'water': return top && atkOf(foe, top) >= 5;
-    case 'leaf': return side.lp <= 20;
-    case 'bolt': return (top && hpOf(foe, top) >= 5) || foe.lp <= 5;
-    case 'dark': return top && atkOf(foe, top) >= 6;
-    case 'light': return mine.length >= 2;
+    case 'fire': { const kills = foes.filter(m => hpOf(foe, m) <= 2).length; return kills >= 2 || (kills >= 1 && foes.length >= 2) ? true : null; }
+    case 'water': return foes.reduce((n, m) => n + atkOf(foe, m), 0) >= 7 || foes.length >= 2 ? true : null;
+    case 'leaf': return side.lp <= side.maxLp - 8 || mine.length >= 2 ? true : null;
+    case 'bolt': { if (foe.lp <= 4) return 'face'; const k = best(foes.filter(m => hpOf(foe, m) <= 7), m => threat(foe, m)); return k && threat(foe, k) >= 10 ? k : (foes.length === 0 && rnd() < .5 ? 'face' : null); }
+    case 'dark': return top && threat(foe, top) >= 14 ? top : null;
+    case 'light': return mine.filter(m => !m.sleep).length >= 2 || mine.length >= 3 ? true : null;
   }
-  return true;
+  return null;
+}
+function itemTarget(side, card) {
+  const mine = side.field.filter(Boolean), it = itemOf(card.c);
+  if (it.kw === 'haste') return best(mine, m => (m.sleep ? 10 : 0) + atkOf(side, m)) || null;
+  if (it.kw === 'guard') return best(mine, m => hpOf(side, m) + (m.kw.guard ? -10 : 0)) || null;
+  return best(mine, m => atkOf(side, m) + hpOf(side, m) + (m.sleep ? 0 : 2) + (m.c.el === card.c.el ? 3 : 0)) || null;
 }
 
 // ---------------- ターンの流れ ----------------
+let SECOND_BONUS = 1, SECOND_CARD = 0;   // 後攻：最初のターンだけちからが多い・手札が多い
+function beginTurn(side) {
+  B.turn++;
+  side.maxMana = Math.min(MANA_MAX, side.maxMana + 1);
+  side.mana = side.maxMana + (B.turn === 2 ? SECOND_BONUS : 0);
+  for (const m of side.field) if (m) { m.sleep = !!m.frozen; m.frozen = false; m.attacked = false; }
+  onTurnStart(side);
+  if (B.turn > 1) { log(`── ${sideNm(side)}のターン ──`, side, 'turn'); draw(side, 1); }
+  else log(`── ${sideNm(side)}のターン（先攻） ──`, side, 'turn');
+}
 function over() { return B && (B.me.lp <= 0 || B.foe.lp <= 0); }
 async function startTurn(side) {
   if (!B || B.done) return;
-  B.turnSide = side; B.turn++; B.turnAt = Date.now();
-  side.maxMana = Math.min(MANA_MAX, side.maxMana + 1); side.mana = side.maxMana;
-  for (const m of side.field) if (m) m.sleep = false;
-  if (!(B.turn === 1)) draw(side, 1);
+  B.turnSide = side; B.turnAt = Date.now();
+  beginTurn(side);
   render();
   banner(side === B.me ? 'あなたのターン' : `${B.foe.nm}のターン`);
   emit({ k: 'turn', host: side === B.me });
@@ -324,7 +446,22 @@ function css() {
 .bt .bslot { width: var(--bw); height: calc(var(--bw) * 1.36); border-radius: 10px; border: 2px dashed rgba(255,255,255,.12); display: grid; place-items: center; color: rgba(255,255,255,.2); font-size: .7rem; position: relative; }
 .bt .bslot.land { width: calc(var(--bw) * .78); border-style: dotted; }
 .bt .mid { display: grid; place-items: center; gap: 6px; padding: 2px 10px; min-height: 0; }
-.bt .log { font-size: .78rem; color: #d8d0f0; text-align: center; min-height: 2.6em; max-width: 520px; line-height: 1.3; }
+.bt .log { font-size: .78rem; color: #d8d0f0; text-align: center; min-height: 2.6em; max-width: 520px; line-height: 1.3; cursor: pointer; }
+.bt .log::after { content: ' 📜'; opacity: .55; font-size: .9em; }
+.btLogPanel { position: absolute; right: 0; top: 0; bottom: 0; width: min(340px, 88vw); background: rgba(14,10,30,.97); border-left: 1px solid var(--line); z-index: 41; display: none; grid-template-rows: auto minmax(0, 1fr); box-shadow: -12px 0 30px rgba(0,0,0,.5); padding-top: env(safe-area-inset-top, 0px); }
+.btLogPanel.open { display: grid; }
+.btLogPanel .hd { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 900; }
+.btLogPanel .hd .x { margin-left: auto; }
+.btLogPanel .list { overflow-y: auto; padding: 0 10px 18px; font-size: .78rem; line-height: 1.45; overscroll-behavior: contain; }
+.lg { padding: 3px 8px; border-left: 3px solid rgba(255,255,255,.15); margin: 2px 0; border-radius: 4px; color: #e6e0f6; }
+.lg.me { border-color: #46e0ff; background: rgba(70,224,255,.07); }
+.lg.foe { border-color: #ff4a5a; background: rgba(255,74,90,.07); }
+.lg.turn { border: 0; background: none; color: var(--gold); font-weight: 900; text-align: center; margin-top: 10px; }
+.lg.sys { color: var(--muted); }
+.bt .top2 .x + .x { margin-left: 6px; }
+.bt .top2 .x, .bt .top2 .t, .bt .top2 .meta { white-space: nowrap; }
+@media (max-width: 400px) { .bt .top2 .t { display: none; } .bt .top2 .x { padding: 5px 10px; } }
+@media (min-width: 1100px) { .bt { padding-right: 300px; } .btLogPanel { display: grid; width: 300px; box-shadow: none; } #btLogClose, #btLogBtn { display: none; } .bt .log::after { content: ''; } }
 .bt .turnBtn { padding: 10px 22px; border-radius: 999px; border: 0; background: var(--gold); color: #2a1a00; font-weight: 900; font-size: .95rem; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
 .bt .turnBtn:disabled { opacity: .35; }
 .bt .hand { display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px 10px; scrollbar-width: none; min-height: calc(var(--bw) * 1.36 + 16px); }
@@ -343,6 +480,9 @@ function css() {
 .bc .st.h.hurt { background: rgba(200,40,60,.95); }
 .bc .rent { position: absolute; left: 50%; top: 40%; transform: translateX(-50%) rotate(-12deg); font-size: .65em; font-weight: 900; background: #fff; color: #333; padding: .1em .4em; border-radius: .3em; opacity: .85; }
 .bc .zz { position: absolute; right: 4px; top: 2.1em; font-size: .8em; color: #9ad8ff; font-weight: 900; }
+.bc .kw { position: absolute; left: 50%; top: 2.4em; transform: translateX(-50%); font-size: 1.15em; line-height: 1.25; background: rgba(10,6,24,.82); border: 1px solid rgba(255,255,255,.35); border-radius: .6em; padding: .05em .3em; white-space: nowrap; letter-spacing: -.05em; box-shadow: 0 1px 4px rgba(0,0,0,.6); color: #fff; }
+.bc.frozen::after { content: '❄'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.6em; background: rgba(120,200,255,.28); color: #e8f8ff; text-shadow: 0 0 6px #4ab0ff; }
+.bc.guardc { outline: 2px solid rgba(160,220,255,.9); outline-offset: 1px; }
 .bc.can { box-shadow: 0 0 0 2px #7be39a, 0 0 14px rgba(123,227,154,.8); }
 .bc.no { filter: grayscale(.7) brightness(.6); }
 .bc.ready { box-shadow: 0 0 0 2px #ffc94a, 0 0 14px rgba(255,201,74,.85); }
@@ -365,6 +505,13 @@ function css() {
 .btSheet .box { width: min(100%, 460px); max-height: 100%; overflow-y: auto; background: #171431; border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 10px; }
 .btSheet h2 { margin: 0; font-weight: 900; font-size: 1.4rem; }
 .btSheet p { margin: 0; font-size: .85rem; line-height: 1.6; color: #d8d0f0; }
+.btInfo .box { grid-template-columns: auto 1fr; align-items: start; gap: 14px; }
+.btInfo .card { --w: min(150px, 34vw); }
+.btInfo h3 { margin: 0 0 4px; font-weight: 900; font-size: 1.1rem; }
+.btInfo .sub { font-size: .75rem; color: var(--muted); margin-bottom: 6px; }
+.btInfo .rt { font-size: .85rem; line-height: 1.6; white-space: pre-line; color: #f0eafc; }
+.btInfo .now { margin-top: 8px; font-family: var(--num); font-size: 1.4rem; }
+@media (max-width: 420px) { .btInfo .box { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
 .foes { display: grid; gap: 8px; }
 .foe { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 12px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.05); text-align: left; }
 .foe:disabled { opacity: .4; }
@@ -405,14 +552,15 @@ function shell() {
   const el = document.createElement('section');
   el.className = 'bt'; el.id = 'bt'; el.hidden = true;
   el.innerHTML = `
-    <div class="top2"><span class="t">カードバトル</span><span class="meta" id="btTurn"></span><button class="x" id="btQuit">やめる</button></div>
+    <div class="top2"><span class="t">カードバトル</span><span class="meta" id="btTurn"></span><button class="x" id="btLogBtn">📜 ログ</button><button class="x" id="btQuit">やめる</button></div>
     <div class="bar" id="foeBar"><div class="who" id="foeFace"><span class="ic" id="foeIc"></span><span><span class="lp"><small>LIFE</small><span id="foeLp"></span></span><div class="meta" id="foeMeta"></div></span></div><div class="mana" id="foeMana"></div></div>
     <div class="field" id="foeField"></div>
     <div class="mid"><div class="log" id="btLog"></div></div>
     <div class="field" id="meField"></div>
     <div class="bar" id="meBar"><div class="who" id="meFace"><span class="ic">🙂</span><span><span class="lp"><small>LIFE</small><span id="meLp"></span></span><div class="meta" id="meMeta"></div></span></div><div class="mana" id="meMana"></div><span style="flex:1"></span><button class="turnBtn" id="btEnd">ターン終了</button></div>
     <div class="hand" id="meHand"></div>
-    <div class="btSheet" id="btRes" hidden><div class="box"><h2 id="btResT"></h2><p id="btResM"></p><div class="btRow"><button class="bigbtn" id="btNext">次の相手へ</button><button class="bigbtn" id="btAgain">もう一度</button><button class="ghost" id="btBack">相手を選ぶ</button></div></div></div>`;
+    <div class="btLogPanel" id="btLogPanel"><div class="hd">📜 戦闘ログ<button class="x" id="btResBack" hidden>結果にもどる</button><button class="x" id="btLogClose">とじる</button></div><div class="list" id="btLogList"></div></div>
+    <div class="btSheet" id="btRes" hidden><div class="box"><h2 id="btResT"></h2><p id="btResM"></p><div class="btRow"><button class="bigbtn" id="btNext">次の相手へ</button><button class="bigbtn" id="btAgain">もう一度</button><button class="ghost" id="btBack">相手を選ぶ</button><button class="ghost" id="btResLog">📜 ログを見る</button></div></div></div>`;
   document.body.appendChild(el);
   const menu = document.createElement('div');
   menu.className = 'btSheet'; menu.id = 'btMenu'; menu.hidden = true;
@@ -441,15 +589,21 @@ function shell() {
     <div class="deckGrid" id="dkGrid"></div>
   </div>`;
   document.body.appendChild(deck);
+  const info = document.createElement('div');
+  info.className = 'btSheet btInfo'; info.id = 'btInfo'; info.hidden = true;
+  info.innerHTML = `<div class="box"><div id="btInfoCard"></div><div><h3 id="btInfoNm"></h3><div class="sub" id="btInfoSub"></div><div class="rt" id="btInfoRt"></div><div class="now" id="btInfoNow"></div></div></div>`;
+  document.body.appendChild(info);
+  info.addEventListener('click', () => { info.hidden = true; });
   const how = document.createElement('div');
   how.className = 'btSheet'; how.id = 'btHowSheet'; how.hidden = true;
   how.innerHTML = `<div class="box"><h2>遊び方</h2>
-    <p>・毎ターン<b>ちから</b>（青い玉）が1つずつ増える（最大8）。カードの左上の数字がちから<br>
-    ・<b>モンスター</b>は場に3体まで。出したターンは休み（UR・SECはすぐ攻撃できる）<br>
+    <p>・毎ターン<b>ちから</b>（青い玉）が1つずつ増える（最大8）。カードの左上の数字がちから。後攻は最初のターンだけちから+1<br>
+    ・<b>モンスター</b>は場に3体まで。出したターンは休み<br>
     ・自分のモンスターをタップ→相手のモンスターか相手の顔をタップで攻撃。モンスター同士はお互いにダメージ<br>
     ・<b>属性の相性</b>：炎→森→雷→水→炎、光⇔闇。有利なら1.5倍<br>
-    ・<b>魔法</b>は出すとすぐ効果。<b>フィールド</b>は同じ属性のモンスターを強化。<b>アイテム</b>は自分のモンスターをタップして持たせる<br>
-    ・カードを長押しすると大きく見られる<br>
+    ・<b>R以上のモンスターは能力</b>を持つ：⚡速攻（すぐ攻撃できる）／🛡守り（いる間、相手は守りしか攻撃できない）／♻再生（ターンのはじめに全回復）／🩸吸血（与えたダメージの半分ライフ回復）／🔥火の粉（出たとき敵全員に1ダメージ）／✨祝福（出たときライフ回復）<br>
+    ・<b>魔法</b>は出すとすぐ効果。相手を選ぶ魔法は、出したあと相手をタップ。<b>フィールド</b>は味方全員を強化（同じ属性はもっと）。<b>アイテム</b>は自分のモンスターをタップして持たせる。属性ごとの能力もつく<br>
+    ・カードを長押しすると、くわしい効果が見られる。📜で戦闘ログ<br>
     ・カードが20枚に足りないときは、お祭りの<b>レンタルカード</b>が入る</p>
     <div class="btRow"><button class="bigbtn" id="howOk">わかった</button></div></div>`;
   document.body.appendChild(how);
@@ -460,6 +614,11 @@ function shell() {
     netClose(); closeBattle(); openMenu();
   };
   $('btEnd').onclick = endTurn;
+  $('btLogBtn').onclick = () => { $('btLogPanel').classList.add('open'); renderLog(); };
+  $('btResLog').onclick = () => { $('btRes').hidden = true; $('btLogPanel').classList.add('open'); renderLog(); $('btResBack').hidden = false; };
+  $('btLogClose').onclick = () => { $('btLogPanel').classList.remove('open'); if (B && B.done && !$('btResBack').hidden) $('btRes').hidden = false; $('btResBack').hidden = true; };
+  $('btResBack').onclick = () => { $('btLogPanel').classList.remove('open'); $('btResBack').hidden = true; $('btRes').hidden = false; };
+  $('btLog').onclick = e => { e.stopPropagation(); $('btLogPanel').classList.add('open'); renderLog(); };
   $('btNext').onclick = () => { $('btRes').hidden = true; startBattle(B.lv + 1); };
   $('btAgain').onclick = () => {
     if (B && B.online) {
@@ -501,11 +660,45 @@ function shell() {
   $('bt').addEventListener('click', onTap);
   // 長押しで大きく見る
   let hold = null;
-  $('bt').addEventListener('pointerdown', e => { const c = e.target.closest('.bc'); if (!c) return; hold = setTimeout(() => { hold = 'done'; const no = +c.dataset.no; A.inspect(A.CARDS[no - 1]); }, 480); });
+  const onHold = el => e => { const c = e.target.closest('.bc'); if (!c) return; hold = setTimeout(() => { hold = 'done'; showInfo(+c.dataset.uid, +c.dataset.no); }, 480); };
+  $('bt').addEventListener('pointerdown', onHold());
+  $('dkGrid').addEventListener('pointerdown', onHold());
+  $('dkGrid').addEventListener('pointerup', () => { if (hold && hold !== 'done') clearTimeout(hold); });
+  $('dkGrid').addEventListener('click', e => { if (hold === 'done') { e.stopImmediatePropagation(); hold = null; } }, true);
+  $('dkGrid').addEventListener('contextmenu', e => e.preventDefault());
   const cancel = () => { if (hold && hold !== 'done') clearTimeout(hold); setTimeout(() => { hold = null; }, 0); };
   $('bt').addEventListener('pointerup', cancel); $('bt').addEventListener('pointercancel', cancel); $('bt').addEventListener('pointerleave', cancel);
   $('bt').addEventListener('click', e => { if (hold === 'done') { e.stopImmediatePropagation(); hold = null; } }, true);
   $('bt').addEventListener('contextmenu', e => e.preventDefault());
+}
+// 長押しで出す「くわしい情報」
+function findCard(uid) {
+  if (!B || !uid) return null;
+  for (const sd of [B.me, B.foe]) for (const m of [...sd.field, ...sd.hand, sd.land]) if (m && m.uid === uid && !m.hidden) return { m, side: sd, onField: sd.field.includes(m) };
+  return null;
+}
+function battleText(c) {
+  let t = rulesText(c);
+  if (c.type === 'M') t += `\n相性：${EL_NM[c.el]}は${EL_NM[BEATS[c.el]]}に強い（1.5倍）`;
+  return t;
+}
+function showInfo(uid, no) {
+  const f = findCard(uid), c = f ? f.m.c : A.CARDS[no - 1];
+  if (!c) return;
+  $('btInfoCard').innerHTML = A.cardHTML(c);
+  $('btInfoNm').textContent = c.nm;
+  $('btInfoSub').textContent = `${{ M: 'モンスター', S: '魔法', F: 'フィールド', I: 'アイテム' }[c.type]}・${EL_NM[c.el]}・${c.r}・ちから${COST[c.r]}`;
+  let rt = battleText(c);
+  if (f && f.onField) {
+    const base = traits(c), extra = Object.keys(f.m.kw || {}).filter(k => !base[k]);
+    if (extra.length) rt += '\nアイテムでついた能力：' + extra.map(k => `${KW[k].ic}${KW[k].nm}（${KW[k].txt}）`).join('、');
+    if (f.m.items) rt += `\n持っているアイテム：${f.m.items}こ`;
+    if (f.m.frozen) rt += '\n❄凍っている（次のターン攻撃できない）';
+  }
+  $('btInfoRt').textContent = rt;
+  $('btInfoNow').textContent = f && f.onField ? `いま ATK ${atkOf(f.side, f.m)} / HP ${hpOf(f.side, f.m)}` : '';
+  $('btInfo').hidden = false;
+  A.tone(700, .06, 'sine', .03);
 }
 function cardEl(side, m, opts = {}) {
   const c = m.c, t = c.type, rc = { C: '#9aa3ad', U: '#5fc27a', R: '#4aa3ff', SR: '#c77dff', UR: '#ffb020', SEC: '#ff4fa0' }[c.r];
@@ -514,10 +707,11 @@ function cardEl(side, m, opts = {}) {
     const a = side ? atkOf(side, m) : m.atk, h = side ? hpOf(side, m) : m.hp;
     st = `<span class="st a">${a}</span><span class="st h ${side && h < m.maxHp + hpBonus(side, m) ? 'hurt' : ''}">${h}</span>`;
   } else st = `<span class="ty">${{ S: '魔法', F: 'フィールド', I: 'アイテム' }[t]}</span>`;
-  const cls = ['bc', opts.cls || ''].join(' ');
+  const cls = ['bc', opts.cls || '', m.frozen ? 'frozen' : '', side && m.kw && m.kw.guard ? 'guardc' : ''].join(' ');
   return `<div class="${cls}" id="${opts.id || ''}" data-uid="${m.uid || ''}" data-no="${c.no}" style="--rc:${rc}">
     <img class="pic" src="images/${String(c.no).padStart(3, '0')}.jpg" alt="" onerror="this.style.display='none'">
     <div class="shade"></div><div class="cost">${COST[c.r]}</div><div class="elb" style="background:${EL_C[c.el]}">${EL_NM[c.el]}</div>
+    ${t === 'M' && m.kw && Object.keys(m.kw).length ? `<span class="kw">${Object.keys(m.kw).map(x => KW[x].ic).join('')}</span>` : ''}
     <div class="nm">${A.esc(c.nm)}</div>${st}${m.rental ? '<span class="rent">レンタル</span>' : ''}${opts.zz ? '<span class="zz">zz</span>' : ''}</div>`;
 }
 function render() {
@@ -539,14 +733,15 @@ function render() {
       let cls = '';
       if (isMe && myTurn && !m.sleep) cls = sel === m ? 'sel' : 'ready';
       if (isMe && targeting && targeting.type === 'item') cls = 'tgt';
-      if (!isMe && sel) cls = 'tgt';
+      if (!isMe && sel && canHit(me, m)) cls = 'tgt';
+      if (!isMe && targeting && targeting.type === 'spell') cls = 'tgt';
       h += `<div class="bslot">${cardEl(side, m, { id: 'u' + m.uid, cls, zz: m.sleep && isMe })}</div>`;
     });
     return h;
   };
   $('foeField').innerHTML = fieldHTML(foe, false);
   $('meField').innerHTML = fieldHTML(me, true);
-  $('foeFace').classList.toggle('target', !!sel);
+  $('foeFace').classList.toggle('target', (!!sel && canHit(me, null)) || !!(targeting && targeting.type === 'spell' && targeting.any));
   $('meHand').innerHTML = me.hand.map(h => cardEl(null, h, { cls: myTurn ? (canPlay(me, h) ? 'can' : 'no') + (targeting && targeting.card === h ? ' sel' : '') : '' })).join('') || '<span class="meta" style="align-self:center">手札なし</span>';
   $('btEnd').disabled = !myTurn;
   $('btEnd').textContent = myTurn && !me.hand.some(h => canPlay(me, h)) && !me.field.some(m => m && !m.sleep) ? 'ターン終了 ▶' : 'ターン終了';
@@ -560,7 +755,10 @@ async function onTap(e) {
     const card = me.hand.find(h => h.uid === +bc.dataset.uid);
     sel = null;
     if (!card || !canPlay(me, card)) { A.tone(200, .08, 'square', .03); logRaw(card ? (cost(card) > me.mana ? 'ちからが足りない' : card.c.type === 'M' ? '場がいっぱい' : card.c.type === 'I' ? '持たせるモンスターがいない' : '今は使えない') : ''); render(); return; }
-    if (card.c.type === 'I') { targeting = { type: 'item', card }; logRaw('持たせるモンスターをタップ'); render(); return; }
+    if (targeting && targeting.card === card) { targeting = null; logRaw('やめた'); render(); return; }
+    const need = needsTarget(card);
+    if (need === 'mine') { targeting = { type: 'item', card }; logRaw(`「${card.c.nm}」を持たせるモンスターをタップ（${itemOf(card.c).txt}）`); render(); return; }
+    if (need) { targeting = { type: 'spell', card, any: need === 'any' }; logRaw(need === 'any' ? `「${card.c.nm}」：当てる相手のモンスターか、相手の顔をタップ` : `「${card.c.nm}」：相手のモンスターをタップ`); render(); return; }
     targeting = null;
     if (B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid }); return; }
     busy = true; await play(me, card); busy = false; render(); sync(); if (over()) finish(); return;
@@ -573,17 +771,27 @@ async function onTap(e) {
     if (mine) { busy = true; await play(me, card, mine); busy = false; sync(); }
     render(); return;
   }
+  // 魔法の相手
+  if (targeting && targeting.type === 'spell') {
+    const card = targeting.card;
+    const target = bc && bc.closest('#foeField') ? foe.field.find(x => x && x.uid === +bc.dataset.uid) : (face && targeting.any ? 'face' : null);
+    targeting = null;
+    if (!target) { logRaw('やめた'); render(); return; }
+    if (B.guest) { busy = true; render(); send({ t: 'act', a: 'play', uid: card.uid, target: target === 'face' ? -1 : target.uid }); return; }
+    busy = true; await play(me, card, target); busy = false; render(); sync(); if (over()) finish(); return;
+  }
   // 自分のモンスターを選ぶ
   if (bc && bc.closest('#meField')) {
     const m = me.field.find(x => x && x.uid === +bc.dataset.uid);
-    if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) logRaw('攻撃する相手（モンスターか顔）をタップ'); }
-    else if (m) logRaw('出したばかりのモンスターは次のターンから攻撃できる');
+    if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) logRaw(guards(foe).length ? '攻撃する相手をタップ（🛡守りがいるので、守りだけ攻撃できる）' : '攻撃する相手（モンスターか顔）をタップ'); }
+    else if (m) logRaw(m.frozen ? '凍っていて動けない' : m.sleep && B.turnSide === B.me && m.attacked ? 'このターンはもう攻撃した' : '出したばかりのモンスターは次のターンから攻撃できる');
     render(); return;
   }
   // 攻撃先
   if (sel && (face || (bc && bc.closest('#foeField')))) {
     const target = face ? null : foe.field.find(x => x && x.uid === +bc.dataset.uid);
     if (!face && !target) return;
+    if (!canHit(me, target)) { A.tone(200, .08, 'square', .03); logRaw('🛡守りのモンスターがいる。先に守りを攻撃しよう'); render(); return; }
     const m = sel; sel = null; busy = true; render();
     if (B.guest) { send({ t: 'act', a: 'attack', uid: m.uid, target: target ? target.uid : 0 }); return; }
     await attack(me, m, target); busy = false; render(); sync();
@@ -592,7 +800,27 @@ async function onTap(e) {
   }
   if (sel) { sel = null; render(); }
 }
-function log(t) { emit({ k: 'log', text: t }); logRaw(t); }
+let LOGS = [];
+// side：だれの行動か（色分け）。kind：'turn' はターンの区切り
+function log(t, side, kind) {
+  const who = side && B ? (side === B.me ? 'me' : 'foe') : '';
+  emit({ k: 'log', text: t, who, kind });
+  addLog(t, who, kind);
+}
+function addLog(t, who, kind) {
+  if (FAST) return;
+  LOGS.push({ t, who, kind }); if (LOGS.length > 500) LOGS.shift();
+  if (kind !== 'turn') logRaw(t);
+  if ($('btLogPanel') && (getComputedStyle($('btLogPanel')).display !== 'none')) renderLog();
+}
+function renderLog() {
+  const el = $('btLogList'); if (!el) return;
+  const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = LOGS.map(l => `<div class="lg ${l.kind === 'turn' ? 'turn' : l.who || 'sys'}">${A.esc(l.t)}</div>`).join('') || '<div class="lg sys">まだ何もない</div>';
+  if (atEnd || el.dataset.n !== String(LOGS.length)) el.scrollTop = el.scrollHeight;
+  el.dataset.n = LOGS.length;
+}
+function clearLog() { LOGS = []; renderLog(); }
 function floatChat(t) { bannerRaw(t); }
 function logRaw(t) {
   if (FAST) return; if ($('btLog')) $('btLog').textContent = t; }
@@ -639,7 +867,7 @@ async function showSpellRaw(c) {
 //  ホスト（部屋を作った側）がバトルを進めて、毎回の状態を相手に送る。
 //  ゲスト（入った側）は「何をしたか」だけを送る。
 // =============================================================
-const NET_VER = 1, PREFIX = 'yomatsuri-kaifu-', RAND_SLOTS = 6, TURN_LIMIT = 75, ONLINE_REWARD = 100, ONLINE_DAILY = 5;
+const NET_VER = 2, PREFIX = 'yomatsuri-kaifu-', RAND_SLOTS = 6, TURN_LIMIT = 75, ONLINE_REWARD = 100, ONLINE_DAILY = 5;
 let NET = null;            // { role: 'host'|'guest', peer, conn, opp, rematch }
 function qp(k) { try { return new URLSearchParams(location.search).get(k); } catch (e) { return null; } }
 function peerOpts() {
@@ -875,8 +1103,8 @@ async function onMsg(d) {
 }
 
 // ---- バトルの状態を送る・受け取る ----
-function sc(m) { return m && { uid: m.uid, no: m.no, atk: m.atk, hp: m.hp, maxHp: m.maxHp, buff: m.buff, sleep: m.sleep, rental: m.rental, items: m.items }; }
-function ss(s, hideHand) { return { nm: s.nm, lp: s.lp, mana: s.mana, maxMana: s.maxMana, deckN: s.deck.length, hand: hideHand ? s.hand.map(() => null) : s.hand.map(sc), field: s.field.map(sc), land: sc(s.land), fatigue: s.fatigue }; }
+function sc(m) { return m && { uid: m.uid, no: m.no, atk: m.atk, hp: m.hp, maxHp: m.maxHp, buff: m.buff, sleep: m.sleep, rental: m.rental, items: m.items, kw: m.kw, frozen: m.frozen, attacked: m.attacked }; }
+function ss(s, hideHand) { return { nm: s.nm, lp: s.lp, maxLp: s.maxLp, mana: s.mana, maxMana: s.maxMana, deckN: s.deck.length, hand: hideHand ? s.hand.map(() => null) : s.hand.map(sc), field: s.field.map(sc), land: sc(s.land), fatigue: s.fatigue }; }
 function sync() {
   if (!NET || NET.role !== 'host' || !B || !B.online) return;
   send({ t: 'state', turn: B.turn, hostTurn: B.turnSide === B.me, me: ss(B.me, true), foe: ss(B.foe, false), done: B.done, left: Math.max(0, Math.ceil(TURN_LIMIT - (Date.now() - B.turnAt) / 1000)), busy: busy && B.turnSide === B.me });
@@ -902,7 +1130,8 @@ function guestFx(f) {
   else if (f.k === 'spell') { const c = A.CARDS[f.no - 1]; showSpellRaw(c); }
   else if (f.k === 'turn') { bannerRaw(f.host ? `${NET ? NET.opp : '相手'}のターン` : 'あなたのターン'); if (!f.host) A.tone(660, .1, 'triangle', .05); }
   else if (f.k === 'big') bannerRaw(f.text, f.col);
-  else if (f.k === 'log') logRaw(f.text);
+  else if (f.k === 'log') addLog(f.text, f.who === 'me' ? 'foe' : f.who === 'foe' ? 'me' : '', f.kind);
+  else if (f.k === 'logreset') clearLog();
   else if (f.k === 'kill') { const el = $(f.id); if (el) el.classList.add('dying'); A.tone(180, .2, 'sawtooth', .04, -80); }
 }
 // ---- ホスト：ゲストの行動を実行 ----
@@ -914,12 +1143,15 @@ async function hostAct(d) {
     const me = B.foe, them = B.me;
     if (d.a === 'play') {
       const card = me.hand.find(h => h.uid === d.uid);
-      const target = d.target ? me.field.find(m => m && m.uid === d.target) : null;
-      if (card && canPlay(me, card) && (card.c.type !== 'I' || target)) await play(me, card, target);
+      const need = card && needsTarget(card);
+      let target = null;
+      if (need === 'mine') target = me.field.find(m => m && m.uid === d.target) || null;
+      else if (need) target = d.target === -1 ? (need === 'any' ? 'face' : null) : (them.field.find(m => m && m.uid === d.target) || null);
+      if (card && canPlay(me, card) && (!need || target)) await play(me, card, target);
     } else if (d.a === 'attack') {
       const m = me.field.find(x => x && x.uid === d.uid);
       const t = d.target ? them.field.find(x => x && x.uid === d.target) : null;
-      if (m && !m.sleep && (!d.target || t)) await attack(me, m, t);
+      if (m && !m.sleep && (!d.target || t) && canHit(me, t)) await attack(me, m, t);
     } else if (d.a === 'end') {
       hostWorking = false; sync();
       if (!over()) { await wait(200); startTurn(B.me); }
@@ -935,19 +1167,20 @@ function startOnline(guestDeck, guestRental) {
   const { deck, rental } = playerDeck();
   B = { online: true, lv: -1, turn: 0, me: newSide(myName(), deck, rental), foe: newSide(NET.opp, guestDeck.slice(0, DECK).filter(no => no >= 1 && no <= A.CARDS.length), guestRental.slice(0, DECK)), done: false, turnAt: Date.now() };
   B.foeDeckNos = keep;
+  clearLog(); emit({ k: 'logreset' });
   sel = null; targeting = null; busy = true;
   $('btMenu').hidden = true; $('bt').hidden = false; $('btRes').hidden = true;
   draw(B.me, 4); draw(B.foe, 4);
   const first = rnd() < .5 ? B.me : B.foe;
-  draw(first === B.me ? B.foe : B.me, 1);
-  log(`${NET.opp}と対戦！ ${first === B.me ? 'あなたが先攻' : '相手が先攻'}`); emit({ k: 'log', text: `${myName()}と対戦！ ${first === B.me ? '相手が先攻' : 'あなたが先攻'}` });
+  draw(first === B.me ? B.foe : B.me, SECOND_CARD);
+  addLog(`${NET.opp}と対戦！ ${first === B.me ? 'あなたが先攻' : '相手が先攻'}`, ''); emit({ k: 'log', text: `${myName()}と対戦！ ${first === B.me ? '相手が先攻' : 'あなたが先攻'}`, who: '' });
   render(); sync();
   clearInterval(NET.timer);
   NET.timer = setInterval(() => {
     if (!B || !B.online || B.done) return;
     render();
     if ((Date.now() - B.turnAt) / 1000 > TURN_LIMIT && !hostWorking && !busyAnim) {
-      log('時間切れ！ ターン終了'); emit({ k: 'log', text: '時間切れ！ ターン終了' });
+      log('時間切れ！ ターン終了');
       sel = null; targeting = null;
       startTurn(B.turnSide === B.me ? B.foe : B.me);
     }
@@ -1002,18 +1235,22 @@ function renderDeck() {
   const d = A.S.deck || [];
   const have = A.CARDS.filter(c => ownedCount(c.no) > 0);
   $('dkCount').textContent = `${d.length}/${DECK}`;
-  $('dkNote').innerHTML = have.length ? `カードをタップで入れる・もう一度タップで外す（同じカードは${COPIES}枚まで）。足りない分はレンタルカードが入る。` : 'まだカードを持っていない。パックを開けよう！（今はレンタルカードだけで戦える）';
+  const cs = d.map(no => A.CARDS[no - 1]), n = t => cs.filter(c => c.type === t).length;
+  const avg = cs.length ? (cs.reduce((a, c) => a + COST[c.r], 0) / cs.length).toFixed(1) : '-';
+  const curve = [1, 2, 3, 4, 6, 7].map(k => `${k}:${cs.filter(c => COST[c.r] === k).length}`).join(' ');
+  $('dkNote').innerHTML = have.length ? `カードをタップで入れる・もう一度タップで外す（同じカードは${COPIES}枚まで）。長押しで効果を見る。足りない分はレンタルカードが入る。<br><b>モンスター${n('M')}・魔法${n('S')}・フィールド${n('F')}・アイテム${n('I')}</b>　平均ちから${avg}<br><small>ちからごとの枚数　${curve}</small>` : 'まだカードを持っていない。パックを開けよう！（今はレンタルカードだけで戦える）';
   $('dkGrid').innerHTML = have.map(c => { const n = d.filter(x => x === c.no).length; return `<div class="item ${n ? '' : 'out'}" data-no="${c.no}">${n ? `<span class="n">×${n}</span>` : ''}${cardEl(null, { c, uid: 0, ...power(c) })}</div>`; }).join('');
 }
 function startBattle(lv) {
   const { deck, rental } = playerDeck();
   B = { lv, turn: 0, me: newSide('あなた', deck, rental), foe: newSide(FOES[lv].nm, foeDeck(FOES[lv])), done: false };
-  B.foe.lp = FOES[lv].lp;
+  clearLog();
+  B.foe.lp = B.foe.maxLp = FOES[lv].lp;
   sel = null; targeting = null; busy = false;
   $('bt').hidden = false;
   draw(B.me, 4); draw(B.foe, 4);
   const first = rnd() < .5 ? B.me : B.foe;
-  draw(first === B.me ? B.foe : B.me, 1);         // 後攻は1枚多く
+  draw(first === B.me ? B.foe : B.me, SECOND_CARD);         // 後攻は手札が多い
   log(`${FOES[lv].nm}が勝負をいどんできた！ ${first === B.me ? 'あなたが先攻' : '相手が先攻'}`);
   A.audio(); A.tone(330, .12, 'square', .04); A.tone(495, .16, 'square', .04, 0, .1);
   render();
@@ -1026,7 +1263,25 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, power, COST, FOES, autoDeck,
+  get state() { return B; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; },
+  // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
+  async simMatch(deckA, deckB, opt = {}) {
+    FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });
+    B = { lv: opt.lv || 0, turn: 0, me: newSide('A', deckA), foe: newSide('B', opt.foe ? foeDeck(FOES[opt.lv || 0]) : deckB), done: true, rec: { played: [[], []] } };
+    if (opt.foe) { B.foe.lp = B.foe.maxLp = FOES[opt.lv || 0].lp; opt.skillB = FOES[opt.lv || 0].ai; }
+    if (opt.lpB) B.foe.lp = opt.lpB;
+    draw(B.me, 4); draw(B.foe, 4);
+    const firstA = opt.first != null ? opt.first === 0 : rnd() < .5;
+    let side = firstA ? B.me : B.foe; draw(other(side), SECOND_CARD);
+    while (!over() && B.turn < 100) {
+      beginTurn(side);
+      await cpuTurn(side, side === B.me ? (opt.skillA ?? 1) : (opt.skillB ?? 1));
+      side = other(side);
+    }
+    const res = { winner: B.foe.lp <= 0 && B.me.lp > 0 ? 0 : B.me.lp <= 0 && B.foe.lp > 0 ? 1 : -1, turns: B.turn, firstA, played: B.rec.played, lp: [B.me.lp, B.foe.lp] };
+    FAST = false; B = null; A = saveA;
+    return res;
+  },
   // 強さの確認：プレイヤー側もCPUが操作して n 回戦う
   async sim(lv, deckNos, n = 50) {
     const saveA = A; FAST = true; let win = 0, turns = 0;
@@ -1035,11 +1290,9 @@ window.PackBattle = {
       B = { lv, turn: 0, me: newSide('P', deckNos), foe: newSide('C', foeDeck(FOES[lv])), done: true };
       B.foe.lp = FOES[lv].lp;
       draw(B.me, 4); draw(B.foe, 4);
-      let side = rnd() < .5 ? B.me : B.foe; draw(other(side), 1);
+      let side = rnd() < .5 ? B.me : B.foe; draw(other(side), SECOND_CARD);
       while (!over() && B.turn < 80) {
-        B.turn++; side.maxMana = Math.min(MANA_MAX, side.maxMana + 1); side.mana = side.maxMana;
-        for (const m of side.field) if (m) m.sleep = false;
-        if (B.turn > 1) draw(side, 1);
+        beginTurn(side);
         await cpuTurn(side, side === B.me ? 1 : FOES[lv].ai);
         side = other(side);
       }

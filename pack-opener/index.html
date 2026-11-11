@@ -87,6 +87,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .card .tags { display: flex; justify-content: space-between; align-items: center; gap: .4em; font-size: .72em; font-weight: 700; color: #6a645a; }
 .card .stats { display: flex; justify-content: flex-end; gap: 1em; font-family: var(--num); font-size: 1.1em; letter-spacing: .05em; color: #4a443a; border-top: 1px solid rgba(0,0,0,.12); padding-top: .2em; }
 .card .stats b { font-weight: 400; color: #1a1610; font-size: 1.15em; }
+.card .stats .kwi { margin-right: auto; font-family: var(--jp); font-size: .85em; letter-spacing: 0; }
 .card .stats.eff { font-family: var(--jp); font-size: .75em; font-weight: 700; letter-spacing: 0; justify-content: flex-start; color: #5a544a; }
 .card .ty { padding: .05em .55em; border-radius: .3em; color: #fff; background: #8a6a4a; }
 .card .ty-S { background: #2f8a7a; } .card .ty-F { background: #5a6a8a; } .card .ty-I { background: #a0682a; }
@@ -151,7 +152,11 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .slot .cnt { position: absolute; right: -6px; bottom: -6px; z-index: 3; font-family: var(--num); font-size: 1rem; background: #000; border: 1px solid var(--line); padding: 0 6px; border-radius: 6px; }
 .inspect { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0,0,0,.7); perspective: 1200px; }
 .inspect { touch-action: none; }
-.inspect .card { --w: min(380px, 70vh / 1.4, 86vw); }
+.inspect .card { --w: min(380px, 62vh / 1.4, 86vw); }
+.inspect { grid-template-rows: 1fr auto; padding: 16px 16px 56px; }
+.inspect .rule { max-width: min(420px, 92vw); background: rgba(10,8,24,.85); border: 1px solid rgba(255,255,255,.15); border-radius: 12px; padding: 8px 12px; font-size: .82rem; line-height: 1.55; white-space: pre-line; color: #eee8fa; }
+.inspect .rule:empty { display: none; }
+.inspect .rule b { color: var(--gold); }
 .inspect .cap { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .9rem; }
 .toast { position: fixed; left: 50%; top: 76px; transform: translateX(-50%); z-index: 50; background: #000; border: 1px solid var(--line); padding: 10px 18px; border-radius: 10px; font-weight: 700; animation: toast 2.6s ease forwards; }
 @keyframes toast { 0% { opacity: 0; transform: translate(-50%, -8px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
@@ -169,6 +174,7 @@ body.mob .coin { width: 15px; height: 15px; }
 body.mob .tbtn { padding: 7px 11px; font-size: .85rem; white-space: nowrap; }
 body.mob .stage { inset: var(--topH) 0 var(--stageB); }
 body.mob .hint { font-size: .8rem; padding: 0 12px; }
+@media (max-width: 400px) { body.mob .comp { display: none; } body.mob .top { gap: 6px; padding-left: 8px; padding-right: 8px; } body.mob .tbtn { padding: 7px 9px; } body.mob .logo { font-size: .95rem; } }
 body.mob .row { bottom: var(--rowB); gap: 8px; }
 body.mob .row .card { --w: var(--rowW); }
 body.mob .row .card .new { font-size: 1.6em; }
@@ -226,7 +232,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="bar"><h2>図鑑</h2><span class="comp" id="comp2"></span><div class="filters" id="filters"></div><span class="sp" style="flex:1"></span><button class="ghost" id="closeBinder">閉じる</button></div>
   <div class="binder" id="binder"></div>
 </section>
-<div class="inspect" id="inspect" hidden><div id="inspectCard"></div><div class="cap">マウスを動かすと傾く・クリックで閉じる</div></div>
+<div class="inspect" id="inspect" hidden><div id="inspectCard"></div><div class="rule" id="inspectRule"></div><div class="cap">マウスを動かすと傾く・クリックで閉じる</div></div>
 
 <script src="art.js"></script>
 <script src="cards.js"></script>
@@ -295,7 +301,10 @@ const BACK = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="
 const BASE = { C: 600, U: 1000, R: 1500, SR: 2100, UR: 2800, SEC: 3500 };
 const EFFECT = { S: '効果：場のモンスター全員に力をあたえる', F: '効果：同じ属性のモンスターが元気になる', I: '効果：持たせたモンスターが強くなる' };
 function stats(c) {
-  if (c.type !== 'M') return `<div class="stats eff">${EFFECT[c.type]}</div>`;
+  // バトルと同じ数字・効果を出す（battle.js が読めないときは昔の表示）
+  const PB = window.PackBattle;
+  if (c.type !== 'M') return `<div class="stats eff">${PB && PB.shortText ? esc(PB.shortText(c)) : EFFECT[c.type]}</div>`;
+  if (PB && PB.power) { const p = PB.power(c), kw = PB.kwIcons(c); return `<div class="stats">${kw ? `<span class="kwi">${kw}</span>` : ''}<span>ATK <b>${p.atk}</b></span><span>HP <b>${p.hp}</b></span></div>`; }
   const b = BASE[c.r], a = b + (c.seed % 9) * 50, d = b - 200 + (Math.floor(c.seed / 9) % 9) * 50;
   return `<div class="stats"><span>ATK <b>${a}</b></span><span>DEF <b>${d}</b></span></div>`;
 }
@@ -620,6 +629,7 @@ function tiltable(card, strength = 18) {
 let inspectMove = null;
 function inspect(c) {
   $('inspectCard').innerHTML = cardHTML(c);
+  $('inspectRule').innerHTML = window.PackBattle && window.PackBattle.battleText ? '<b>バトルでの効果</b>\n' + esc(window.PackBattle.battleText(c)) : '';
   const card = $('inspectCard').firstElementChild;
   inspectMove = tiltable(card, 26);
   $('inspect').hidden = false;
