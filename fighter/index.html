@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>嵐拳 ARASHI-KEN</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&family=Bebas+Neue&display=swap">
+<style>
+:root { --bg: #0b0a12; --ink: #f4f1ea; --mute: #9a96a8; --acc: #ff4a3a; --acc2: #3ad0ff; --line: rgba(255,255,255,.12); --panel: rgba(16,14,26,.94); color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: "Noto Sans JP", "Hiragino Sans", sans-serif; overflow: hidden; }
+#wrap { position: fixed; inset: 0; display: grid; place-items: center; }
+canvas { width: min(100vw, calc(100vh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; display: block; background: #000; image-rendering: auto; }
+.scr { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(1000px 600px at 50% 30%, rgba(80,20,40,.55), rgba(5,4,10,.92)); z-index: 10; padding: 16px; overflow: auto; }
+.scr[hidden] { display: none; }
+.box { width: min(920px, 100%); display: grid; gap: 18px; justify-items: center; }
+.logo { font-family: "Bebas Neue", sans-serif; font-size: clamp(64px, 12vw, 140px); line-height: .85; letter-spacing: .04em; margin: 0; text-align: center;
+  background: linear-gradient(180deg, #fff 10%, #ffcc3a 45%, #ff3a2a 75%, #7a0a14); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 0 #000); }
+.logo small { display: block; font-family: "Noto Sans JP", sans-serif; font-size: .28em; letter-spacing: .5em; color: #ffcc3a; -webkit-text-fill-color: #ffcc3a; margin-top: 8px; }
+.menu { display: grid; gap: 10px; width: min(360px, 100%); }
+button { font: inherit; cursor: pointer; border: 0; }
+.btn { padding: 14px 18px; border-radius: 10px; background: #1c1928; color: var(--ink); font-weight: 900; font-size: 1.05rem; border: 1px solid var(--line); text-align: left; display: flex; justify-content: space-between; align-items: center; transition: transform .1s, background .1s; }
+.btn:hover, .btn:focus-visible, .btn.sel { background: linear-gradient(90deg, #c8282c, #6a1018); transform: translateX(4px); outline: none; }
+.btn small { color: var(--mute); font-weight: 700; font-size: .78rem; }
+.btn:hover small, .btn.sel small, .btn:focus-visible small { color: #ffd8d0; }
+.btn.go { justify-content: center; background: linear-gradient(90deg, #ff4a3a, #ff9a2a); color: #1a0a0a; }
+.btn.ghost { background: transparent; justify-content: center; }
+h2 { margin: 0; font-size: 1.5rem; letter-spacing: .1em; }
+.note { color: var(--mute); font-size: .85rem; text-align: center; line-height: 1.6; }
+.chars { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+.cc { position: relative; border-radius: 14px; padding: 12px; background: #15121e; border: 2px solid var(--line); cursor: pointer; display: grid; gap: 6px; text-align: left; color: var(--ink); }
+.cc canvas { width: 100%; aspect-ratio: 4 / 3; background: radial-gradient(circle at 50% 70%, #2a1838, #0d0b16); border-radius: 10px; }
+.cc.p1 { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc), 0 0 30px rgba(255,74,58,.35); }
+.cc.p2 { border-color: var(--acc2); }
+.cc.p1.p2 { box-shadow: 0 0 0 2px var(--acc), 0 0 0 5px var(--acc2); }
+.cc b { font-size: 1.3rem; } .cc .en { font-family: "Bebas Neue", sans-serif; letter-spacing: .1em; color: var(--mute); font-size: 1.1rem; }
+.cc .tag { position: absolute; top: 18px; padding: 2px 8px; border-radius: 6px; font-family: "Bebas Neue", sans-serif; font-size: 1.1rem; }
+.cc .t1 { left: 18px; background: var(--acc); } .cc .t2 { right: 18px; background: var(--acc2); color: #001; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { padding: 9px 14px; background: #15121e; color: var(--mute); font-weight: 900; }
+.seg button.on { background: #ffcc3a; color: #1a1208; }
+.lbl { color: var(--mute); font-size: .85rem; font-weight: 900; }
+input.code { font: 900 2rem "Bebas Neue", sans-serif; letter-spacing: .3em; width: 180px; text-align: center; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: #0d0b16; color: var(--ink); }
+.codeBig { font-family: "Bebas Neue", sans-serif; font-size: 5rem; letter-spacing: .25em; color: #ffcc3a; line-height: 1; }
+#netMsg { min-height: 1.4em; color: #ffd8a0; font-weight: 700; text-align: center; }
+table.keys { border-collapse: collapse; font-size: .9rem; width: 100%; }
+table.keys td, table.keys th { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; }
+table.keys th { color: var(--mute); font-weight: 900; }
+kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; border-radius: 5px; background: #2a2638; border: 1px solid #3a3550; border-bottom-width: 3px; font: 900 .85rem "Noto Sans JP", sans-serif; text-align: center; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.card h3 { margin: 0 0 8px; font-size: 1rem; color: #ffcc3a; }
+#pause .card { width: min(420px, 100%); }
+#hudBar { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 5; color: var(--mute); font-size: .78rem; font-weight: 700; background: rgba(0,0,0,.5); padding: 4px 12px; border-radius: 8px; pointer-events: none; white-space: nowrap; }
+#pcOnly { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: #0b0a12; padding: 24px; text-align: center; }
+@media (hover: none) and (pointer: coarse) { #pcOnly { display: grid; } }
+@media (max-width: 640px) { .chars, .cols { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv" width="1280" height="720" aria-label="対戦画面"></canvas></div>
+<div id="hudBar" hidden></div>
+
+<!-- タイトル -->
+<section class="scr" id="title">
+  <div class="box">
+    <h1 class="logo">ARASHI-KEN<small>嵐 拳</small></h1>
+    <div class="menu" id="mainMenu">
+      <button class="btn" data-go="training">トレーニング <small>技の練習</small></button>
+      <button class="btn" data-go="cpu">CPU戦 <small>コンピューターと対戦</small></button>
+      <button class="btn" data-go="online">オンライン対戦 <small>部屋コードで友だちと</small></button>
+      <button class="btn" data-go="help">操作説明 <small>キーとコマンド</small></button>
+    </div>
+    <p class="note">PC専用（キーボード・ゲームパッド）。移動は <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>、決定は <kbd>Enter</kbd>、もどるは <kbd>Esc</kbd></p>
+  </div>
+</section>
+
+<!-- キャラ選択 -->
+<section class="scr" id="select" hidden>
+  <div class="box">
+    <h2 id="selTitle">キャラクター選択</h2>
+    <div class="chars" id="chars"></div>
+    <div class="row">
+      <span class="lbl">操作</span>
+      <div class="seg" id="ctlSeg"><button data-v="classic" class="on">クラシック</button><button data-v="modern">モダン</button></div>
+      <span class="lbl" id="cpuLbl">CPUの強さ</span>
+      <div class="seg" id="lvSeg"><button data-v="0">よわい</button><button data-v="1" class="on">ふつう</button><button data-v="2">つよい</button></div>
+    </div>
+    <p class="note" id="selNote">左クリックで自分のキャラ、右クリックで相手のキャラを選ぶ</p>
+    <div class="row"><button class="btn ghost" data-back>もどる</button><button class="btn go" id="selGo">たたかう！</button></div>
+  </div>
+</section>
+
+<!-- オンライン -->
+<section class="scr" id="online" hidden>
+  <div class="box" style="max-width:560px">
+    <h2>オンライン対戦</h2>
+    <div class="card" style="width:100%; display:grid; gap:14px; justify-items:center">
+      <div class="row"><span class="lbl">名前</span><input id="myName" class="code" style="font:900 1.1rem 'Noto Sans JP';letter-spacing:0;width:200px" maxlength="10" placeholder="プレイヤー"></div>
+      <div class="row"><button class="btn go" id="hostBtn" style="min-width:220px">部屋を作る</button></div>
+      <div id="hostBox" hidden style="text-align:center"><div class="lbl">この番号を相手に伝えてね</div><div class="codeBig" id="roomCode">----</div></div>
+      <div class="row"><input class="code" id="joinCode" inputmode="numeric" maxlength="4" placeholder="0000"><button class="btn" id="joinBtn">部屋に入る</button></div>
+      <div id="netMsg" role="status"></div>
+    </div>
+    <p class="note">キャラと操作タイプは、ひとつ前の画面で選んだものを使います。<br>通信のずれは「巻き戻し」で自動で直します（ロールバック方式）。</p>
+    <div class="row"><button class="btn ghost" data-back>もどる</button></div>
+  </div>
+</section>
+
+<!-- 操作説明 -->
+<section class="scr" id="help" hidden>
+  <div class="box">
+    <h2>操作説明</h2>
+    <div class="row"><div class="seg" id="helpSeg"><button data-v="classic" class="on">クラシック</button><button data-v="modern">モダン</button></div></div>
+    <div class="cols">
+      <div class="card"><h3>キー</h3><table class="keys" id="keyTable"></table></div>
+      <div class="card"><h3>コマンド（右向きのとき）</h3><table class="keys" id="cmdTable"></table></div>
+    </div>
+    <div class="row"><button class="btn ghost" data-back>もどる</button></div>
+  </div>
+</section>
+
+<!-- ポーズ -->
+<section class="scr" id="pause" hidden>
+  <div class="card" style="display:grid; gap:10px">
+    <h2 style="text-align:center">ポーズ</h2>
+    <div id="trainOpts" style="display:grid; gap:10px">
+      <div class="row" style="justify-content:space-between"><span class="lbl">相手の動き</span><div class="seg" id="dumSeg"><button data-v="stand" class="on">立つ</button><button data-v="crouch">しゃがむ</button><button data-v="block">ガード</button><button data-v="jump">ジャンプ</button><button data-v="cpu">CPU</button></div></div>
+      <div class="row" style="justify-content:space-between"><span class="lbl">ゲージ</span><div class="seg" id="gaugeSeg"><button data-v="1" class="on">無限</button><button data-v="0">ふつう</button></div></div>
+      <div class="row" style="justify-content:space-between"><span class="lbl">当たり判定</span><div class="seg" id="boxSeg"><button data-v="1">表示</button><button data-v="0" class="on">非表示</button></div></div>
+    </div>
+    <button class="btn" id="pResume">つづける <small>Esc</small></button>
+    <button class="btn" id="pHelp">操作説明</button>
+    <button class="btn" id="pSelect">キャラ選択へ</button>
+    <button class="btn" id="pTitle">タイトルへ</button>
+  </div>
+</section>
+
+<!-- 結果 -->
+<section class="scr" id="result" hidden>
+  <div class="box">
+    <h1 class="logo" id="resTitle" style="font-size:clamp(60px,10vw,120px)">YOU WIN</h1>
+    <p class="note" id="resNote"></p>
+    <div class="menu">
+      <button class="btn go" id="rAgain">もう一度</button>
+      <button class="btn" id="rSelect">キャラ選択へ</button>
+      <button class="btn" id="rTitle">タイトルへ</button>
+    </div>
+  </div>
+</section>
+
+<div id="pcOnly"><div class="box"><h1 class="logo" style="font-size:72px">ARASHI-KEN</h1><p class="note">このゲームはPC専用です。<br>キーボードかゲームパッドで遊んでね。</p></div></div>
+
+<script src="chars.js"></script>
+<script src="engine.js"></script>
+<script src="render.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
