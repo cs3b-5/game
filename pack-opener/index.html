@@ -151,6 +151,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
 .tbtn.news { position: relative; padding-left: 12px; padding-right: 12px; }
 .stackOv { position: fixed; inset: 0; z-index: 22; background: radial-gradient(900px 700px at 50% 45%, #1c2a40, #05080e 75%); display: grid; grid-template-rows: auto 1fr auto; user-select: none; -webkit-user-select: none; cursor: pointer; touch-action: manipulation; }
+.stkSkip { padding: 8px 16px; border-radius: 999px; border: 0; background: var(--gold, #ffd25a); color: #241a00; font: inherit; font-weight: 800; font-size: .9rem; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.stkSkip:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
 .stkTop { display: flex; align-items: center; gap: 8px; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 8px; cursor: default; }
 .stkCount { display: flex; gap: 10px; align-items: baseline; font-family: var(--num); font-size: 1.15rem; flex-wrap: wrap; }
 .stkCount b { font-size: 1.8rem; color: #fff; }
@@ -163,7 +165,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .stkCount .pk { color: #ffe08a; }
 .stkCount > span { white-space: nowrap; }
 .stkCount b { font-size: 1.5rem; }
-@media (max-width: 520px) { .stkTop { flex-wrap: wrap; gap: 6px 8px; } .stkCount { order: 3; width: 100%; font-size: .95rem; gap: 8px; } .stkCount b { font-size: 1.25rem; } .stkTop .ghost { padding: 7px 12px; font-size: .82rem; } }
+@media (max-width: 520px) { .stkTop { flex-wrap: wrap; gap: 6px 8px; } .stkCount { order: 3; width: 100%; font-size: .95rem; gap: 8px; } .stkCount b { font-size: 1.25rem; } .stkTop .ghost { padding: 7px 12px; font-size: .82rem; } .stkSkip { padding: 7px 14px; font-size: .84rem; } }
 .stkCount span { font-family: var(--num); }
 .stkHint { text-align: center; color: var(--muted); padding: 8px 0 calc(14px + env(safe-area-inset-bottom, 0px)); font-size: .9rem; }
 .flipAll { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; }
@@ -303,7 +305,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="binder" id="binder"></div>
 </section>
 <section class="stackOv" id="stackOv" hidden>
-  <div class="stkTop"><div class="stkCount" id="stkCount"></div><span style="flex:1"></span><button class="ghost" id="stkAuto">自動でむく・めくる ⏩</button><button class="ghost" id="stkSkip">一覧へ</button></div>
+  <div class="stkTop"><div class="stkCount" id="stkCount"></div><span style="flex:1"></span><button class="ghost" id="stkAuto">自動でむく・めくる ⏩</button><button class="stkSkip" id="stkSkip" title="残りを全部めくって一覧へ">スキップ ⏭</button></div>
   <div class="stk3dWrap"><div class="stkPack" id="stkPack" hidden></div><div class="stk3d" id="stk3d"></div></div>
   <div class="stkHint" id="stkHint"></div>
 </section>
