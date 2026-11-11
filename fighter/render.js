@@ -78,10 +78,15 @@
       case 'thrown': p = P.hit2; break;
       case 'cin': {
         const c = G.cin;
-        if (c && c.a === f.i) { const k = Math.floor(c.t / 12) % 4; p = [P.hp1, P.mk1, P.hk1, P.mp1][k]; }
-        else p = (c && Math.floor(c.t / 12) % 2) ? P.hit : P.hit2;
+        if (c && c.a === f.i) {
+          if (c.t < 32) p = P.stand;
+          else if (c.t >= 104) p = c.kind === 'bolt' ? P.flip1 : P.dp1;
+          else { const k = Math.floor((c.t - 32) / 8) % 4; p = [P.hp1, P.mk1, P.hk1, P.mp1][k]; }
+        } else p = (c && Math.floor((c.t - 30) / 8) % 2) ? P.hit : P.hit2;
+        if (c && c.a !== f.i && c.t >= 110) { p = P.launch; rot = -.8; }
         break;
       }
+      case 'cut': p = f.ch === 'raika' ? P.mk1 : P.hp1; break;
       default: p = P.stand;
     }
     return { p, rot, spin };
@@ -266,6 +271,73 @@
     for (let i = 0; i < 3; i++) { const a = t + i * 2.1; cx.fillStyle = '#ffe14a'; cx.font = 'bold 22px sans-serif'; cx.fillText('★', h[0] + Math.cos(a) * 36 - 8, h[1] - 40 + Math.sin(a) * 10); }
   }
 
+  // ---------- SA3の演出 ----------
+  // 攻撃中は相手のまわりを左右にとびまわる
+  function cinView(G, f) {
+    const c = G.cin; if (!c || c.a !== f.i || c.t < 32) return f;
+    const V = G.p[c.v], side = c.t >= 104 ? (f.x < V.x ? -1 : 1) : (Math.floor((c.t - 32) / 8) % 2 ? 1 : -1) * (f.x < V.x ? -1 : 1);
+    const g = Object.assign({}, f, { x: V.x + side * 66, face: -side, y: c.t >= 104 ? Math.min(60, (c.t - 104) * 6) : 0 });
+    return g;
+  }
+  // カットイン：キャラのアップが帯になって横切る
+  function cutIn(G, c) {
+    const t = c.t, A = G.p[c.a], C = FG.CHARS[A.ch], L = A.i === 0 ? 1 : -1;
+    // 上下の黒帯
+    const bar = Math.min(1, t / 6) * 64; cx.fillStyle = '#000'; cx.fillRect(0, 0, VW, bar); cx.fillRect(0, VH - bar, VW, bar);
+    if (t > 34) return;
+    const k = t < 7 ? 1 - t / 7 : t > 26 ? (t - 26) / 8 : 0, off = (t > 26 ? -L : L) * k * VW * 1.1;
+    cx.save(); cx.translate(off, 0);
+    const band = [[0, 270], [VW, 200], [VW, 470], [0, 540]];
+    cx.beginPath(); band.forEach((p, i) => i ? cx.lineTo(...p) : cx.moveTo(...p)); cx.closePath();
+    cx.fillStyle = '#000'; cx.fill(); cx.save(); cx.clip();
+    const g = cx.createLinearGradient(0, 200, 0, 540); g.addColorStop(0, '#0a0610'); g.addColorStop(.5, C.colors.aura); g.addColorStop(1, '#0a0610');
+    cx.globalAlpha = .55; cx.fillStyle = g; cx.fillRect(0, 180, VW, 380); cx.globalAlpha = 1;
+    // 流れる線
+    cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 3;
+    for (let i = 0; i < 26; i++) { const y = 200 + ((i * 53) % 340), x = ((i * 137 + t * 90 * L) % (VW + 400)) - 200; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x - L * 220, y + 20); cx.stroke(); }
+    // キャラのアップ（人形を大きく描く）
+    const save = cam.x; cam.x = 700;
+    const f = { i: A.i, ch: A.ch, x: 700, y: 0, face: L, st: 'cut', t, hp: 1, maxHp: 1, burn: 0, mv: null, rushB: 0 };
+    cx.save(); cx.translate(L > 0 ? VW * .3 : VW * .7, 455); cx.scale(2.8, 2.8); cx.translate(-VW / 2, -(GY - 150 * K));
+    drawFighter({ f: G.f, phase: 'fight', p: [f, f] }, f);
+    cx.restore(); cam.x = save; trails[A.i] = [];
+    // 目の光
+    if (t > 10 && t < 22) { const ex = L > 0 ? VW * .3 + 40 : VW * .7 - 40; cx.fillStyle = '#fff'; cx.globalAlpha = 1 - Math.abs(t - 16) / 6; cx.beginPath(); cx.ellipse(ex, 317, 70, 4, 0, 0, 7); cx.fill(); cx.globalAlpha = 1; }
+    cx.restore();
+    // 帯のふち
+    cx.strokeStyle = C.colors.aura; cx.lineWidth = 6; cx.beginPath(); cx.moveTo(0, 270); cx.lineTo(VW, 200); cx.moveTo(0, 540); cx.lineTo(VW, 470); cx.stroke();
+    // 技の名前
+    cx.textAlign = L > 0 ? 'right' : 'left'; const tx = L > 0 ? VW - 70 : 70;
+    cx.font = '900 24px "Bebas Neue", sans-serif'; cx.fillStyle = c.ca ? '#ffd23a' : C.colors.aura;
+    cx.fillText(c.ca ? 'CRITICAL ART' : 'SUPER ART LV3', tx, 330);
+    cx.font = '900 84px "Noto Sans JP", sans-serif'; cx.lineWidth = 10; cx.strokeStyle = '#000';
+    const nm = c.nm.replace('クリティカルアーツ ', '');
+    cx.strokeText(nm, tx, 420); cx.fillStyle = '#fff'; cx.fillText(nm, tx, 420);
+    cx.restore();
+  }
+  // とどめ：炎の柱 / 雷の嵐
+  function finisher(G, c) {
+    const V = G.p[c.v], x = SX(V.x), y = SY(V.y + 90), t = c.t - 104, col = FG.CHARS[G.p[c.a].ch].colors.aura;
+    if (t === 6) { flash = .9; flashCol = '#fff'; cam.shake = 26; }
+    const r = Math.min(1, t / 10) * 260 + t * 4;
+    if (c.kind === 'bolt') {
+      cx.save(); cx.shadowColor = col; cx.shadowBlur = 30;
+      for (let i = 0; i < 5; i++) zig([x + (Math.random() - .5) * 300, -200], [x + (Math.random() - .5) * 60, y], i % 2 ? '#fff' : col, 6 - i);
+      cx.restore();
+    }
+    const g = cx.createRadialGradient(x, y, 4, x, y, r);
+    g.addColorStop(0, 'rgba(255,255,240,.95)'); g.addColorStop(.35, c.kind === 'bolt' ? 'rgba(120,220,255,.7)' : 'rgba(255,150,40,.75)'); g.addColorStop(1, 'rgba(255,40,0,0)');
+    cx.globalAlpha = Math.max(0, 1 - t / 32); cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r, 0, 7); cx.fill(); cx.globalAlpha = 1;
+    if (c.kind !== 'bolt' && t < 20) for (let i = 0; i < 4; i++) parts.push({ x: x + (Math.random() - .5) * 120, y: y + 60, vx: (Math.random() - .5) * 3, vy: -6 - Math.random() * 8, life: 30, max: 30, kind: 'ember', col: '#ffb040', r: 10 });
+    if (t >= 4 && t < 28) {
+      const nm = c.nm, k = Math.min(1, (t - 4) / 5);
+      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.textAlign = 'center'; cx.globalAlpha = Math.min(1, (28 - t) / 6);
+      cx.font = `900 ${Math.round(96 * (1.5 - .5 * k))}px "Noto Sans JP", sans-serif`; cx.lineWidth = 12; cx.strokeStyle = '#000';
+      cx.strokeText(nm, VW / 2, VH / 2 - 120); cx.fillStyle = c.ca ? '#ffd23a' : '#fff'; cx.fillText(nm, VW / 2, VH / 2 - 120);
+      cx.restore();
+    }
+  }
+
   // ---------- ステージ（夜の商店街） ----------
   let bgCache = null;
   function drawStage(G) {
@@ -354,6 +426,7 @@
         case 'armor': parts.push({ x, y, life: 14, max: 14, kind: 'ring', col: '#ffb030', r: 50 }); SFX.block(); break;
         case 'tech': parts.push({ x, y, life: 14, max: 14, kind: 'ring', col: '#fff', r: 50 }); texts.push({ t: 'TECH', x: VW / 2, y: 240, col: '#fff', life: 40 }); SFX.block(); break;
         case 'clash': parts.push({ x, y, life: 16, max: 16, kind: 'ring', col: '#ffd040', r: 60 }); SFX.hit(1); break;
+        case 'cin': SFX.cin(); break;
         case 'super': superBanner = { nm: e.nm, lv: e.lv, i: e.i, t: 0 }; SFX.super(); break;
         case 'di': SFX.di(); break;
         case 'taunt': texts.push({ t: '♪ DRIVE UP', x: e.i ? VW - 240 : 240, y: 300, col: '#5affb0', life: 50 }); SFX.parry(false); break;
@@ -451,7 +524,14 @@
     for (const i of [0, 1]) { trails[i] = trails[i].filter(t => (t.a -= .05) > 0); for (const t of trails[i]) { cx.fillStyle = `rgba(90,255,170,${t.a * .35})`; cx.beginPath(); cx.ellipse(SX(t.x), SY(t.y) - 140, 30, 90, 0, 0, 7); cx.fill(); } }
     // 人形（前に出ている方をあとで描く）
     const order = (a.st === 'move' || a.st === 'throwing') && b.st !== 'move' ? [b, a] : [a, b];
-    for (const f of order) drawFighter(G, f);
+    const cin = G.cin;
+    cx.save();
+    if (cin && cin.t >= 30) {   // 相手に寄る
+      const V = G.p[cin.v], z = 1 + .4 * Math.min(1, (cin.t - 30) / 8), fx0 = SX(V.x), fy0 = SY(V.y + 100);
+      cx.translate(fx0, fy0); cx.scale(z, z); cx.translate(-fx0, -fy0);
+    }
+    for (const f of order) drawFighter(G, cinView(G, f));
+    if (cin && cin.t >= 104) finisher(G, cin);
     for (const p of G.proj) drawProj(G, p);
     // 当たり判定の表示（トレーニング）
     if (R.opts.boxes) {
@@ -461,6 +541,7 @@
       }
       for (const p of G.proj) { cx.fillStyle = 'rgba(255,40,60,.35)'; cx.fillRect(SX(p.x - p.w), SY(p.y + p.h), p.w * 2 * K, p.h * 2 * K); }
     }
+    cx.restore();
     // 粒
     parts = parts.filter(p => p.life-- > 0);
     for (const p of parts) {
@@ -474,6 +555,7 @@
     }
     cx.restore();
     hud(G, info);
+    if (G.cin) cutIn(G, G.cin);
     // SAの名前
     if (superBanner) {
       const s = superBanner; s.t++;
@@ -545,6 +627,7 @@
     thud() { tone(0, .2, 90, 40, .45); noise(0, .15, 400, 100, .3, 'lowpass'); },
     ko() { tone(0, 1, 200, 40, .5, 'sawtooth'); noise(0, .8, 1500, 100, .5, 'lowpass'); },
     round() { tone(0, .15, 660, 660, .2, 'square'); },
+    cin() { tone(0, .08, 1800, 1800, .2, 'square'); noise(.05, .5, 6000, 300, .35); tone(.1, 1.2, 80, 40, .4, 'sawtooth'); },
     fight() { tone(0, .1, 880, 880, .25, 'square'); tone(.1, .3, 1320, 1320, .25, 'square'); },
   };
 })();

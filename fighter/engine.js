@@ -73,8 +73,9 @@
     if (n(0) !== d || n(1) === d) return false;
     let i = 1; while (i < 14 && n(i) !== d) i++;
     if (i >= 14) return false;
-    let neutral = false; for (let j = 1; j < i; j++) if (n(j) === 5) neutral = true;
-    return neutral;
+    // 2回のあいだはニュートラルだけ（↓などが入っていたらコマンド入力なのでダッシュにしない）
+    for (let j = 1; j < i; j++) if (n(j) !== 5) return false;
+    return i > 1;
   }
   const strOf = m => (m & (BT.HP | BT.HK)) ? 2 : (m & (BT.MP | BT.MK)) ? 1 : 0;
   const bitCount = m => { let c = 0; while (m) { c += m & 1; m >>= 1; } return c; };
@@ -279,7 +280,8 @@
     V.mv = null;
     const wasAir = V.air || V.y > 0, prevSt = V.st;
     if (m.cin && !proj) {
-      G.cin = { a: A.i, v: V.i, t: 0, kind: m.cin, dmg: dmg, ca: A.ca };
+      G.cin = { a: A.i, v: V.i, t: 0, kind: m.cin, dmg: dmg, ca: A.ca, nm: (A.ca ? 'クリティカルアーツ ' : '') + m.nm };
+      G.ev.push({ k: 'cin', i: A.i });
       V.hp += dmg; V.combo--; V.cdmg -= dmg;   // ダメージは演出の中で入れる
       setSt(V, 'cin'); setSt(A, 'cin'); V.vx = V.vy = A.vx = A.vy = 0;
       G.ev.push({ k: 'hit', i: V.i, x: hx, y: hy, str: 3, ct, dmg: 0 });
@@ -552,7 +554,7 @@
   function updCin(G) {
     const c = G.cin, A = G.p[c.a], V = G.p[c.v];
     c.t++;
-    const N = 8, at = [14, 26, 38, 50, 62, 74, 86, 104];
+    const N = 8, at = [38, 46, 54, 62, 70, 78, 86, 110];   // 0〜32はカットイン
     const k = at.indexOf(c.t);
     if (k >= 0) {
       const part = Math.round(c.dmg * (k === N - 1 ? .3 : .1));
@@ -560,7 +562,7 @@
       G.ev.push({ k: 'hit', i: V.i, x: V.x, y: 110, str: k === N - 1 ? 3 : 2, dmg: part, combo: V.combo, fx: c.kind, cin: 1 });
       if (V.hp <= 0) V.hp = 0;
     }
-    if (c.t >= 120) {
+    if (c.t >= 136) {
       G.cin = null; A.ca = 0;
       setSt(A, 'rec'); A.hs = 22; A.mv = null;
       const away = V.x >= A.x ? 1 : -1;
