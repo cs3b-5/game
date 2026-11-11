@@ -1,6 +1,6 @@
 # パックの表の絵（Stable Diffusion 用・縦長 832x1216）
 # python pack_prompts.py → pack_prompts.txt
-# シード 9001〜 = 第一弾、9101〜 = 第二弾、9201〜 = 第三弾（4パターンずつ）
+# シード 9001〜 = 第一弾、9101〜 = 第二弾、9201〜 = 第三弾、9301〜 = 第四弾（4パターンずつ）
 NEG = ('text, letters, words, numbers, title, logo, watermark, signature, frame, border, card frame, '
        'blurry, lowres, jpeg artifacts, deformed, bad anatomy, extra limbs, duplicate, people, person, human')
 PACKS = {
@@ -15,6 +15,10 @@ PACKS = {
     3: ('a giant glowing egg cracking open in the center of an ancient forest at night, golden light pouring out, '
         'a small fox, a baby dragon and a sea turtle hatchling growing into majestic huge forms as a spiral of evolution rising into the starry sky, '
         'sprouting leaves and blooming flowers, green and gold light, vertical composition, main creatures in the center, dark empty sky at the top and bottom, '
+        'fantasy trading card booster pack art, epic digital painting, vibrant colors, dramatic lighting, highly detailed'),
+    4: ('a colossal titan of molten rock and cracks facing a giant golden clockwork guardian holding a balance scale, '
+        'a ruined city split in two between them, red fire and destruction on one side, white gold light and order on the other, '
+        'vertical composition, main figures in the center, dark empty sky at the top and bottom, '
         'fantasy trading card booster pack art, epic digital painting, vibrant colors, dramatic lighting, highly detailed'),
 }
 if __name__ == '__main__':

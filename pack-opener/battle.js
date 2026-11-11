@@ -25,6 +25,7 @@ const EL_C = { fire: '#ff5a2a', water: '#2a8cff', leaf: '#2fb35a', bolt: '#f2b80
 const TOTAL = { C: 5, U: 7, R: 8, SR: 10, UR: 12, SEC: 13 };
 // 進化：何段階目か（進化前がいなければ1）。進化したモンスターは、進化前を育てた分だけ強い
 function evoStage(c) { let n = 1, e = c.evo; const L = (typeof A !== 'undefined' && A && A.CARDS) || window.CARD_DEFS || []; while (e && n < 5) { n++; e = L[e - 1] && L[e - 1].evo; } return n; }
+let COUNTER_MINUS = { R: 1, SR: 1, UR: 1, SEC: 1 };              // 第四弾はカウンター能力がある分、元の強さを少し低く
 let EVO_TOTAL = { 2: 12, 3: 15 };  // 進化したモンスターのATK+HPの合計（レア度ではなく段階で決まる）
 let EVO_R = { SR: 1, UR: 1, SEC: 2 };   // レア度が高いと少しだけ上乗せ
 let EVO_COST = { 2: 1, 3: 2 };    // 進化にかかるちから（レア度ではなく段階で決まる。UR・SECは+1）
@@ -35,6 +36,9 @@ let CARD_COST = {
   11: 6, 47: 6, 89: 5, 164: 5, 166: 5, 165: 2,
   // アイテム
   19: 1, 78: 1, 158: 1, 160: 1, 6: 3, 67: 4, 117: 4, 157: 2,
+  // 第四弾：相手しだいで効くカウンターなので軽め
+  199: 1, 201: 1, 202: 1, 203: 1, 200: 2,
+  208: 4, 210: 2, 211: 2, 209: 4, 212: 5,
 };
 function costOf(c) {
   if (CARD_COST[c.no] != null) return CARD_COST[c.no];
@@ -42,7 +46,7 @@ function costOf(c) {
   return COST[c.r];
 }
 function power(c) {
-  const t = (c.evo ? EVO_TOTAL[evoStage(c)] + (EVO_R[c.r] || 0) : TOTAL[c.r]) + (c.seed % 3 === 0 ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) ;   // カードによって少しちがう（森の大物は少しタフ）
+  const t = (c.evo ? EVO_TOTAL[evoStage(c)] + (EVO_R[c.r] || 0) : TOTAL[c.r]) + (c.seed % 3 === 0 && !(c.set === 4 && c.r === 'C') ? 1 : 0) + (c.el === 'leaf' && TOTAL[c.r] >= 8 ? 1 : 0) - (isTrain(c) ? TRAIN_MINUS[c.r] : 0) - (c.set === 4 && c.type === 'M' ? COUNTER_MINUS[c.r] || 0 : 0);   // カードによって少しちがう（森の大物は少しタフ）
   const share = .38 + ((Math.floor(c.seed / 7) % 7) / 6) * .26;  // ATK寄りか、HP寄りか
   const atk = Math.max(1, Math.round(t * share));
   return { atk, hp: Math.max(1, t - atk) };
@@ -59,13 +63,25 @@ const KW = {
   banish: { ic: '🌀', nm: '神隠し', txt: '出たとき、敵モンスター1体を異界へ連れていく（ゲームから消える）' },
   nightmare: { ic: '🐒', nm: '悪夢の放送', txt: '自分のターンのはじめに、敵モンスター1体に2ダメージ' },
   starlight: { ic: '🌌', nm: '星明かり', txt: '出たとき、味方の電車全員のHP+2' },
+  break: { ic: '🔨', nm: '破壊', txt: '出たとき、相手のフィールドを壊す（フィールドがなければ、相手モンスター1体のアイテムの強化をはずす）' },
+  pierce: { ic: '🗡', nm: '貫通', txt: '🛡守りを無視して、どの相手でも攻撃できる' },
+  seal: { ic: '⛓', nm: '封印', txt: '出たとき、相手モンスター1体の能力をすべて消す' },
+  nullheal: { ic: '⛔', nm: '禁癒', txt: 'この場にいるかぎり、相手はライフを回復できず、♻再生も働かない' },
+  order: { ic: '⚖', nm: '天秤', txt: '自分よりレア度が高いモンスターとの戦いでは、与えるダメージ2倍' },
+  cutoff: { ic: '✂', nm: '分断', txt: 'この場にいるかぎり、相手の🔗連結が働かず、相手の🌱進化はちから+1' },
+  ward: { ic: '💠', nm: '結界', txt: '魔法のダメージ・凍結・効果を受けない' },
   evo: { ic: '🌱', nm: '進化', txt: '進化前のモンスターに重ねて出せる（ちからは差の分だけ・すぐ攻撃できる）' },
 };
 const EL_KW = { bolt: 'haste', water: 'guard', leaf: 'regen', dark: 'drain', fire: 'spark', light: 'bless' };
+// 第四弾のモンスター（C・Uも）は、属性ごとのカウンター能力を持つ
+const COUNTER_KW = { fire: 'break', bolt: 'pierce', water: 'seal', dark: 'nullheal', light: 'order', leaf: 'cutoff' };
+function hasKw(side, k) { return !!side && side.field.some(m => m && m.kw && m.kw[k]); }
+const R_RANK = { C: 0, U: 1, R: 2, SR: 3, UR: 4, SEC: 5 };
 function traits(c) {
   const k = {};
   if (isTrain(c)) k.link = 1;                                  // 第二弾の電車はみんな連結（C・Uも）
   if (c.type === 'M' && evoOf(c)) k.evo = 1;                   // 第三弾の進化カード
+  if (c.type === 'M' && c.set === 4) k[COUNTER_KW[c.el]] = 1;   // 第四弾のカウンター能力
   if (c.type !== 'M' || c.r === 'C' || c.r === 'U') return k;
   k[EL_KW[c.el]] = 1;
   if (c.no === 73) k.guard = 1;                                // 始祖ネコ：祝福＋守り
@@ -79,8 +95,11 @@ function isTrain(c) { return c.type === 'M' && (c.set ? c.set === 2 : c.no >= 75
 // 進化：進化前のカード番号（第三弾）
 function evoOf(c) { return c.evo || null; }
 function linkText() { return LINK_CAP === 1 ? `自分の場にほかの電車がいると、ATK+${LINK_PER}${LINK_HP ? `・HP+${LINK_PER}` : ''}` : `場にいるほかの電車1両につき、ATK+${LINK_PER}${LINK_HP ? `・HP+${LINK_PER}` : ''}（${LINK_CAP}両まで）`; }
-function evoCostOf(c, base, side) { return Math.max(0, costOf(c) - (side && side.land && EVO_LAND.includes(side.land.c.no) ? 1 : 0)); }
-const EVO_LAND = [161, 162, 163];   // 進化のちからが1少なくなるフィールド
+function evoCostOf(c, base, side) { const foe = side && B ? other(side) : null; return Math.max(0, costOf(c) - (side && side.land && EVO_LAND.includes(side.land.c.no) ? 1 : 0)) + (foe && (hasKw(foe, 'cutoff') || landIs(foe, 206)) ? 1 : 0); }
+const EVO_LAND = [161, 162, 163];
+// 第四弾のフィールドのおまけ
+const LAND_EXTRA = { 204: '出たとき、相手のフィールドも壊す', 205: '相手のモンスターは、出たときの能力が働かない', 206: '相手の🌱進化はちから+1', 207: '相手の🔗連結が働かない' };
+const landIs = (side, no) => !!(side && side.land && side.land.c.no === no);   // 進化のちからが1少なくなるフィールド
 function evoText(c) { const b = A && A.CARDS ? A.CARDS[evoOf(c) - 1] : null; return b ? `場の「${b.nm}」に重ねて進化する（進化前がいないと出せない）。進化するとHPが全回復して、そのターンにすぐ攻撃できる` : KW.evo.txt; }
 function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).join(' '); }
 // アイテム：持たせると強くなって、属性の能力がつく
@@ -102,6 +121,11 @@ const ITEM_NO = {
   158: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2' },                                    // 骨つき肉
   159: { atk: 0, hp: 3, kw: null, txt: 'HP+3。HPが全回復' },                                // 海のミルク
   160: { atk: 2, hp: 2, kw: null, txt: 'ATK+2・HP+2。ライフ+3' },                          // 進化のお守り
+  199: { atk: 3, hp: 0, kw: 'pierce', txt: 'ATK+3・🗡貫通がつく' },                         // 破城槌
+  200: { atk: 1, hp: 3, kw: 'ward', txt: 'ATK+1・HP+3・💠結界がつく' },                            // 秩序の盾
+  201: { atk: 1, hp: 2, kw: null, txt: 'ATK+1・HP+2。相手モンスター1体の能力をすべて消す' },  // 封印の鎖
+  202: { atk: 2, hp: 1, kw: 'nullheal', txt: 'ATK+2・HP+1・⛔禁癒がつく' },                 // 禁呪の書
+  203: { atk: 1, hp: 2, kw: null, txt: 'ATK+1・HP+2。凍りと封印がとけて、HPが全回復' },             // 調律の音叉
 };
 const itemOf = c => ITEM_NO[c.no] || ITEM[c.no === 67 ? 'light2' : c.el];
 // tgt: 相手を選ぶ魔法（'mon' モンスター、'any' モンスターか相手の顔）
@@ -120,12 +144,17 @@ const SPELL_NO = {
   164: { txt: '味方モンスター全員のATK+2・HP+2' },                                                    // 急成長
   165: { txt: '敵モンスター1体を進化前の姿にもどす（進化前がなければ手札にもどす）。カードを1枚引く', tgt: 'mon' },      // 先祖返り
   166: { txt: '味方モンスター1体を、山札の進化カードですぐ進化させる（ちから0）。なければATK+2・HP+2。どちらでもカードを1枚引く', tgt: 'mine' },  // 突然変異
+  208: { txt: '敵モンスター全員の能力をすべて消して、1ダメージ。カードを1枚引く' },                                                  // 沈黙の鐘
+  209: { txt: '敵モンスターのうち、レア度がいちばん高い1体を倒す' },                                   // 天秤の裁き
+  210: { txt: '相手は次のターン、魔法を使えない。カードを2枚引く' },                                   // 鎖の結界
+  211: { txt: '両方のフィールドを壊し、すべてのモンスターのアイテム・強化・凍りを元にもどす。カードを2枚引く' },  // 大地の均し
+  212: { txt: '両方のフィールドを壊し、敵モンスター全員のアイテムの強化をはずして、3ダメージ' },        // 大崩落
 };
 const spellOf = c => SPELL_NO[c.no] || SPELL[c.el];
 function rulesText(c) {
   if (c.type === 'M') { const p = power(c), k = traits(c); return `ATK ${p.atk} / HP ${p.hp}` + Object.keys(k).map(x => `\n${KW[x].ic}${KW[x].nm}：${x === 'bless' ? `出たとき、ライフ+${blessN({ c })}` : x === 'link' ? linkText() : x === 'evo' ? evoText(c) : KW[x].txt}`).join(''); }
   if (c.type === 'S') return spellOf(c).txt;
-  if (c.type === 'F') return `味方の${EL_NM[c.el]}のモンスターのATK+${LAND_FX.same[0]}・HP+${LAND_FX.same[1]}。出たときカードを1枚引く（場に1枚）${EVO_LAND.includes(c.no) ? '。進化のちから-1' : ''}`;
+  if (c.type === 'F') return `味方の${EL_NM[c.el]}のモンスターのATK+${LAND_FX.same[0]}・HP+${LAND_FX.same[1]}。出たときカードを1枚引く（場に1枚）${EVO_LAND.includes(c.no) ? '。進化のちから-1' : ''}${LAND_EXTRA[c.no] ? '。' + LAND_EXTRA[c.no] : ''}`;
   return `味方モンスター1体に：${itemOf(c).txt}（${EL_NM[c.el]}のモンスターならさらに+1/+1）`;
 }
 
@@ -219,7 +248,7 @@ function newSide(nm, deckNos, rentals = []) {
   return { nm, lp: LP, maxLp: LP, mana: 0, maxMana: 0, deck, hand: [], field: [null, null, null], land: null, fatigue: 0 };
 }
 function cost(card) { return costOf(card.c); }
-function linkN(side, m) { return m.kw && m.kw.link ? Math.min(LINK_CAP, side.field.filter(x => x && x !== m && x.kw && x.kw.link).length) * LINK_PER : 0; }
+function linkN(side, m) { if (B && (hasKw(other(side), 'cutoff') || landIs(other(side), 207))) return 0; return m.kw && m.kw.link ? Math.min(LINK_CAP, side.field.filter(x => x && x !== m && x.kw && x.kw.link).length) * LINK_PER : 0; }
 let LINK_PER = 1, LINK_CAP = 1;
 let LAND_FX = { same: [2, 2], other: [0, 0] }, LAND_DRAW = 1;   // フィールド：同じ属性 [ATK, HP]・ほかの属性 [ATK, HP]
 function landFx(side, m) { return side.land ? (side.land.c.el === m.c.el ? LAND_FX.same : LAND_FX.other) : [0, 0]; }
@@ -229,19 +258,21 @@ let LINK_HP = false;
 let TRAIN_MINUS = { C: 1, U: 1, R: 1, SR: 1, UR: 1, SEC: 1 };   // 電車は連結がある分、元の強さを少し低く
 function guards(side) { return side.field.filter(m => m && m.kw && m.kw.guard); }
 // 攻撃できる相手：守りがいれば守りだけ
-function canHit(attSide, target) {
+function canHit(attSide, target, att) {
+  if (att && att.kw && att.kw.pierce) return true;
   const foe = other(attSide), g = guards(foe);
   if (!g.length) return true;
   return !!target && g.includes(target);
 }
 function heal(side, n, why) {
+  if (hasKw(other(side), 'nullheal')) { if (n > 0) { floatAt(side === B.me ? 'meFace' : 'foeFace', '⛔禁癒', '#b08aff'); log(`⛔禁癒で${side.nm}のライフは回復しない`, side); } return 0; }
   const before = side.lp; side.lp = Math.min(side.maxLp, side.lp + n);
   const got = side.lp - before;
   if (got > 0) { floatAt(side === B.me ? 'meFace' : 'foeFace', '+' + got, '#7be39a'); if (why) log(`${why}で${side.nm}のライフ+${got}`, side); }
   return got;
 }
 function hpOf(side, m) { return m.hp + hpBonus(side, m); }
-function mult(a, d) { return BEATS[a.c.el] === d.c.el ? 1.5 : 1; }
+function mult(a, d) { return (BEATS[a.c.el] === d.c.el ? 1.5 : 1) * (a.kw && a.kw.order && R_RANK[d.c.r] > R_RANK[a.c.r] ? 2 : 1); }
 function other(side) { return side === B.me ? B.foe : B.me; }
 
 function draw(side, n = 1) {
@@ -284,12 +315,16 @@ function canPlay(side, card) {
   if (card.c.type === 'M') return side.field.some(f => !f);
   if (card.c.type === 'I') return side.field.some(f => f);
   if (card.c.type === 'S') {
-    const foes = other(side).field.filter(Boolean), mine = side.field.filter(Boolean);
+    if (side.lockTurn === B.turn) return false;   // 鎖の結界
+    const foes = other(side).field.filter(m => m && !(m.kw && m.kw.ward)), mine = side.field.filter(Boolean);
     if (card.c.no === 89) return foes.length > 0;
     if (card.c.no === 96) return true;
     if (card.c.no === 164 || card.c.no === 166) return mine.length > 0;
     if (card.c.no === 165) return foes.length > 0;
     if (card.c.no === 103) return foes.length > 0 || mine.some(m => m.kw.link);
+    if (card.c.no === 208 || card.c.no === 209) return foes.length > 0;
+    if (card.c.no === 210) return true;
+    if (card.c.no === 211 || card.c.no === 212) return foes.length > 0 || !!other(side).land;
     if (card.c.el === 'water' || card.c.el === 'dark' || card.c.el === 'fire') return foes.length > 0;
     if (card.c.el === 'light') return mine.length > 0;
     return true;
@@ -318,6 +353,7 @@ async function play(side, card, target) {
   } else if (t === 'F') {
     if (side.land) log(`「${side.land.c.nm}」は消えた`, side);
     side.land = card;
+    if (card.c.no === 204) breakLand(foe, side);
     if (LAND_DRAW) draw(side, LAND_DRAW);
   } else if (t === 'I') {
     const m = target || best(side.field.filter(Boolean), m => atkOf(side, m) + hpOf(side, m) + (m.sleep ? 0 : 2));
@@ -334,10 +370,12 @@ async function play(side, card, target) {
     if (card.c.no === 157) { const k = side.deck.findIndex(x => evoOf(x.c) === m.no); if (k >= 0 && side.hand.length < HAND_MAX) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); log(`進化カード「${e.c.nm}」を手札に加えた`, side); } }
     if (card.c.no === 159) m.hp = m.maxHp;
     if (card.c.no === 160) heal(side, 3, '進化のお守り');
+    if (card.c.no === 201) { const t = sealTarget(foe); if (t) { sealMon(t); log(`⛓「${t.c.nm}」の能力を封印した`, side); } }
+    if (card.c.no === 203) { m.frozen = 0; m.iced = false; if (m.sealed) { m.sealed = false; m.kw = Object.assign(traits(m.c), m.kw); } m.hp = m.maxHp; log(`「${m.c.nm}」の凍りと封印がとけた`, side); }
   } else if (t === 'S') {
     render(); await showSpell(card);
-    const foes = foe.field.filter(Boolean), mine = side.field.filter(Boolean);
-    const pickT = () => (target && foe.field.includes(target)) ? target : null;
+    const foes = foe.field.filter(m => m && !(m.kw && m.kw.ward)), mine = side.field.filter(Boolean);   // 💠結界は魔法を受けない
+    const pickT = () => (target && foes.includes(target)) ? target : null;
     switch (SPELL_NO[card.c.no] ? card.c.no : card.c.el) {
       case 89: { const m = pickT() || best(foes, m => threat(foe, m)); if (m) { damage(foe, m, 3); m.frozen = 2; m.sleep = true; log(`「${m.c.nm}」に3ダメージ、赤信号で止まった（2ターン）`, side); } draw(side, 1); break; }
       case 96: { for (const m of mine) m.hp = m.maxHp; log(`味方モンスターのHPが全回復`, side); heal(side, 5); draw(side, 2); break; }
@@ -352,6 +390,13 @@ async function play(side, card, target) {
           if (k >= 0) { const e = side.deck.splice(k, 1)[0]; side.hand.push(e); cleanup(); await evolve(side, e, m, true); }
           else { m.buff += 2; m.hp += 2; m.maxHp += 2; log(`「${m.c.nm}」のATK+2・HP+2`, side); } }
         draw(side, 1); break; }
+      case 208: for (const m of foes) { sealMon(m); damage(foe, m, 1); } log(`🔔敵モンスター${foes.length}体の能力が消えた`, side); draw(side, 1); break;
+      case 209: { const m = best(foes, m => R_RANK[m.c.r] * 100 + threat(foe, m)); if (m) { m.hp = -99; log(`⚖「${m.c.nm}」は天秤に裁かれた`, side); } break; }
+      case 210: foe.lockTurn = B.turn + 1; log(`⛓${sideNm(foe)}は次のターン、魔法を使えない`, side); draw(side, 2); break;
+      case 211: { breakLand(foe, side); breakLand(side, side);
+        for (const m of [...foes, ...mine]) { stripItems(null, m); m.frozen = 0; m.iced = false; }
+        log(`すべてのモンスターが元の強さにもどった`, side); draw(side, 2); break; }
+      case 212: { breakLand(foe, side); breakLand(side, side); for (const m of foes) { stripItems(foe, m); damage(foe, m, 3); } log(`敵モンスター全員の強化がはずれて、3ダメージ`, side); break; }
       case 103: { for (const m of foes) damage(foe, m, 2); const tr = mine.filter(m => m.kw.link); for (const m of tr) m.buff += 1; log(`敵モンスター全員に2ダメージ${tr.length ? `、電車${tr.length}両のATK+1` : ''}`, side); break; }
       case 'fire': for (const m of foes) damage(foe, m, 2); log(`敵モンスター全員に2ダメージ`, side); break;
       case 'water': for (const m of foes) { m.frozen = Math.max(m.frozen || 0, 1); m.sleep = true; } log(`敵モンスター${foes.length}体が凍った`, side); draw(side, 2); break;
@@ -388,8 +433,21 @@ async function evolve(side, card, base, free) {
   await onEnter(side, card);
   render(); await wait(side === B.foe ? 650 : 250);
 }
+// 第四弾：壊す・封じる
+function stripItems(side, m) {   // アイテムの強化をはずす（受けているダメージはそのまま）
+  const p = power(m.c), dmg = Math.max(0, m.maxHp - m.hp);
+  m.buff = 0; m.items = 0; m.maxHp = p.hp; m.hp = Math.max(1, p.hp - dmg); m.kw = m.sealed ? {} : traits(m.c);
+}
+function sealMon(m) { m.kw = {}; m.sealed = true; floatAt('u' + m.uid, '封印', '#6ad0ff'); }
+function breakLand(side, by) { if (!side.land) return false; log(`🔨「${side.land.c.nm}」は壊された`, by); side.land = null; return true; }
+function sealTarget(foe) { return best(foe.field.filter(m => m && Object.keys(m.kw || {}).length), m => threat(foe, m) + Object.keys(m.kw).length * 3); }
 async function onEnter(side, card) {
   const foe = other(side);
+  if (landIs(foe, 205)) { if (Object.keys(card.kw).some(k => ['spark', 'banish', 'starlight', 'bless', 'break', 'seal'].includes(k))) log(`静寂の神殿で「${card.c.nm}」の能力は働かない`, side); return; }
+  if (card.kw.break) {
+    if (!breakLand(foe, side)) { const t = best(foe.field.filter(m => m && (m.items || m.buff)), m => m.items * 3 + m.buff); if (t) { stripItems(foe, t); floatAt('u' + t.uid, '破壊', '#ff8a4a'); log(`🔨「${t.c.nm}」のアイテムの強化をはずした`, side); } }
+  }
+  if (card.kw.seal) { const t = sealTarget(foe); if (t) { sealMon(t); log(`⛓「${t.c.nm}」の能力を封印した`, side); } }
     if (card.kw.spark) {
     const foes = foe.field.filter(Boolean);
     if (foes.length) { for (const m of foes) damage(foe, m, card.kw.spark); log(`🔥火の粉！ 敵モンスター全員に${card.kw.spark}ダメージ`, side); await wait(300); cleanup(); }
@@ -403,11 +461,11 @@ async function onEnter(side, card) {
     heal(side, blessN(card), '✨祝福');
   }
 }
-function resetCard(m) { const p = power(m.c); m.atk = p.atk; m.hp = p.hp; m.maxHp = p.hp; m.buff = 0; m.sleep = true; m.items = 0; m.kw = traits(m.c); m.frozen = 0; m.iced = false; }
+function resetCard(m) { const p = power(m.c); m.atk = p.atk; m.hp = p.hp; m.maxHp = p.hp; m.buff = 0; m.sleep = true; m.items = 0; m.kw = traits(m.c); m.frozen = 0; m.iced = false; m.sealed = false; }
 function best(arr, f) { let b = null, bv = -1e9; for (const x of arr) { const v = f(x); if (v > bv) { bv = v; b = x; } } return b; }
 async function attack(side, m, target) {
   const foe = other(side);
-  if (!canHit(side, target)) return;
+  if (!canHit(side, target, m)) return;
   m.sleep = true; m.attacked = true;
   const a = atkOf(side, m);
   await lunge('u' + m.uid, target ? 'u' + target.uid : (foe === B.me ? 'meFace' : 'foeFace'));
@@ -434,7 +492,7 @@ function onTurnStart(side) {
     if (t) { damage(foe, t, 2); log(`🐒「次は…」悪夢の放送で「${t.c.nm}」に2ダメージ`, side); }
   }
   cleanupQuiet();
-  for (const m of side.field) if (m && m.kw.regen && m.hp < m.maxHp) { m.hp = m.maxHp; floatAt('u' + m.uid, '再生', '#7be39a'); }
+  if (!hasKw(other(side), 'nullheal')) for (const m of side.field) if (m && m.kw.regen && m.hp < m.maxHp) { m.hp = m.maxHp; floatAt('u' + m.uid, '再生', '#7be39a'); }
 }
 
 // ---------------- 相手（CPU）の考え ----------------
@@ -476,7 +534,7 @@ async function cpuTurn(me = B.foe, skill = FOES[B.lv].ai) {
     const ready = me.field.filter(x => x && !x.sleep);
     if (!ready.length) break;
     const m = best(ready, x => atkOf(me, x));
-    const foes = you.field.filter(Boolean), g = guards(you);
+    const foes = you.field.filter(Boolean), g = m.kw.pierce ? [] : guards(you);
     const total = ready.reduce((s, x) => s + atkOf(me, x), 0);
     let target = null;
     if (g.length) {
@@ -504,6 +562,11 @@ function spellPlan(side, card) {
   if (card.c.no === 164) return mine.length >= 2 ? true : null;
   if (card.c.no === 165) { const t = best(foes, m => threat(foe, m) + (evoOf(m.c) ? 6 : 0)); return t && (evoOf(t.c) || threat(foe, t) >= 12) ? t : null; }
   if (card.c.no === 166) { const t = best(mine, m => side.deck.some(x => evoOf(x.c) === m.no) ? 10 + cost(m) : -1); return t && side.deck.some(x => evoOf(x.c) === t.no) ? t : (mine.length ? best(mine, m => threat(side, m)) : null); }
+  if (card.c.no === 208) { const k = foes.reduce((n, m) => n + Object.keys(m.kw || {}).length, 0) + foes.filter(m => hpOf(foe, m) <= 1).length * 2; return k >= 2 ? true : null; }
+  if (card.c.no === 209) { const t = best(foes, m => R_RANK[m.c.r] * 100 + threat(foe, m)); return t && R_RANK[t.c.r] >= 3 ? true : null; }
+  if (card.c.no === 210) return true;
+  if (card.c.no === 211) { const theirs = foes.reduce((n, m) => n + m.items * 3 + m.buff, 0) + (foe.land ? 3 : 0), ours = mine.reduce((n, m) => n + m.items * 3 + m.buff, 0) + (side.land ? 3 : 0); return theirs - ours >= 3 ? true : null; }
+  if (card.c.no === 212) { const v = foes.reduce((n, m) => n + (hpOf(foe, m) <= 3 ? 3 : 1) + m.items * 2, 0) + (foe.land ? 3 : 0) - (side.land ? 2 : 0); return v >= 5 ? true : null; }
   if (card.c.no === 96) { const hurt = mine.filter(m => m.maxHp - m.hp >= 3); return hurt.length || side.lp <= side.maxLp - 8 || side.hand.length <= 1 ? true : null; }
   if (card.c.no === 103) { const kills = foes.filter(m => hpOf(foe, m) <= 2).length; return kills >= 1 || foes.length >= 2 || mine.filter(m => m.kw.link).length >= 2 ? true : null; }
   switch (card.c.el) {
@@ -991,7 +1054,7 @@ function render() {
       if (isMe && myTurn && !m.sleep) cls = sel === m ? 'sel' : 'ready';
       if (isMe && targeting && targeting.type === 'item') cls = 'tgt';
       if (isMe && targeting && targeting.type === 'evo' && evoTargets(me, targeting.card).includes(m)) cls = 'tgt';
-      if (!isMe && sel && canHit(me, m)) cls = 'tgt';
+      if (!isMe && sel && canHit(me, m, sel)) cls = 'tgt';
       if (!isMe && targeting && targeting.type === 'spell') cls = 'tgt';
       h += `<div class="bslot">${cardEl(side, m, { id: 'u' + m.uid, cls, zz: m.sleep && isMe })}</div>`;
     });
@@ -999,7 +1062,7 @@ function render() {
   };
   $('foeField').innerHTML = fieldHTML(foe, false);
   $('meField').innerHTML = fieldHTML(me, true);
-  $('foeFace').classList.toggle('target', (!!sel && canHit(me, null)) || !!(targeting && targeting.type === 'spell' && targeting.any));
+  $('foeFace').classList.toggle('target', (!!sel && canHit(me, null, sel)) || !!(targeting && targeting.type === 'spell' && targeting.any));
   $('meHand').innerHTML = me.hand.map(h => cardEl(null, h, { cls: myTurn ? (canPlay(me, h) ? 'can' : 'no') + (targeting && targeting.card === h ? ' sel' : '') : '' })).join('') || '<span class="meta" style="align-self:center">手札なし</span>';
   $('btEnd').disabled = !myTurn;
   $('btEnd').textContent = myTurn && !me.hand.some(h => canPlay(me, h)) && !me.field.some(m => m && !m.sleep) ? 'ターン終了 ▶' : 'ターン終了';
@@ -1060,7 +1123,7 @@ async function onTap(e) {
   // 自分のモンスターを選ぶ
   if (bc && bc.closest('#meField')) {
     const m = me.field.find(x => x && x.uid === +bc.dataset.uid);
-    if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) logRaw(guards(foe).length ? '攻撃する相手をタップ（🛡守りがいるので、守りだけ攻撃できる）' : '攻撃する相手（モンスターか顔）をタップ'); }
+    if (m && !m.sleep) { sel = sel === m ? null : m; if (sel) logRaw(guards(foe).length && !sel.kw.pierce ? '攻撃する相手をタップ（🛡守りがいるので、守りだけ攻撃できる）' : '攻撃する相手（モンスターか顔）をタップ'); }
     else if (m) logRaw(m.iced ? '凍っていて動けない' : m.sleep && B.turnSide === B.me && m.attacked ? 'このターンはもう攻撃した' : '出したばかりのモンスターは次のターンから攻撃できる');
     render(); return;
   }
@@ -1068,7 +1131,7 @@ async function onTap(e) {
   if (sel && (face || (bc && bc.closest('#foeField')))) {
     const target = face ? null : foe.field.find(x => x && x.uid === +bc.dataset.uid);
     if (!face && !target) return;
-    if (!canHit(me, target)) { A.tone(200, .08, 'square', .03); logRaw('🛡守りのモンスターがいる。先に守りを攻撃しよう'); render(); return; }
+    if (!canHit(me, target, sel)) { A.tone(200, .08, 'square', .03); logRaw('🛡守りのモンスターがいる。先に守りを攻撃しよう'); render(); return; }
     const m = sel; sel = null; busy = true; render();
     if (B.guest) { send({ t: 'act', a: 'attack', uid: m.uid, target: target ? target.uid : 0 }); return; }
     await attack(me, m, target); busy = false; render(); sync();
@@ -1430,7 +1493,7 @@ async function hostAct(d) {
     } else if (d.a === 'attack') {
       const m = me.field.find(x => x && x.uid === d.uid);
       const t = d.target ? them.field.find(x => x && x.uid === d.target) : null;
-      if (m && !m.sleep && (!d.target || t) && canHit(me, t)) await attack(me, m, t);
+      if (m && !m.sleep && (!d.target || t) && canHit(me, t, m)) await attack(me, m, t);
     } else if (d.a === 'end') {
       hostWorking = false; sync();
       if (!over()) { await wait(200); startTurn(B.me); }
@@ -1538,7 +1601,7 @@ function chipsHTML() {
   const one = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k] === v ? 'on' : ''}">${nm}</button>`).join('');
   const many = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k].includes(v) ? 'on' : ''}">${nm}</button>`).join('');
   return {
-    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾']]),
+    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾'], ['4', '第四弾']]),
     el: '<span class="lb">属性</span>' + one('el', [['all', 'すべて'], ...Object.keys(EL_NM).map(e => [e, EL_NM[e]])]),
     type: '<span class="lb">種類</span>' + one('type', [['all', 'すべて'], ['M', 'モンスター'], ['S', '魔法'], ['F', 'フィールド'], ['I', 'アイテム']]),
     r: '<span class="lb">レア</span>' + many('r', R_ORDER.map(r => [r, r])),
@@ -1600,7 +1663,7 @@ window.PackBattle = {
   init(api) { A = api; },
   open() { openMenu(); },
   // テスト用
-  get state() { return B; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
+  get state() { return B; }, setCounterMinus(n) { COUNTER_MINUS = n; }, costOf(c) { return costOf(c); }, setLand(o, d) { LAND_FX = o; if (d != null) LAND_DRAW = d; }, setCost(o) { CARD_COST = o; }, get CARD_COST() { return CARD_COST; }, setEvo(o) { if (o.total) EVO_TOTAL = o.total; if (o.r) EVO_R = o.r; if (o.cost) EVO_COST = o.cost; if (o.draw != null) EVO_DRAW = o.draw; }, render() { render(); }, power, COST, FOES, autoDeck, battleText(c) { return battleText(c); }, shortText(c) { return '効果：' + rulesText(c).split('\n')[0]; }, kwIcons(c) { return Object.keys(traits(c)).map(k => KW[k].ic + KW[k].nm).join(' '); }, setTotal(t) { Object.assign(TOTAL, t); }, setSecond(m, c) { SECOND_BONUS = m; SECOND_CARD = c; }, setLink(n, hp, cap = 2) { LINK_PER = n; LINK_HP = hp; LINK_CAP = cap; }, setTrainMinus(o) { Object.assign(TRAIN_MINUS, o); },
   // バランス調整用：CPU同士で1試合（Nodeからも動く）。stats に出したカードなどを記録
   async simMatch(deckA, deckB, opt = {}) {
     FAST = true; const saveA = A; A = Object.assign({}, A, { tone() {}, chime() {} });
