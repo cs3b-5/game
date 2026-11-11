@@ -45,7 +45,7 @@
       'jtcA': S({ nm: '鷹嘴連拳', st: 6, act: 4, rec: 20, dmg: 600, hs: 18, bs: 15, hb: [10, 10, 70, 70], lvl: 'high', str: 1, air: 1, base: 'air', h: 'jhp1', hide: 1 }),
     },
     tc: [{ from: 'jhp', btn: 'HP', to: 'jtcA', air: 1, nm: '鷹嘴連拳', cmd: '（ジャンプ中）強P ▶ 強P' }],
-    assist: { L: ['clk', 'clp', 'lp', 'lk', 'hyaku0'], M: ['lp', 'mp', '46mp', 'hyaku1'], H: ['mp', 'hp', '4hp', 'hyaku2', 'SA'] },
+    assist: { L: ['clk', 'clp', 'lp', 'lk', 'hyaku0'], M: ['lp', 'mp', '46mp', 'hyaku1'], H: ['lp', 'mp', '46mp', 'hyaku2', 'SA'] },
     extra: {
       // 構えからの派生（流風の構え）
       ryuLP: S({ nm: '蘭風', st: 6, act: 3, rec: 12, dmg: 500, hs: 16, bs: 12, hb: [20, 100, 80, 140], str: 1, base: 'stance', w: 'stance', h: 'palm1' }),
@@ -312,7 +312,7 @@
       { from: 'hp', btn: 'HP', btnM: 'HP', to: 'tcC', nm: '月の手', cmd: '強P ▶ 強P', cmdM: '強 ▶ 強' },
       { from: 'chp', btn: 'HP', btnM: 'HP', to: 'tcD', nm: '月の伸び', cmd: '↓ ＋ 強P ▶ 強P', cmdM: '↓ ＋ 強 ▶ 強' },
     ],
-    assist: { L: ['clk', 'clp', 'lp', 'lk', 'rond0'], M: ['lp', 'mp', 'tcA', 'degage1'], H: ['mp', 'hp', 'tcC', 'renverse2', 'SA'] },
+    assist: { L: ['clk', 'clp', 'lp', 'lk', 'rond0'], M: ['lp', 'mp', 'tcA', 'degage1'], H: ['lp', 'mp', 'hp', 'tcC', 'SA'] },
     extra: {
       tcA: S({ st: 9, act: 3, rec: 18, dmg: 600, hs: 20, bs: 15, hb: [30, 70, 110, 120], str: 1, cx: 'sp', vel: [[1, 9, 3]], w: 'mk0', h: 'mk1' }),
       tcB: S({ st: 9, act: 4, rec: 20, dmg: 700, hs: 24, bs: 15, hb: [20, 110, 96, 190], str: 2, kd: 1, launch: [3, 10], w: 'hk0', h: 'hk1' }),
@@ -374,7 +374,7 @@
       { from: 'stomp0', btn: 'MK', to: 'stompB', hide: 1 },
       { from: 'stompB', btn: 'MK', to: 'stompC', hide: 1 },
     ],
-    assist: { L: ['clk', 'clp', 'lp', 'lariat0'], M: ['lp', 'mp', 'tcA1', 'tcA2'], H: ['mp', 'hp', '6hp', 'lariat0', 'SA'] },
+    assist: { L: ['clk', 'clp', 'lp', 'lariat0'], M: ['lp', 'mp', 'tcA1', 'tcA2'], H: ['lp', 'mp', 'hp', 'SA'] },
     extra: {
       tcA1: S({ st: 7, act: 3, rec: 14, dmg: 400, hs: 18, bs: 15, hb: [24, 100, 90, 150], str: 1, pb: 3, vel: [[1, 7, 2.5]], w: 'mp0', h: 'chop1' }),
       tcA2: S({ st: 8, act: 3, rec: 20, dmg: 600, hs: 24, bs: 15, hb: [24, 100, 96, 150], str: 2, kd: 1, launch: [4, 7], vel: [[1, 8, 3]], w: 'chop0', h: 'chop1' }),
@@ -437,7 +437,7 @@
       { from: 'chk', btn: 'HK', dir: 'df', to: 'tcD', nm: '幻影脚', cmd: '↓＋強K ▶ ↘＋強K' },
       { from: '3hk', btnM: 'HP', dirM: 'df', btn: 'none', to: 'tcD', nm: '幻影脚', cmd: '', cmdM: '↘＋強 ▶ ↘＋強', mOnly: 1 },
     ],
-    assist: { L: ['clk', 'clp', 'lp', 'sonic0'], M: ['lp', 'mp', '46mk', 'sonic1'], H: ['mp', '4hp', 'flash2', 'SA'] },
+    assist: { L: ['clk', 'clp', 'lp', 'sonic0'], M: ['lp', 'mp', '46mk', 'sonic1'], H: ['mp', '4hp', 'sonic2', 'SA'] },
     extra: {
       tcA: S({ st: 10, act: 3, rec: 20, dmg: 800, hs: 24, bs: 16, hb: [24, 100, 100, 150], str: 2, cx: 'sp', w: 'hp0', h: 'hp1' }),
       tcB: S({ st: 8, act: 3, rec: 16, dmg: 500, hs: 20, bs: 15, hb: [24, 60, 84, 90], str: 1, cx: 'sp', base: 'crouch', h: 'cmp1' }),

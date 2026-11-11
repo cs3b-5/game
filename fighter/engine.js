@@ -563,7 +563,7 @@
       G.ev.push({ k: 'proj', i: f.i, kind: s.kind });
     }
     // 派生（ライカの閃歩→雷槌）
-    if (m.follows && ctl) {
+    if (m.follows && ctl && !(f.ast && (f.hist[0] & BT.AU))) {
       for (const fw of m.follows) if (f.mt >= fw.from && f.mt <= fw.to && followMatch(G, f, fw)) { startMove(G, f, fw.mv); return; }
     }
     // 相手に近づくと自動で出る派生
@@ -572,9 +572,10 @@
     if (m.grab && f.mt >= m.grab.from && f.mt <= m.grab.to) {
       const g = m.grab, dx = Math.abs(o.x - f.x);
       const ok = g.air ? (o.air && (o.st === 'air' || o.st === 'move' || o.st === 'jsq') && dx <= g.r && Math.abs(o.y - f.y) <= 90)
-        : (!o.air && o.y <= 0 && throwable(o) && dx <= g.r && !(o.st === 'move' && inRange((mvOf(o) || {}).inv, o.mt)));
+        : (!o.air && o.y <= 0 && (throwable(o) || (f.ast && (o.st === 'hit' || o.st === 'chit'))) && dx <= g.r && !(o.st === 'move' && inRange((mvOf(o) || {}).inv, o.mt)));
       if (ok) {
-        const dmg = Math.round(g.dmg * (m.medal ? 1 + (f.medal - 1) * .15 : 1) * (FG.CHARS[f.ch].dmgMul || 1) / 10) * 10;
+        const csc = o.combo ? (m.saLv ? Math.max(.5, SCALE[Math.min(o.combo, SCALE.length - 1)]) : SCALE[Math.min(o.combo, SCALE.length - 1)]) : 1;   // コンボ中に投げたときの補正
+        const dmg = Math.round(g.dmg * csc * (m.medal ? 1 + (f.medal - 1) * .15 : 1) * (FG.CHARS[f.ch].dmgMul || 1) / 10) * 10;
         if (m.medal) f.medal = Math.min(5, f.medal + 1);
         f.y = 0; f.air = 0; f.vy = 0; f.vx = 0; o.y = 0; o.air = 0; o.vy = 0; o.mv = null; o.vx = 0;
         if (g.cin) { startCin(G, f, o, m, dmg); return; }
