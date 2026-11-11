@@ -159,6 +159,12 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .over .bar { display: flex; align-items: center; gap: 14px; padding: 16px 22px; flex-wrap: wrap; }
 .over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
 .tbtn.news { position: relative; padding-left: 12px; padding-right: 12px; }
+.volPop { position: fixed; z-index: 60; width: 250px; padding: 12px 14px 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(20,24,30,.97); box-shadow: 0 14px 36px rgba(0,0,0,.55); display: grid; gap: 10px; }
+.volPop[hidden] { display: none; }
+.volPop label { display: grid; grid-template-columns: 4.6em 1fr 2.2em; align-items: center; gap: 8px; font-weight: 800; font-size: .85rem; }
+.volPop input { width: 100%; accent-color: var(--gold, #ffc94a); }
+.volPop b { font-family: var(--num); text-align: right; color: var(--gold); }
+.volPop small { font-size: .7rem; color: var(--muted); text-align: right; }
 .bgmb .off { display: none; }
 .bgmb.muted .off { display: inline; }
 .bgmb.muted { opacity: .55; }
@@ -308,7 +314,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="logo">けものの星<small>TRADING CARD GAME</small></div>
   <div class="sp"></div>
   <div class="comp" id="comp">0 / 74</div>
-  <button class="tbtn news bgmb" id="bgmBtn" aria-label="BGM"><svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/><path class="off" d="M3 3l18 18"/></svg></button>
+  <button class="tbtn news bgmb" id="bgmBtn" aria-label="音量" title="音量"><svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/><path class="off" d="M3 3l18 18"/></svg></button>
   <button class="tbtn news" id="newsBtn" aria-label="お知らせ"><svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16V11a6 6 0 0 0-12 0v5l-2 2h16z"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M12 3v2"/></svg><i class="ndot" id="newsDot" hidden></i></button>
   <button class="tbtn" id="binderBtn" aria-label="図鑑"><svg class="ic bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z"/><path d="M12 6v13"/></svg><span class="lb">図鑑</span></button>
   <button class="tbtn battle" id="battleBtn">バトル</button>
@@ -339,6 +345,11 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   <div class="bar"><h2>まとめて開けた！</h2><span class="sp" style="flex:1"></span><button class="bigbtn" id="bulkAgain"></button><button class="ghost" id="closeBulk">閉じる</button></div>
   <div class="bulkWrap"><p class="bulkSum" id="bulkSum"></p><div class="bulkGrid" id="bulkGrid"></div></div>
 </section>
+<div class="volPop" id="volPop" hidden>
+  <label><span>♪ BGM</span><input type="range" id="volBgm" min="0" max="100" step="5"><b id="volBgmN"></b></label>
+  <label><span>🔔 効果音</span><input type="range" id="volSe" min="0" max="100" step="5"><b id="volSeN"></b></label>
+  <small>0にするとオフ</small>
+</div>
 <section class="over newsOv" id="newsOv" hidden>
   <div class="bar"><button class="ghost" id="newsBack" hidden>← 一覧</button><h2>お知らせ</h2><span class="sp" style="flex:1"></span><button class="ghost" id="closeNews">閉じる</button></div>
   <div class="newsBody" id="newsBody"></div>
@@ -481,17 +492,26 @@ function tickFree() {
 //  音
 // =============================================================
 let AC = null;
-function audio() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); if (window.BGM && S.bgm !== false) { BGM.start(AC); bgmScene(); } } catch (e) {} }
+// 音量：S.bgmVol・S.seVol（0〜100）
+const bgmVol = () => S.bgmVol != null ? S.bgmVol : (S.bgm === false ? 0 : 60);
+const seVol = () => S.seVol != null ? S.seVol : 100;
+let SEG = null;   // 効果音の音量
+function audio() { try {
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  if (AC.state === 'suspended') AC.resume();
+  if (!SEG) { SEG = AC.createGain(); SEG.connect(AC.destination); } SEG.gain.value = seVol() / 100;
+  if (window.BGM && bgmVol() > 0) { BGM.start(AC); BGM.setVolume(bgmVol() / 100); bgmScene(); }
+} catch (e) {} }
 // BGM：バトル中はバトルの曲、それ以外は夜祭りの曲
 function bgmScene() { if (!window.BGM) return; const bt = document.getElementById('bt'); BGM.play(bt && !bt.hidden ? 'battle' : 'shop'); }
-setInterval(() => { if (AC && S.bgm !== false) bgmScene(); }, 600);
+setInterval(() => { if (AC && bgmVol() > 0) bgmScene(); }, 600);
 document.addEventListener('pointerdown', () => audio(), { once: true });
 function tone(f, d = .1, type = 'triangle', v = .05, slide = 0, delay = 0) {
-  if (!AC) return;
+  if (!AC || !SEG || !seVol()) return;
   const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
-  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .02);
+  o.connect(g).connect(SEG); o.start(t); o.stop(t + d + .02);
 }
 function crinkle(v = .05) {
   if (!AC) return;
@@ -499,7 +519,7 @@ function crinkle(v = .05) {
   for (let i = 0; i < len; i++) a[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
   const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
   s.buffer = b; f.type = 'highpass'; f.frequency.value = 2500 + Math.random() * 3000; g.gain.value = v;
-  s.connect(f).connect(g).connect(AC.destination); s.start();
+  s.connect(f).connect(g).connect(SEG); s.start();
 }
 const CHIME = { C: [660], U: [660, 880], R: [660, 880, 1100], SR: [523, 659, 784, 1047], UR: [523, 659, 784, 1047, 1319], SEC: [392, 523, 659, 784, 1047, 1319, 1568] };
 function chime(r) { CHIME[r].forEach((f, i) => tone(f, .25, r === 'SEC' || r === 'UR' ? 'sine' : 'triangle', .05, 0, i * .07)); }
@@ -975,12 +995,16 @@ function openNews(id) {
     $('newsOk').onclick = () => { const u2 = unreadNews(), next = u2[u2.length - 1]; if (next) openNews(next.id); else $('newsOv').hidden = true; };
   }
 }
-function bgmBtn() { $('bgmBtn').classList.toggle('muted', S.bgm === false); $('bgmBtn').title = S.bgm === false ? 'BGMをつける' : 'BGMを消す'; }
-$('bgmBtn').addEventListener('click', () => {
-  S.bgm = S.bgm === false; save(); bgmBtn(); audio();
-  if (window.BGM) { if (S.bgm) { BGM.start(AC); BGM.setOn(true); bgmScene(); } else BGM.setOn(false); }
-  toast(S.bgm ? '♪ BGM オン' : 'BGM オフ');
+function bgmBtn() { $('bgmBtn').classList.toggle('muted', !bgmVol()); }
+function volUI() { $('volBgm').value = bgmVol(); $('volSe').value = seVol(); $('volBgmN').textContent = bgmVol(); $('volSeN').textContent = seVol(); bgmBtn(); }
+$('bgmBtn').addEventListener('click', e => { e.stopPropagation(); audio(); const pop = $('volPop'); pop.hidden = !pop.hidden; if (!pop.hidden) { const r = $('bgmBtn').getBoundingClientRect(); pop.style.top = (r.bottom + 8) + 'px'; pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left + r.width / 2 - pop.offsetWidth / 2)) + 'px'; volUI(); } });
+document.addEventListener('pointerdown', e => { if (!$('volPop').hidden && !e.target.closest('#volPop') && !e.target.closest('#bgmBtn')) $('volPop').hidden = true; });
+$('volBgm').addEventListener('input', e => {
+  const was = bgmVol(); S.bgmVol = +e.target.value; S.bgm = S.bgmVol > 0; save(); volUI(); audio();
+  if (window.BGM) { if (S.bgmVol > 0) { BGM.start(AC); BGM.setVolume(S.bgmVol / 100); if (!was) BGM.setOn(true); bgmScene(); } else BGM.setOn(false); }
 });
+$('volSe').addEventListener('input', e => { S.seVol = +e.target.value; save(); volUI(); audio(); });
+$('volSe').addEventListener('change', () => tone(880, .1, 'triangle', .06));   // 試しに鳴らす
 bgmBtn();
 $('newsBtn').addEventListener('click', () => { audio(); newsTab = !unreadNews().length && unreadPatch().length ? 'patch' : 'news'; openNews(); });
 $('closeNews').addEventListener('click', () => { $('newsOv').hidden = true; });

@@ -133,7 +133,7 @@
     while (nextT < ac.currentTime + .2) { playStep(s, step, nextT); step++; nextT += dt; }
   }
   function fadeTo(v, sec) { if (!bus) return; const t = ac.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setValueAtTime(bus.gain.value, t); bus.gain.linearRampToValueAtTime(v, t + sec); }
-  const VOL = .9;
+  let VOL = .9;   // 音量（0〜1.2くらい）
 
   const BGM = {
     get on() { return on; },
@@ -155,6 +155,7 @@
       if (cur && !force) { fadeTo(0, .5); cur = null; setTimeout(swap, 550); } else swap();
     },
     stop() { if (!ac) return; fadeTo(0, .4); setTimeout(() => { if (!on) cur = null; }, 450); },
+    setVolume(v) { VOL = Math.max(0, v) * 1.2; if (ac && cur) fadeTo(VOL, .15); },
     setOn(v) { on = !!v; if (!ac) return; if (on) { const w = want; cur = null; BGM.play(w || 'shop', true); } else BGM.stop(); },
   };
   global.BGM = BGM;
