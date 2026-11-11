@@ -69,7 +69,7 @@ function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).jo
 // アイテム：持たせると強くなって、属性の能力がつく
 const ITEM = {
   fire: { atk: 3, hp: 1, kw: null, txt: 'ATK+3・HP+1。持たせたとき敵モンスター全員に1ダメージ' },
-  water: { atk: 0, hp: 3, kw: 'guard', txt: 'HP+3・守りがつく' },
+  water: { atk: 0, hp: 2, kw: 'guard', txt: 'HP+2・守りがつく' },
   leaf: { atk: 0, hp: 2, kw: 'regen', txt: 'HP+2・再生がつく' },
   bolt: { atk: 3, hp: 1, kw: 'haste', txt: 'ATK+3・HP+1。すぐに攻撃できる' },
   dark: { atk: 2, hp: 2, kw: 'drain', txt: 'ATK+2・HP+2・吸血がつく' },
