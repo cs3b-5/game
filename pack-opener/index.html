@@ -374,6 +374,7 @@ const RAR = {
 const RORDER = ['C', 'U', 'R', 'SR', 'UR', 'SEC'];
 const CARDS = window.CARD_DEFS;
 const TOTAL = CARDS.length;
+const MAX_SET = Math.max(...CARDS.map(c => c.set || 1));   // 公開している弾
 const byRar = r => CARDS.filter(c => c.r === r);
 
 // =============================================================
@@ -444,7 +445,7 @@ const PACKS = [
   { id: 'set2', set: 2, nm: '第二弾パック', title: '夜汽車と異界の駅', price: 100, colors: ['#3a2a6a', '#0a0a1e'], img: 'images/pack2.jpg', mini: 'images/mini_pack2.jpg', rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
   { id: 'set3', set: 3, nm: '第三弾パック', title: '成長と進化', price: 100, colors: ['#2a8a4a', '#0a2a14'], img: 'images/pack3.jpg', mini: 'images/mini_pack3.jpg', rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
   { id: 'set4', set: 4, nm: '第四弾パック', title: '破壊と秩序', price: 100, colors: ['#8a2a1a', '#1a0a14'], rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
-];
+].filter(p => p.set <= MAX_SET);
 const FREE_EVERY = 180;  // 無料パックは3分ごとに1つ（最大3つ）
 function roll(rates) {
   let t = Object.values(rates).reduce((a, b) => a + b, 0) * Math.random();
@@ -464,7 +465,7 @@ const KEY = 'pack-opener-v1';
 let S = { coins: 1000, owned: {}, opened: 0, free: 1, freeAt: Date.now(), bonus: {} };
 try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) S = Object.assign(S, d); } catch (e) {}
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-const ownedKinds = () => Object.keys(S.owned).filter(k => S.owned[k] > 0).length;
+const ownedKinds = () => Object.keys(S.owned).filter(k => S.owned[k] > 0 && +k <= TOTAL).length;
 function tickFree() {
   const now = Date.now();
   while (S.free < 3 && now - S.freeAt >= FREE_EVERY * 1000) { S.free++; S.freeAt += FREE_EVERY * 1000; }
@@ -683,7 +684,7 @@ function gainCard(c) {
 // 属性コンプのボーナス（もらえたらメッセージを返す）
 function checkBonus() {
   const msgs = [];
-  for (const set of [1, 2, 3, 4]) for (const el of ELEMENTS) {
+  for (const set of [1, 2, 3, 4].slice(0, MAX_SET)) for (const el of ELEMENTS) {
     const key = set === 1 ? el.id : `s${set}-` + el.id;    // 第一弾は前と同じ名前で記録
     if (S.bonus[key]) continue;
     const pool = CARDS.filter(c => c.set === set && c.el === el.id && c.r !== 'SEC');
@@ -921,7 +922,7 @@ $('inspect').addEventListener('click', () => { $('inspect').hidden = true; inspe
 // =============================================================
 let filter = 'all', binSet = 's1';
 function renderBinder() {
-  $('filters').innerHTML = [['s1', '第一弾'], ['s2', '第二弾'], ['s3', '第三弾'], ['s4', '第四弾']].map(([k, n]) => `<button data-s="${k}" class="${binSet === k ? 'on' : ''}">${n}</button>`).join('') + '<span class="sep"></span>'
+  $('filters').innerHTML = [['s1', '第一弾'], ['s2', '第二弾'], ['s3', '第三弾'], ['s4', '第四弾']].slice(0, MAX_SET).map(([k, n]) => `<button data-s="${k}" class="${binSet === k ? 'on' : ''}">${n}</button>`).join('') + '<span class="sep"></span>'
     + [['all', 'すべて'], ...ELEMENTS.map(e => [e.id, e.nm]), ['SEC', '？']].map(([k, n]) => `<button data-f="${k}" class="${filter === k ? 'on' : ''}">${n}</button>`).join('');
   const set = +binSet.slice(1) || 1;
   const list = CARDS.filter(c => c.set === set && (filter === 'all' || (filter === 'SEC' ? c.r === 'SEC' : c.el === filter && c.r !== 'SEC')));
@@ -932,10 +933,10 @@ function renderBinder() {
 // =============================================================
 //  お知らせ
 // =============================================================
-const NEWS = window.NEWS || [];
+const NEWS = (window.NEWS || []).filter(n => !n.set || n.set <= MAX_SET);
 const newsHTML = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 const unreadNews = () => NEWS.filter(n => !(S.newsRead || []).includes(n.id));
-const PATCHES = window.PATCHES || [];
+const PATCHES = (window.PATCHES || []).filter(n => !n.set || n.set <= MAX_SET);
 const unreadPatch = () => PATCHES.filter(p => !(S.newsRead || []).includes(p.id));
 function newsDot() { $('newsDot').hidden = !unreadNews().length && !unreadPatch().length; }
 let newsTab = 'news';

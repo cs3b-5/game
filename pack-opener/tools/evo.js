@@ -1,7 +1,7 @@
 // 第三弾（進化）のバランス：第三弾のカード＋その進化前を入れたデッキ vs 第一弾 / 第二弾のデッキ
 //   node tools/evo.js [試合数]
 const fs = require('fs'), path = require('path');
-global.window = { CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
+global.window = { SHOW_ALL_SETS: true, CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
 global.document = { getElementById: () => null }; global.addEventListener = () => {};
 const dir = path.join(__dirname, '..');
 eval(fs.readFileSync(path.join(dir, 'cards.js'), 'utf8'));

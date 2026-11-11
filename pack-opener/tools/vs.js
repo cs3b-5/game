@@ -2,7 +2,7 @@
 //   node tools/vs.js A B [試合数]   例：node tools/vs.js 4 1 1000（第四弾のデッキ vs 第一弾のデッキ）
 //   第三弾は進化の系統（進化前・2段階目・3段階目）を2〜3本まとめて入れる
 const fs = require('fs'), path = require('path');
-global.window = { CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
+global.window = { SHOW_ALL_SETS: true, CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
 global.document = { getElementById: () => null }; global.addEventListener = () => {};
 const dir = path.join(__dirname, '..');
 eval(fs.readFileSync(path.join(dir, 'cards.js'), 'utf8'));

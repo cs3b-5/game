@@ -3,7 +3,7 @@
 // 同じデッキで「コモン2枚」を「調べるカード2枚」に入れかえて、元のデッキと戦わせる。
 // 50%ならコモンと同じ強さ。レア度が上がるほど少しずつ高くなるのが理想。
 const fs = require('fs'), path = require('path');
-global.window = { CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
+global.window = { SHOW_ALL_SETS: true, CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
 global.document = { getElementById: () => null };
 global.addEventListener = () => {};
 const dir = path.join(__dirname, '..');

@@ -225,7 +225,7 @@ function autoDeck() {
   return deck.slice(0, DECK);
 }
 function playerDeck() {
-  let d = (A.S.deck || []).filter(no => ownedCount(no) > 0);
+  let d = (A.S.deck || []).filter(no => no <= A.CARDS.length && ownedCount(no) > 0);
   // 持っている枚数より多い分はけずる
   const cnt = {}; d = d.filter(no => (cnt[no] = (cnt[no] || 0) + 1) <= Math.min(COPIES, ownedCount(no)));
   if (!d.length) d = autoDeck();
@@ -1578,6 +1578,9 @@ function deckSlots() {
   const S = A.S;
   if (!Array.isArray(S.decks) || !S.decks.length) { S.decks = [{ nm: 'デッキ1', cards: (S.deck || []).slice() }]; S.deckSel = 0; }
   if (!(S.deckSel >= 0 && S.deckSel < S.decks.length)) S.deckSel = 0;
+  const ok = no => no >= 1 && no <= A.CARDS.length;   // まだ公開していない弾のカードは使わない
+  for (const d of S.decks) d.cards = d.cards.filter(ok);
+  if (S.deck) S.deck = S.deck.filter(ok);
   return S.decks;
 }
 function keepDeck() { const ds = deckSlots(); ds[A.S.deckSel].cards = (A.S.deck || []).slice(); A.save(); }
@@ -1601,7 +1604,7 @@ function chipsHTML() {
   const one = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k] === v ? 'on' : ''}">${nm}</button>`).join('');
   const many = (k, list) => list.map(([v, nm]) => `<button data-k="${k}" data-v="${v}" class="${DF[k].includes(v) ? 'on' : ''}">${nm}</button>`).join('');
   return {
-    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾'], ['4', '第四弾']]),
+    set: '<span class="lb">弾</span>' + one('set', [['all', 'すべて'], ['1', '第一弾'], ['2', '第二弾'], ['3', '第三弾'], ['4', '第四弾']].slice(0, 1 + Math.max(...A.CARDS.map(c => c.set || 1)))),
     el: '<span class="lb">属性</span>' + one('el', [['all', 'すべて'], ...Object.keys(EL_NM).map(e => [e, EL_NM[e]])]),
     type: '<span class="lb">種類</span>' + one('type', [['all', 'すべて'], ['M', 'モンスター'], ['S', '魔法'], ['F', 'フィールド'], ['I', 'アイテム']]),
     r: '<span class="lb">レア</span>' + many('r', R_ORDER.map(r => [r, r])),

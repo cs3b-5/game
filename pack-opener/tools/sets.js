@@ -1,7 +1,7 @@
 // 第一弾と第二弾のバランス：同じレア度の配分で作ったデッキどうしを戦わせる
 //   node tools/sets.js [試合数]   （LINK=1,1 で連結の強さ：1両あたりの数, HPも上がるか(1/0)）
 const fs = require('fs'), path = require('path');
-global.window = { CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
+global.window = { SHOW_ALL_SETS: true, CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
 global.document = { getElementById: () => null }; global.addEventListener = () => {};
 const dir = path.join(__dirname, '..');
 eval(fs.readFileSync(path.join(dir, 'cards.js'), 'utf8'));

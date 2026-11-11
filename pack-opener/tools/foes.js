@@ -1,7 +1,7 @@
 // CPUの相手ごとの勝ちやすさ（パックを開けた数ごと）
 //   node tools/foes.js [試合数]
 const fs = require('fs'), path = require('path');
-global.window = { CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
+global.window = { SHOW_ALL_SETS: true, CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
 global.document = { getElementById: () => null }; global.addEventListener = () => {};
 const dir = path.join(__dirname, '..');
 eval(fs.readFileSync(path.join(dir, 'cards.js'), 'utf8'));

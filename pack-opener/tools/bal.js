@@ -2,7 +2,7 @@
 //   node tools/bal.js [試合数]
 // CPU同士で戦わせて、先攻の勝率・試合の長さ・カードごとの勝率・レア度の強さを出す
 const fs = require('fs'), path = require('path');
-global.window = { CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
+global.window = { SHOW_ALL_SETS: true, CardArt: { flame: () => null, bolt: () => null }, addEventListener() {} };
 global.document = { getElementById: () => null, head: { appendChild() {} }, body: { appendChild() {} }, createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }) };
 global.addEventListener = () => {};
 const dir = path.join(__dirname, '..');
