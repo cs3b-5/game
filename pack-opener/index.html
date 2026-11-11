@@ -150,6 +150,15 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .over .bar { display: flex; align-items: center; gap: 14px; padding: 16px 22px; flex-wrap: wrap; }
 .over h2 { margin: 0; font-weight: 900; font-size: 1.5rem; }
 .tbtn.news { position: relative; padding-left: 12px; padding-right: 12px; }
+.flipAll { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; }
+.buy .mini { position: relative; }
+.buy .mini .x10 { position: absolute; right: -6px; bottom: -6px; font-style: normal; font-family: var(--num); font-size: .95rem; background: #ff3d6a; color: #fff; border-radius: 999px; padding: 0 6px; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.bulkWrap { overflow-y: auto; padding: 0 22px 40px; overscroll-behavior: contain; }
+.bulkSum { margin: 0 0 14px; line-height: 1.9; font-size: .95rem; }
+.bulkSum .nw { color: #7be39a; }
+.bulkGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px 10px; }
+.bulkGrid .card { --w: 118px; cursor: pointer; }
+.bulkGrid .bslot2 { display: grid; justify-items: center; }
 .tbtn .bell { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .tbtn .ndot { position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: #ff3d6a; box-shadow: 0 0 0 2px var(--bg, #0c1412); }
 .newsBody { overflow-y: auto; padding: 4px 22px 40px; overscroll-behavior: contain; }
@@ -235,6 +244,10 @@ body.mob .nItem b { font-size: .95rem; }
 body.mob .nArt h3 { font-size: 1.2rem; }
 body.mob .nArt p { font-size: .92rem; line-height: 1.85; }
 body.mob .tbtn.news { padding-left: 9px; padding-right: 9px; }
+body.mob .bulkWrap { padding: 0 10px 30px; }
+body.mob .bulkGrid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px 6px; }
+body.mob .bulkGrid .card { --w: 96px; }
+body.mob .bulkOv .bar .bigbtn { padding: 8px 12px; font-size: .8rem; }
 body.mob .filters button { padding: 6px 10px; }
 body.mob .binder { grid-template-columns: repeat(auto-fill, 100px); gap: 14px 10px; padding: 6px 10px calc(30px + env(safe-area-inset-bottom, 0px)); }
 body.mob .slot { width: 100px; height: 140px; }
@@ -272,6 +285,10 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 <section class="over" id="binderOv" hidden>
   <div class="bar"><h2>図鑑</h2><span class="comp" id="comp2"></span><div class="filters" id="filters"></div><span class="sp" style="flex:1"></span><button class="ghost" id="closeBinder">閉じる</button></div>
   <div class="binder" id="binder"></div>
+</section>
+<section class="over bulkOv" id="bulkOv" hidden>
+  <div class="bar"><h2>まとめて開けた！</h2><span class="sp" style="flex:1"></span><button class="bigbtn" id="bulkAgain"></button><button class="ghost" id="closeBulk">閉じる</button></div>
+  <div class="bulkWrap"><p class="bulkSum" id="bulkSum"></p><div class="bulkGrid" id="bulkGrid"></div></div>
 </section>
 <section class="over newsOv" id="newsOv" hidden>
   <div class="bar"><button class="ghost" id="newsBack" hidden>← 一覧</button><h2>お知らせ</h2><span class="sp" style="flex:1"></span><button class="ghost" id="closeNews">閉じる</button></div>
@@ -375,6 +392,7 @@ function cardHTML(c, opts = {}) {
 //  パックの種類と排出率
 // =============================================================
 // 第一弾・第二弾のパック（確率は同じ。5枚目はR以上）
+const BULK = 10;   // まとめて開けるパックの数
 const RATES = { C: 60, U: 27, R: 10, SR: 2.5, UR: .45, SEC: .05 }, LAST = { R: 80, SR: 16, UR: 3.5, SEC: .5 };
 const PACKS = [
   { id: 'set1', set: 1, nm: '第一弾パック', title: '', price: 100, colors: ['#2a8cff', '#1a3a8a'], img: 'images/pack1.jpg', mini: 'images/mini_pack1.jpg', rates: RATES, last: LAST, sub: '5枚・最後の1枚はレア以上' },
@@ -492,10 +510,13 @@ function renderShop() {
   let h = '';
   if (S.free > 0) for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" data-free="1" ${busy ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>無料 ${esc(p.nm)} <small>のこり${S.free}</small></b><span class="free">FREE<small>${esc(p.title || 'けものの星')}</small></span></button>`;
   else { const left = Math.max(0, FREE_EVERY - (Date.now() - S.freeAt) / 1000); h += `<button class="buy" disabled><div class="mini" style="background:#333"></div><b>無料パック</b><span class="free">${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}<small>3分ごとにもらえる</small></span></button>`; }
+  for (const p of PACKS) h += `<button class="buy" data-bulk="${p.id}" ${busy || S.coins < p.price * BULK ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"><i class="x10">×${BULK}</i></div><b>${esc(p.nm)} ${BULK}パック</b><span>${(p.price * BULK).toLocaleString('ja-JP')}<small>${BULK * 5}枚まとめて開ける</small></span></button>`;
   for (const p of PACKS) h += `<button class="buy" data-pack="${p.id}" ${busy || S.coins < p.price ? 'disabled' : ''}><div class="mini" style="background:${p.mini ? `url(${p.mini}) center/cover, ` : ''}linear-gradient(160deg,${p.colors[0]},${p.colors[1]})"></div><b>${esc(p.nm)}</b><span>${p.price.toLocaleString('ja-JP')}<small>${esc(p.sub)}</small></span></button>`;
   $('shop').innerHTML = h;
 }
 $('shop').addEventListener('click', e => {
+  const bb = e.target.closest('button[data-bulk]');
+  if (bb && !bb.disabled) { audio(); bulkOpen(PACKS.find(x => x.id === bb.dataset.bulk)); return; }
   const b = e.target.closest('button[data-pack]'); if (!b || b.disabled) return;
   audio();
   const p = PACKS.find(x => x.id === b.dataset.pack);
@@ -510,7 +531,7 @@ $('shop').addEventListener('click', e => {
 // =============================================================
 let state = 'idle', current = null, pulls = [], revealed = 0, lastPack = null, newOnes = new Set(), gain = 0;
 function hint(html) { $('hint').innerHTML = html; }
-function clearStage() { $('stage').querySelectorAll('.pack,.deck').forEach(n => n.remove()); }
+function clearStage() { $('stage').querySelectorAll('.pack,.deck,.flipAll').forEach(n => n.remove()); }
 function showPack(p) {
   lastPack = p;
   clearStage(); $('row').innerHTML = ''; $('result').hidden = true;
@@ -579,6 +600,11 @@ function showDeck() {
   armTop(deck);
   hint(T('<b>クリック</b>でめくる（スペースキーでも可）', '<b>タップ</b>でめくる'));
   deck.addEventListener('click', () => flipNext(deck));
+  fast = false;
+  const all = document.createElement('button');
+  all.className = 'ghost flipAll'; all.textContent = '全部めくる ⏩';
+  all.onclick = e => { e.stopPropagation(); audio(); fast = true; all.remove(); flipNext(deck); };
+  $('stage').appendChild(all);
   deck.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flipNext(deck); } });
   deck.focus({ preventScroll: true });
 }
@@ -588,16 +614,32 @@ function armTop(deck) {
   if (['SR', 'UR', 'SEC'].includes(r)) { c.classList.add('glow-' + r); tone(r === 'SEC' ? 90 : 120, .5, 'sine', .05, 40); }
 }
 let flipping = false;
+// カードを手に入れる（新しいか、ダブりなら売ったコインを gain に足す）
+function gainCard(c) {
+  const isNew = !S.owned[c.no];
+  if (isNew) newOnes.add(c.no);
+  S.owned[c.no] = (S.owned[c.no] || 0) + 1;
+  if (!isNew) gain += RAR[c.r].sell;
+  return isNew;
+}
+// 属性コンプのボーナス（もらえたらメッセージを返す）
+function checkBonus() {
+  const msgs = [];
+  for (const set of [1, 2]) for (const el of ELEMENTS) {
+    const key = set === 1 ? el.id : 's2-' + el.id;    // 第一弾は前と同じ名前で記録
+    if (S.bonus[key]) continue;
+    if (CARDS.filter(c => c.set === set && c.el === el.id && c.r !== 'SEC').every(c => S.owned[c.no])) { S.bonus[key] = 1; S.coins += 2000; msgs.push(`第${set}弾の${el.nm}のカードをコンプリート！ +2,000`); }
+  }
+  return msgs;
+}
+let fast = false;   // 「全部めくる」中
 function flipNext(deck) {
   if (state !== 'deck' || flipping) return;
   audio();
   const card = deck.querySelector('.card.face-down'), c = pulls[revealed];
   if (!card || !c) return;
   flipping = true;
-  const isNew = !S.owned[c.no];
-  if (isNew) newOnes.add(c.no);
-  S.owned[c.no] = (S.owned[c.no] || 0) + 1;
-  if (!isNew) gain += RAR[c.r].sell;
+  const isNew = gainCard(c);
   card.classList.remove('face-down');
   tone(520, .08, 'triangle', .04, 300);
   const rect = deck.getBoundingClientRect(), cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
@@ -624,21 +666,16 @@ function flipNext(deck) {
     revealed++;
     flipping = false;
     if (revealed >= pulls.length) finishPack(deck);
-    else armTop(deck);
-  }, ['SR', 'UR', 'SEC'].includes(c.r) ? 1500 : 650);
+    else { armTop(deck); if (fast) setTimeout(() => flipNext(deck), 60); }
+  }, fast ? (['UR', 'SEC'].includes(c.r) ? 900 : 320) : ['SR', 'UR', 'SEC'].includes(c.r) ? 1500 : 650);
   hud();
 }
 function finishPack(deck) {
-  state = 'done';
+  state = 'done'; fast = false;
+  document.querySelectorAll('.flipAll').forEach(b => b.remove());
   S.opened++;
   S.coins += gain;
-  // 属性コンプのボーナス
-  const msgs = [];
-  for (const set of [1, 2]) for (const el of ELEMENTS) {
-    const key = set === 1 ? el.id : 's2-' + el.id;    // 第一弾は前と同じ名前で記録
-    if (S.bonus[key]) continue;
-    if (CARDS.filter(c => c.set === set && c.el === el.id && c.r !== 'SEC').every(c => S.owned[c.no])) { S.bonus[key] = 1; S.coins += 2000; msgs.push(`第${set}弾の${el.nm}のカードをコンプリート！ +2,000`); }
-  }
+  const msgs = checkBonus();
   save();
   setTimeout(() => {
     deck.remove();
@@ -653,11 +690,41 @@ function finishPack(deck) {
     hud(); renderShop();
   }, 250);
 }
+// ---- まとめて開ける ----
+function bulkOpen(p) {
+  if (S.coins < p.price * BULK) return;
+  S.coins -= p.price * BULK;
+  gain = 0; newOnes = new Set();
+  const got = [];
+  for (let i = 0; i < BULK; i++) for (const c of makePack(p)) got.push({ c, isNew: gainCard(c) });
+  S.opened += BULK; S.coins += gain;
+  const msgs = checkBonus();
+  save(); hud(); renderShop();
+  // いちばんいいカードの演出
+  const top = got.reduce((a, g) => RORDER.indexOf(g.c.r) > RORDER.indexOf(a.c.r) ? g : a, got[0]);
+  const ri = RORDER.indexOf(top.c.r);
+  if (ri >= 3) { chime(top.c.r); sparkle(innerWidth / 2, innerHeight / 3, [RAR[top.c.r].c, '#fff', '#ffc94a'], 80 + ri * 30, 10); if (ri >= 4 && !reduce) { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); } }
+  else tone(660, .12, 'triangle', .05);
+  // 並び：レアが高い順、同じなら番号順
+  got.sort((a, b) => RORDER.indexOf(b.c.r) - RORDER.indexOf(a.c.r) || a.c.no - b.c.no);
+  const cnt = RORDER.slice().reverse().map(r => [r, got.filter(g => g.c.r === r).length]).filter(([, n]) => n);
+  $('bulkSum').innerHTML = `<b>${esc(p.nm)} ×${BULK}</b>　新しいカード <b class="nw">${newOnes.size}枚</b>　ダブりを売って <b>+${gain.toLocaleString('ja-JP')}</b><br>${cnt.map(([r, n]) => `<span style="color:${RAR[r].c}">${r} ${n}</span>`).join('　')}`;
+  $('bulkGrid').innerHTML = got.map((g, i) => `<div class="bslot2" data-i="${i}">${cardHTML(g.c, { isNew: g.isNew })}</div>`).join('');
+  $('bulkGrid').onclick = e => { const s2 = e.target.closest('.bslot2'); if (s2) inspect(got[+s2.dataset.i].c); };
+  $('bulkAgain').textContent = `もう一度 ${BULK}パック（${(p.price * BULK).toLocaleString('ja-JP')}）`;
+  $('bulkAgain').disabled = S.coins < p.price * BULK;
+  $('bulkAgain').onclick = () => { audio(); bulkOpen(p); };
+  $('bulkOv').hidden = false; $('bulkGrid').scrollTop = 0;
+  msgs.forEach((m, i) => setTimeout(() => toast(m), 600 + i * 2700));
+  if (ownedKinds() === TOTAL && !S.bonus.all) { S.bonus.all = 1; save(); setTimeout(() => toast(`全${TOTAL}種コンプリート！ おめでとう！`), 600); }
+}
+$('closeBulk').addEventListener('click', () => { $('bulkOv').hidden = true; renderShop(); });
+
 $('againBtn').addEventListener('click', () => { if (S.coins < lastPack.price) return; S.coins -= lastPack.price; save(); hud(); showPack(lastPack); });
 $('doneBtn').addEventListener('click', () => { $('result').hidden = true; $('row').innerHTML = ''; state = 'idle'; hint('下からパックを選ぶ'); renderShop(); });
 addEventListener('keydown', e => {
   if (e.key === ' ' && state === 'deck') { e.preventDefault(); const d = document.querySelector('.deck'); if (d) flipNext(d); }
-  if (e.key === 'Escape') { $('inspect').hidden = true; $('binderOv').hidden = true; }
+  if (e.key === 'Escape') { $('inspect').hidden = true; $('binderOv').hidden = true; $('bulkOv').hidden = true; $('newsOv').hidden = true; }
 });
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2700); }
 
