@@ -145,6 +145,7 @@
     if ((pm & BT.TA) && ctx === 'ground') return { id: 'taunt' };
     const b = pm & BT.HK ? 'hk' : pm & BT.HP ? 'hp' : pm & BT.MK ? 'mk' : pm & BT.MP ? 'mp' : pm & BT.LK ? 'lk' : pm & BT.LP ? 'lp' : null;
     if (!b) return null;
+    if ((d === 6 || d === 3) && M[d + b] && C.cmd && C.cmd[d + b]) return { id: d + b };   // 特殊技
     return { id: isDown(d) ? 'c' + b : b };
   }
 
@@ -451,6 +452,11 @@
     if (m.follow && ctl && f.mt >= m.follow.from && f.mt <= m.follow.to && (pressedMask(G, f) & (P3 | BT.SP))) { startMove(G, f, m.follow.mv); return; }
     // キャンセル
     const lastWin = m.win.length ? m.win[m.win.length - 1][1] : m.st + m.act;
+    // ターゲットコンボ（当たるかガードされたら、決まったボタンで次の技へ）
+    if (ctl && f.conn && C.tc && !f.air && f.mode === 'classic' && f.mt <= lastWin + 12) {
+      const pm = pressedMask(G, f, 10);
+      for (const t of C.tc) if (t.from === f.mv && (pm & BT[t.btn])) { startMove(G, f, t.to); return; }
+    }
     // アシストコンボ：当たったら同じボタンで次の技へ
     if (ctl && f.ast && f.conn && !f.air && f.mt <= lastWin + 12 && (f.hist[0] & BT.AU)) {
       const bit = { L: BT.LP, M: BT.MP, H: BT.HP }[f.ast.b];

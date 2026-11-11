@@ -59,6 +59,9 @@
     flip1: P({ h: [0, 96], l: -40, ff: [30, 176], bf: [-10, 60], fh: [-10, -20], bh: [-20, -10] }),
     flash: P({ h: [12, 72], l: 40, fh: [10, -20], bh: [-10, -24], ff: [44, 4], bf: [-44, 14] }),
     oh0: P({ h: [0, 90], l: -10, ff: [30, 170], bf: [-20, 0] }), oh1: P({ h: [10, 84], l: 20, ff: [74, 64], bf: [-22, 0] }),
+    chop0: P({ l: -8, bh: [-4, 44], fh: [20, 12] }), chop1: P({ h: [10, 82], l: 26, bh: [50, -14], fh: [10, 6], ff: [32, 0], bf: [-30, 0] }),
+    sokuto1: P({ h: [-6, 92], l: -26, ff: [98, 92], bf: [-24, 0], fh: [8, 12], bh: [-12, 6] }),
+    slide: P({ h: [-4, 26], l: -40, hd: 20, ff: [92, 6], bf: [20, 2], fh: [-16, -28], bh: [-26, -18] }),
     dive: A({ l: 20, ff: [40, -26], bf: [-10, 22], fh: [0, 10], bh: [-14, 14] }),
     di0: P({ h: [-10, 84], l: -6, bh: [-26, 10], fh: [20, 16], ff: [26, 0], bf: [-32, 0] }),
     di1: P({ h: [18, 78], l: 32, bh: [62, 10], fh: [6, -10], ff: [44, 0], bf: [-42, 0] }),
@@ -108,7 +111,16 @@
     homura: {
       nm: 'ホムラ', en: 'HOMURA', title: '炎の拳士', hp: 10000, walk: [3.4, 2.7], jump: [15.5, 4.2],
       colors: { skin: '#e8b48a', gi: '#c8282c', gi2: '#8a1418', belt: '#1a1a1a', band: '#f4f1ea', hair: '#2a1a14', glove: '#f0e6d8', aura: '#ff7a2a' },
-      modern: { n: 'hado', f: 'shoryu', d: 'tatsu', b: 'tatsu' },
+      modern: { n: 'hado', f: 'shoryu', d: 'tatsu', b: 'sokuto' },
+      // 特殊技（方向＋ボタン）とターゲットコンボ（▶でつなぐ）
+      cmd: {
+        '6mp': N({ nm: '鎖骨割り', cmd: '→ ＋ 中P', st: 20, act: 2, rec: 15, dmg: 600, hs: 18, bs: 16, hb: [24, 90, 76, 160], lvl: 'high', str: 1, pose: [[0, 'stand'], [8, 'chop0'], [19, 'chop0'], [20, 'chop1'], [37, 'stand']] }),
+        '6hp': N({ nm: '鳩尾砕き', cmd: '→ ＋ 強P', st: 15, act: 8, rec: 18, dmg: 400, hs: 22, bs: 17, hb: [26, 96, 82, 140], str: 2, cx: 'sp', pb: 2, win: [[15, 16, 400], [21, 22, 500]], pose: [[0, 'stand'], [8, 'hp0'], [15, 'mp1'], [19, 'mp0'], [21, 'hp1'], [41, 'stand']] }),
+      },
+      tc: [{ from: 'hp', btn: 'HK', to: 'tcA', nm: '上段二連撃', cmd: '強P ▶ 強K' }],
+      extra: {
+        tcA: N({ st: 9, act: 4, rec: 24, dmg: 700, hs: 26, bs: 16, hb: [30, 110, 96, 156], str: 2, kd: 1, launch: [4, 7], pb: 10, vel: [[1, 9, 4]], pose: [[0, 'hp1'], [4, 'hk0'], [9, 'hk1'], [13, 'hk1'], [37, 'stand']] }),
+      },
       assist: { L: ['clp', 'clp', 'lp', 'tatsu0'], M: ['mp', 'hp', 'hado1'], H: ['hp', 'hado2', 'SA'] },
       sp: {
         hado: { nm: '焔弾', in: [2, 3, 6], btn: 'P', proj: 1,
@@ -120,6 +132,11 @@
           make: (s, v) => ({ st: 4, act: 10, rec: 0, dmg: v.dmg, hs: 30, bs: 20, hb: [0, 90, 52, 200], str: 3, inv: v.inv ? [1, v.inv] : null, invAir: [1, 6], kd: 1, launch: [3, 12], aa: 1,
             win: s === 3 ? [[4, 5, 600], [8, 13, 900]] : null, rise: { f: 4, vx: 2.4, vy: v.vy }, untilLand: 1, land: 14, fx: 'fire',
             pose: [[0, 'dp0'], [3, 'dp0'], [5, 'dp1'], [30, 'dp1'], [44, 'air']] }) },
+        sokuto: { nm: '焔足刀', in: [2, 3, 6], btn: 'K',
+          v: [{ st: 12, dmg: 900, pb: 14 }, { st: 13, dmg: 1000, pb: 16 }, { st: 14, dmg: 1100, pb: 18, kd: 1 }, { st: 12, dmg: 700, pb: 18, kd: 1, hits: 2 }],
+          make: (s, v) => ({ st: v.st, act: 3, rec: 22, dmg: v.dmg, hs: 24, bs: 18, hb: [30, 70, 116, 124], str: 2, pb: v.pb, kd: v.kd || 0, launch: [8, 8], fx: 'fire', vel: [[3, v.st, 3]],
+            win: v.hits ? [[v.st, v.st + 1, 700], [v.st + 4, v.st + 6, 700]] : null,
+            pose: [[0, 'stand'], [5, 'lk0'], [v.st, 'sokuto1'], [v.st + 6, 'sokuto1'], [v.st + 25, 'stand']] }) },
         tatsu: { nm: '旋風脚', in: [2, 1, 4], btn: 'K',
           v: [{ st: 9, n: 2, vx: 4.5 }, { st: 11, n: 2, vx: 5.5 }, { st: 13, n: 3, vx: 6.5 }, { st: 9, n: 4, vx: 6.5 }],
           make: (s, v) => {
@@ -147,6 +164,11 @@
       nm: 'ライカ', en: 'RAIKA', title: '雷の蹴り姫', hp: 9600, walk: [3.9, 3.0], jump: [15, 4.6], kickRange: 8, dmgMul: .95,
       colors: { skin: '#f0c49c', gi: '#2a56c8', gi2: '#162a6a', belt: '#ffd23a', band: '#ffd23a', hair: '#f4f1ea', glove: '#1a1a24', aura: '#7fdcff', pony: 1 },
       modern: { n: 'rkick', f: 'flip', d: 'flash', b: 'flash', air: 'dive' },
+      cmd: {
+        '6mk': N({ nm: '雷鎌', cmd: '→ ＋ 中K', st: 19, act: 3, rec: 14, dmg: 600, hs: 18, bs: 15, hb: [24, 40, 84, 140], lvl: 'high', str: 1, fx: 'bolt', pose: [[0, 'stand'], [8, 'oh0'], [18, 'oh0'], [19, 'oh1'], [36, 'stand']] }),
+        '3hk': N({ nm: '雷滑り', cmd: '↘ ＋ 強K', st: 9, act: 6, rec: 20, dmg: 800, hs: 30, bs: 12, hb: [30, 0, 104, 30], lvl: 'low', str: 2, kd: 1, vel: [[5, 15, 6.5]], pose: [[0, 'crouch'], [6, 'slide'], [24, 'slide'], [35, 'crouch']] }),
+      },
+      tc: [{ from: 'mp', btn: 'HK', to: 'tcA', nm: '雷光二段', cmd: '中P ▶ 強K' }, { from: 'lk', btn: 'MK', to: 'tcB', nm: 'つむじ連脚', cmd: '弱K ▶ 中K' }],
       assist: { L: ['clp', 'clp', 'lk', 'rkick0'], M: ['mp', 'mk', 'rkick1'], H: ['hp', 'rkick2', 'SA'] },
       sp: {
         rkick: { nm: '迅雷脚', in: [2, 3, 6], btn: 'K',
@@ -169,6 +191,8 @@
             vel: [[6, 99, v.vx, v.vy]], pose: [[0, 'air'], [5, 'dive'], [99, 'dive']] }) },
       },
       extra: {
+        tcA: N({ st: 10, act: 4, rec: 22, dmg: 800, hs: 26, bs: 15, hb: [30, 104, 104, 156], str: 2, kd: 1, launch: [4, 8], pb: 10, fx: 'bolt', pose: [[0, 'mp1'], [4, 'hk0'], [10, 'hk1'], [14, 'hk1'], [36, 'stand']] }),
+        tcB: N({ st: 7, act: 3, rec: 15, dmg: 500, hs: 18, bs: 13, hb: [36, 70, 106, 104], str: 1, cx: 'sp', pose: [[0, 'lk1'], [4, 'mk0'], [7, 'mk1'], [10, 'mk1'], [25, 'stand']] }),
         raiOH: { st: 14, act: 3, rec: 18, dmg: 800, hs: 18, bs: 14, hb: [20, 30, 84, 120], lvl: 'high', str: 2, fx: 'bolt', pose: [[0, 'flash'], [4, 'oh0'], [13, 'oh0'], [14, 'oh1'], [35, 'stand']] },
         raiOHod: { st: 12, act: 3, rec: 14, dmg: 1000, hs: 24, bs: 16, hb: [20, 30, 84, 120], lvl: 'high', str: 3, kd: 1, launch: [3, 10], fx: 'bolt', pose: [[0, 'flash'], [4, 'oh0'], [11, 'oh0'], [12, 'oh1'], [29, 'stand']] },
       },
@@ -196,7 +220,7 @@
       if (c.dmgMul) m.dmg = Math.round(m.dmg * c.dmgMul / 10) * 10;
       M[k] = m;
     }
-    Object.assign(M, COMMON, c.extra || {});
+    Object.assign(M, COMMON, c.extra || {}, c.cmd || {});
     for (const k in c.sp) for (let s = 0; s < 4; s++) M[k + s] = Object.assign({ sp: k, s, nm: c.sp[k].nm + (s === 3 ? '（OD）' : ''), lvl: 'mid', pb: 8, str: 1 }, c.sp[k].make(s, c.sp[k].v[s]));
     c.sa.forEach((sa, i) => { M['sa' + (i + 1)] = Object.assign({ lvl: 'mid', pb: 8, saLv: i + 1, nm: sa.nm }, sa.make()); });
     // 共通：全体フレームと当たりの窓

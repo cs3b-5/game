@@ -141,19 +141,31 @@
     $('keyTable').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '<tr><td colspan="2" class="note" style="text-align:left">ゲームパッドもつかえます（クラシック：X/Y/RB＝P、A/B/RT＝K、LB＝パリィ、LT＝インパクト。モダン：X/A/B＝弱中強、Y＝SP、RB＝DI、LB＝DP、RT＝AUTO、LT＝投げ）</td></tr>';
     const arrow = { 1: '↙', 2: '↓', 3: '↘', 4: '←', 6: '→', 7: '↖', 8: '↑', 9: '↗' };
     let h = '';
+    const cmdOf = (seq, btn) => seq.map(d => arrow[d]).join('') + ' ＋ ' + btn;
+    const modOf = (C, s) => { const m = Object.entries(C.modern).filter(([, v]) => v === s).map(([d]) => ({ n: '', f: '→ ', d: '↓ ', b: '← ', air: '空中で ' })[d]); return m.length ? m.join('／') + 'SP' : '—'; };
     for (const id in FG.CHARS) {
       const C = FG.CHARS[id];
-      h += `<tr><th colspan="2">${C.nm}</th></tr>`;
+      h += `<tr><th colspan="2" style="color:#fff;font-size:1.05rem;padding-top:14px">${C.nm}<span style="color:var(--mute);font-weight:700"> ${C.en}</span></th></tr>`;
+      h += `<tr><th>必殺技</th><th>コマンド</th></tr>`;
       for (const s in C.sp) {
         const sp = C.sp[s];
-        const cmd = ctl === 'classic' ? (sp.air ? '空中で ' : '') + sp.in.map(d => arrow[d]).join('') + ' ＋ ' + (sp.btn === 'P' ? 'パンチ' : 'キック')
-          : (() => { const m = Object.entries(C.modern).filter(([, v]) => v === s).map(([d]) => ({ n: '', f: '→', d: '↓', b: '←', air: '空中で' })[d]); return (m[0] || '') + ' SP'; })();
+        const cmd = ctl === 'classic' ? (sp.air ? '空中で ' : '') + cmdOf(sp.in, sp.btn) : modOf(C, s);
         h += `<tr><td>${sp.nm}</td><td>${cmd}</td></tr>`;
+        if (s === 'flash') h += `<tr><td>　雷槌</td><td>${ctl === 'classic' ? '（閃歩中に）P' : '（閃歩中に）SP'}</td></tr>`;
       }
-      if (id === 'raika') h += `<tr><td>　└ 雷槌（閃歩中）</td><td>${ctl === 'classic' ? 'パンチ' : 'SP か 攻撃'}</td></tr>`;
-      C.sa.forEach((sa, i) => { h += `<tr><td>SA${i + 1} ${sa.nm}</td><td>${ctl === 'classic' ? sa.in.map(d => arrow[d]).join('') + ' ＋ ' + (sa.btn === 'P' ? 'パンチ' : 'キック') : ['SP＋強', '→ SP＋強', '↓ SP＋強'][i]}</td></tr>`; });
+      h += `<tr><th>スーパーアーツ</th><th></th></tr>`;
+      C.sa.forEach((sa, i) => { h += `<tr><td>SA${i + 1} ${sa.nm}</td><td>${ctl === 'classic' ? cmdOf(sa.in, sa.btn) : ['SP ＋ 強', '→ SP ＋ 強', '↓ SP ＋ 強'][i]}</td></tr>`; });
+      h += `<tr><th>特殊技</th><th></th></tr>`;
+      if (ctl === 'classic') {
+        for (const k in C.cmd || {}) h += `<tr><td>${C.cmd[k].nm}</td><td>${C.cmd[k].cmd}</td></tr>`;
+        for (const t of C.tc || []) h += `<tr><td>${t.nm}</td><td>${t.cmd}</td></tr>`;
+      } else {
+        const A = C.assist, nm = { clp: '↓弱P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA1' };
+        const cv = x => nm[x] || (C.moves[x] ? C.moves[x].nm.replace('（OD）', '') : x);
+        for (const b of ['L', 'M', 'H']) h += `<tr><td>アシストコンボ ${{ L: '弱', M: '中', H: '強' }[b]}</td><td>AUTO＋${{ L: '弱', M: '中', H: '強' }[b]}連打：${A[b].map(cv).join(' ▶ ')}</td></tr>`;
+      }
     }
-    $('cmdTable').innerHTML = h + '<tr><td colspan="2" class="note" style="text-align:left">ボタン2つ同時押しでOD（ドライブゲージ2本）。体力25%以下のSA3はクリティカルアーツ</td></tr>';
+    $('cmdTable').innerHTML = h + '<tr><td colspan="2" class="note" style="text-align:left">表は1P側（右向き）のとき。左向きのときは左右が逆になる。<br>▶ は前の技が当たる（ガードされる）のに合わせて次のボタン。<br>必殺技はボタン2つ同時押しでOD（ドライブゲージ2本）。体力25%以下のSA3はクリティカルアーツ。<br>モダンのSP必殺技はダメージが少しだけ低い（80%）</td></tr>';
   }
 
   // ================= ゲーム開始 =================
