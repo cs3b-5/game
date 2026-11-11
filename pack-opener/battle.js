@@ -134,7 +134,7 @@ function linkText() { return LINK_CAP === 1 ? `自分の場にほかの電車が
 function evoCostOf(c, base, side) { const foe = side && B ? other(side) : null; return Math.max(0, costOf(c) - (side && side.land && EVO_LAND.includes(side.land.c.no) ? 1 : 0)) + (foe && (hasKw(foe, 'cutoff') || landIs(foe, 206)) ? 1 : 0); }
 const EVO_LAND = [161, 162, 163];
 // 第四弾のフィールドのおまけ
-const LAND_EXTRA = { 250: 'ターンのはじめに🪙宝+1', 251: '🏴略奪で手に入る🪙宝+1', 252: '味方のモンスターが倒れると🪙宝+1', 253: '🪙宝が5以上あると、味方全員ATK+1', 204: '出たとき、相手のフィールドも壊す', 205: '相手のモンスターは、出たときの能力が働かない', 206: '相手の🌱進化はちから+1', 207: '相手の🔗連結が働かない' };
+const LAND_EXTRA = { 250: 'ターンのはじめに🪙宝+1', 251: '🏴略奪で手に入る🪙宝+1', 252: '味方のモンスターが倒れると🪙宝+1', 253: '🪙宝が5以上あると、味方全員ATK+1', 204: '出たとき、相手のフィールドも壊す', 205: '相手のモンスターは、出たときの能力が働かない（🔨破壊はのぞく）', 206: '相手の🌱進化はちから+1', 207: '相手の🔗連結が働かない' };
 const landIs = (side, no) => !!(side && side.land && side.land.c.no === no);   // 進化のちからが1少なくなるフィールド
 function evoText(c) { const b = A && A.CARDS ? A.CARDS[evoOf(c) - 1] : null; return b ? `場の「${b.nm}」に重ねて進化する（進化前がいないと出せない。進化前が場に出たターンは進化できない）。進化するとHPが全回復して、そのターンにすぐ攻撃できる` : KW.evo.txt; }
 function kwText(k) { return Object.keys(k).map(x => `${KW[x].ic}${KW[x].nm}`).join(' '); }
@@ -520,10 +520,12 @@ async function spendFx(side, card, sp) {
 }
 async function onEnter(side, card) {
   const foe = other(side);
-  if (landIs(foe, 205)) { if (Object.keys(card.kw).some(k => ['spark', 'banish', 'starlight', 'bless', 'break', 'seal'].includes(k))) log(`静寂の神殿で「${card.c.nm}」の能力は働かない`, side); return; }
+  // 🔨破壊は静寂の神殿でも止まらない（神殿そのものを壊せるように）
+  const silenced = landIs(foe, 205);
   if (card.kw.break) {
     if (!breakLand(foe, side)) { const t = best(foe.field.filter(m => m && (m.items || m.buff)), m => m.items * 3 + m.buff); if (t) { stripItems(foe, t); floatAt('u' + t.uid, '破壊', '#ff8a4a'); log(`🔨「${t.c.nm}」のアイテムの強化をはずした`, side); } }
   }
+  if (silenced) { if (Object.keys(card.kw).some(k => ['spark', 'banish', 'starlight', 'bless', 'seal', 'dig', 'spend'].includes(k))) log(`静寂の神殿で「${card.c.nm}」の能力は働かない`, side); return; }
   if (card.kw.seal) { const t = sealTarget(foe); if (t) { sealMon(t); log(`⛓「${t.c.nm}」の能力を封印した`, side); } }
   if (card.kw.dig) gainT(side, card.kw.dig, '🪙宝拾い');
   if (card.kw.spend && T5[card.c.no] && T5[card.c.no].spend) await spendFx(side, card, T5[card.c.no].spend);
