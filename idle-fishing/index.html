@@ -192,7 +192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 </div>
 <div id="modal" class="modal" hidden></div>
 
-<script src="core.js"></script>
+<script src="core.js?v=20261112c"></script>
 <script>
 (function () {
 'use strict';
@@ -257,11 +257,14 @@ try { Object.assign(OPT, JSON.parse(localStorage.getItem(SAVE + '-opt')) || {});
 const saveOpt = () => { try { localStorage.setItem(SAVE + '-opt', JSON.stringify(OPT)); } catch (e) {} };
 // この魚で大きなポップアップを出すか
 function wantPopup(ev) {
-  const ri = F.RORDER.indexOf(ev.fish.r), min = OPT.pop === 'none' ? 99 : F.RORDER.indexOf(OPT.pop);
+  // レア度の順番は固定の表で決める（古い core.js が残っていても「全部出る」にならないように）
+  const ORD = { N: 0, R: 1, SR: 2, UR: 3, LR: 4, GOD: 5, ULT: 6 };
+  const ri = ORD[ev.fish.r] ?? 0, min = ORD[OPT.pop] ?? 99;
   if (ri >= min) return true;
-  if (OPT.popNew && (ev.goldNew || (ev.isNew && ri >= 2))) return true;
+  if (OPT.popNew && (ev.goldNew || (ev.isNew && ri >= 3))) return true;
   return false;
 }
+window.__wantPopup = wantPopup;
 $('#opt').onclick = () => {
   audio();
   showModal(`<h3>⚙ 設定</h3><p class="note">レアな魚が釣れたときの、大きなポップアップ</p>
