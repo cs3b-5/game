@@ -62,17 +62,58 @@ export const TEAMS = [
       ['ぷにた', '中', 64, 58, 80, 74, 'mint', 1], ['くるり', '右', 62, 62, 58, 58, 'black'], ['ねむ子', '左', 58, 54, 56, 56, 'albino', 1], ['ぽて吉', '捕', 50, 56, 32, 72, 'gold'], ['つや丸', '投', 28, 20, 30, 50, 'black']],
     pit: ['つや丸', 156, 54, 66, { st: 1, sl: 3, fk: 5 }, 'black'] },
 ];
+// ---------- 追加の能力（パワプロ式） ----------
+// 打者：[肩力, 捕球, 弾道1〜4, 特殊能力]　投手：特殊能力
+const EX = {
+  upa: { bat: [[70, 66, 2, ['infield', 'first']], [62, 76, 1, ['neba']], [50, 54, 3, ['chance']], [56, 52, 4, ['power', 'kX']], [72, 58, 2, ['vsL']], [84, 80, 1, ['laser']], [60, 54, 2, []], [76, 72, 2, ['chanceX']], [62, 50, 1, []]],
+    pit: ['kire'], rp: ['ウパ守', 150, 60, 40, { st: 1, sl: 3, fk: 4 }, 'albino', 0, ['k', 'heavy']] },
+  mex: { bat: [[78, 76, 1, ['infield', 'run']], [74, 68, 2, ['wide']], [64, 56, 3, ['chance']], [52, 44, 4, ['power', 'chanceX']], [66, 56, 2, ['first']], [70, 70, 1, ['neba']], [80, 58, 2, ['laser']], [82, 70, 2, []], [58, 50, 1, []]],
+    pit: ['nobi', 'pinchX'], rp: ['ショロ', 148, 66, 40, { st: 1, sk: 4, ch: 3 }, 'mint', 1, ['vsLb']] },
+  gill: { bat: [[64, 78, 1, ['avg', 'neba']], [70, 70, 2, ['infield']], [52, 50, 3, ['chance']], [60, 52, 4, ['power']], [72, 62, 2, ['vsL', 'kX']], [86, 84, 1, ['laser']], [66, 58, 2, ['first']], [74, 74, 2, []], [56, 50, 1, []]],
+    pit: ['pinch', 'kire'], rp: ['しぶき', 154, 56, 40, { st: 1, fk: 5 }, 'gold', 0, ['nobi', 'k']] },
+  neo: { bat: [[76, 78, 1, ['infield', 'run']], [62, 70, 2, ['avg']], [48, 40, 4, ['power', 'kX']], [68, 58, 3, ['chance']], [74, 70, 2, ['wide']], [68, 58, 2, ['first']], [60, 56, 2, ['neba']], [80, 72, 2, ['chanceX']], [60, 50, 1, []]],
+    pit: ['nobi', 'heavy'], rp: ['とげ太', 146, 72, 40, { st: 1, cu: 4, sl: 3 }, 'pink', 1, ['pinch']] },
+};
+for (const t of TEAMS) { const x = EX[t.id]; if (!x) continue; t.bat.forEach((b, i) => { if (b.length < 9) b[7] = b[7] || 0; b.push(...x.bat[i]); }); while (t.pit.length < 7) t.pit.push(0); t.pit.push(x.pit); t.rp = x.rp; }
+
+// 特殊能力  t: 'b'=野手 'p'=投手、g: 2=金 1=青 -1=赤
+export const ABIL = {
+  chance: { n: 'チャンス◎', t: 'b', g: 1, d: '得点圏にランナーがいると、ミートとパワーが上がる' },
+  chanceX: { n: 'チャンス×', t: 'b', g: -1, d: '得点圏だと力が出ない' },
+  vsL: { n: '対左投手○', t: 'b', g: 1, d: '左ピッチャーに強い' },
+  avg: { n: 'アベレージヒッター', t: 'b', g: 2, d: 'カーソルが少し大きい' },
+  power: { n: 'パワーヒッター', t: 'b', g: 2, d: '打球がぐんと強くなる' },
+  wide: { n: '広角打法', t: 'b', g: 1, d: '流し打ちでも打球が弱くならない' },
+  first: { n: '初球○', t: 'b', g: 1, d: '初球に強い' },
+  neba: { n: '粘り打ち', t: 'b', g: 1, d: '2ストライクから、空振りがファウルになりやすい' },
+  kX: { n: '三振', t: 'b', g: -1, d: '2ストライクからカーソルが小さくなる' },
+  infield: { n: '内野安打○', t: 'b', g: 1, d: '内野ゴロで一塁まで速い' },
+  run: { n: '走塁○', t: 'b', g: 1, d: 'ベースを回るのが速い' },
+  laser: { n: 'レーザービーム', t: 'b', g: 2, d: '送球がものすごく速い' },
+  nobi: { n: 'ノビ○', t: 'p', g: 1, d: 'ストレートが芯に当たりにくい' },
+  kire: { n: 'キレ○', t: 'p', g: 1, d: '変化球がよく曲がる' },
+  pinch: { n: '対ピンチ○', t: 'p', g: 1, d: '得点圏でコントロールが上がる' },
+  pinchX: { n: 'ピンチ×', t: 'p', g: -1, d: '得点圏でコントロールが落ちる' },
+  heavy: { n: '重い球', t: 'p', g: 1, d: '打球が飛びにくい' },
+  k: { n: '奪三振', t: 'p', g: 2, d: '2ストライクから、打者のカーソルが小さくなる' },
+  vsLb: { n: '対左打者○', t: 'p', g: 1, d: '左バッターにコントロールが上がる' },
+  gyro: { n: 'ジャイロボール', t: 'p', g: 2, d: 'ストレートが速く見える' },
+};
 export const teamById = id => TEAMS.find(t => t.id === id) || TEAMS[0];
 export const grade = v => 'GFEDCBAS'[clamp(Math.floor(v / 12.5), 0, 7)];
+const abl = a => Array.isArray(a) ? a.filter(k => ABIL[k]) : [];
 
 export function batterOf(team, i) {
   const b = team.bat[i % 9];
-  return { name: b[0], pos: b[1], con: b[2], pow: b[3], spd: b[4], def: b[5], skin: b[6], left: !!b[7] };
+  const def = b[5], pow = b[3];
+  return { name: b[0], pos: b[1], con: b[2], pow, spd: b[4], def, skin: b[6], left: !!b[7], arm: b[8] ?? def, cat: b[9] ?? def, traj: b[10] || (pow >= 80 ? 3 : pow >= 50 ? 2 : 1), abl: abl(b[11]), img: b[12] || null };
 }
-export function pitcherOf(team) {
-  const p = team.pit;
-  return { name: p[0], kmh: p[1], ctl: p[2], sta: p[3], ars: p[4], skin: p[5], left: !!p[6] };
-}
+function pitOf(p) { return { name: p[0], kmh: p[1], ctl: p[2], sta: p[3], ars: p[4], skin: p[5], left: !!p[6], abl: abl(p[7]), img: p[8] || null }; }
+export function pitcherOf(team, which = 0) { return pitOf(which && team.rp ? team.rp : team.pit); }
+// スタミナ：何球まで元気か
+export const pitchLimit = sta => Math.round(30 + sta * 0.85);
+export const has = (who, k) => !!who && who.abl.includes(k);
+const scoring = S => !!S && (S.bases[1] !== null || S.bases[2] !== null);
 
 // ---------- 守備位置（x,z） ----------
 export const FIELDERS = {
@@ -90,15 +131,18 @@ export function defenseOf(team) {
 
 // ---------- 投球 ----------
 // 投手が狙う場所 (tx,ty) に投げる。コントロールで少しずれる
-export function makePitch(pit, type, tx, ty, rng, slow = 1) {
-  const P = PITCHES[type] || PITCHES.st, lv = (pit.ars[type] || 1);
-  const err = 0.025 + (100 - pit.ctl) / 100 * 0.075;
+export function makePitch(pit, type, tx, ty, rng, slow = 1, S = null, bat = null) {
+  const P = PITCHES[type] || PITCHES.st, lv = (pit.ars[type] || 1) * (has(pit, 'kire') && type !== 'st' ? 1.15 : 1);
+  let ctl = pit.ctl;
+  if (scoring(S)) ctl += has(pit, 'pinch') ? 15 : has(pit, 'pinchX') ? -15 : 0;
+  if (bat && bat.left && has(pit, 'vsLb')) ctl += 10;
+  const err = 0.025 + (100 - clamp(ctl, 1, 100)) / 100 * 0.075;
   const x = tx + rng.n(err), y = ty + rng.n(err);
   const mir = pit.left ? -1 : 1;
   const bx = P.b[0] * lv * mir, by = P.b[1] * (type === 'st' ? 1 : lv);
   const kmh = Math.round(pit.kmh * P.k + rng.n(1.5));
-  const dur = 1.0 * (148 / kmh) * slow; // 画面での到達時間（遊びやすく少しゆっくり）
-  return { type, kmh, dur, end: [x, y], brk: [bx, by], rel: [RELEASE[0] * mir, RELEASE[1], RELEASE[2]] };
+  const dur = 1.0 * (148 / (kmh + (type === 'st' && has(pit, 'gyro') ? 5 : 0))) * slow; // 画面での到達時間（遊びやすく少しゆっくり）
+  return { type, kmh, dur, end: [x, y], brk: [bx, by], rel: [RELEASE[0] * mir, RELEASE[1], RELEASE[2]], nobi: type === 'st' && has(pit, 'nobi') ? 1 : 0, heavy: has(pit, 'heavy') ? 1 : 0, k: has(pit, 'k') ? 1 : 0, pl: pit.left ? 1 : 0 };
 }
 // t: 0..1 のときのボールの位置
 export function pitchPos(p, t) {
@@ -110,17 +154,40 @@ export const inZone = (x, y) => Math.abs(x) <= ZONE.x + 0.035 && y >= ZONE.y0 - 
 
 // ---------- 打撃 ----------
 export const meetR = con => 0.075 + con / 100 * 0.075;
-// swing: {cx, cy, dt}（dt: バットが当たる時刻 − ボール到着時刻。マイナスは早い）、null は見送り
-export function resolveSwing(pitch, bat, swing, rng) {
+export const POWER_SWING = 0.7; // 強振のカーソルの大きさ
+// 状況で変わるミートとパワー（特殊能力）
+export function effBat(bat, S, pitch) {
+  let con = bat.con, pow = bat.pow, k = 1;
+  if (scoring(S)) { if (has(bat, 'chance')) { con += 8; pow += 6; } if (has(bat, 'chanceX')) { con -= 8; pow -= 6; } }
+  if (pitch && pitch.pl && has(bat, 'vsL')) con += 6;
+  if (has(bat, 'avg')) con += 6;
+  if (S && S.b === 0 && S.s === 0 && has(bat, 'first')) { con += 8; pow += 4; }
+  if (S && S.s === 2) { if (has(bat, 'kX')) k *= 0.88; if (pitch && pitch.k) k *= 0.9; }
+  return { con: clamp(con, 1, 110), pow: clamp(pow, 1, 110), k };
+}
+// カーソルの半径（表示と判定で同じ）
+export function cursorR(bat, S, pitch, power) { const e = effBat(bat, S, pitch); return meetR(e.con) * e.k * (power ? POWER_SWING : 1); }
+// swing: {cx, cy, dt, pw}（dt: バットが当たる時刻 − ボール到着時刻。マイナスは早い。pw: 強振）、null は見送り
+export function resolveSwing(pitch, bat, swing, rng, S = null) {
   const [bx, by] = pitch.end;
   if (!swing) return { kind: inZone(bx, by) ? 'strikeLook' : 'ball' };
-  const r = meetR(bat.con), R = r * 1.35;
+  const e = effBat(bat, S, pitch);
+  const r = meetR(e.con) * e.k * (swing.pw ? POWER_SWING : 1), R = r * 1.35;
   const d = Math.hypot(bx - swing.cx, by - swing.cy);
-  if (Math.abs(swing.dt) > 0.13 || d > R) return { kind: 'whiff' };
-  const q = clamp((1 - d / R) * (1 - Math.abs(swing.dt) / 0.13 * 0.45), 0, 1);
+  if (Math.abs(swing.dt) > 0.13 || d > R) {
+    // 粘り打ち：2ストライクで、おしい空振りはファウルに
+    if (S && S.s === 2 && has(bat, 'neba') && Math.abs(swing.dt) < 0.17 && d < R * 1.3 && rng() < 0.7) return { kind: 'foul', tip: true };
+    return { kind: 'whiff' };
+  }
+  const dtPen = has(bat, 'wide') ? 0.2 : 0.45;
+  let q = clamp((1 - d / R) * (1 - Math.abs(swing.dt) / 0.13 * dtPen), 0, 1);
+  if (pitch.nobi) q *= 0.9;
   if (q < 0.1 || rng() < 0.08 * (1 - q)) return { kind: 'foul', tip: true };
-  const ev = 82 + (bat.pow * 0.9 + 28) * (0.3 + 0.7 * Math.pow(q, 0.6)) + rng.n(4);
-  const la = clamp(13 + (by - swing.cy) / r * 26 + rng.n(5), -25, 70);
+  let ev = 82 + (e.pow * 0.9 + 28) * (0.3 + 0.7 * Math.pow(q, 0.6)) + rng.n(4);
+  if (has(bat, 'power')) ev += 3;
+  if (swing.pw) ev = ev * 1.04 + 3;
+  if (pitch.heavy) ev -= 5;
+  const la = clamp(13 + (bat.traj - 2) * 2.5 + (by - swing.cy) / r * 26 + rng.n(5), -25, 70);
   let sp = swing.dt / 0.13 * 52 + (swing.cx - bx) / r * 8 + rng.n(9);
   if (bat.left) sp = -sp;
   return { kind: 'inplay', v: ev / 3.6, la, sp, q };
@@ -170,10 +237,21 @@ const fspd = def => 5.9 + def / 100 * 1.6;
 const runSpd = spd => 6.6 + spd / 100 * 2.2;
 export const runTime = (spd, n) => 0.75 + 27.43 * n / runSpd(spd) + 0.2 * (n - 1);
 const THROW = 31;
+const throwSpd = (arm, laser) => 25 + arm / 100 * 11 + (laser ? 4 : 0);
 function d2(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
 
+// 守っているチームの、守備位置ごとの守備力・肩・捕球
+export function defsOf(team) {
+  const dm = defenseOf(team), d = {};
+  for (const k of FIELD_ORDER) { const b = batterOf(team, dm[k]); d[k] = { def: b.def, arm: b.arm, cat: b.cat, laser: has(b, 'laser') }; }
+  return d;
+}
 // 打球 → 結果。fieldTeam の守備力を使う
-export function judge(ball, F, defs, bat, S) {
+// defs[k]: 守備力の数字、または {def, arm, cat, laser}。rng があればエラーも起きる
+export function judge(ball, F, defs0, bat, S, rng = null) {
+  const defs = {}, info = {};
+  for (const k in defs0) { const v = defs0[k]; info[k] = typeof v === 'object' ? v : { def: v, arm: v, cat: v }; defs[k] = info[k].def; }
+  const error = k => rng && rng() < (100 - info[k].cat) / 100 * 0.035;
   const { path, landed } = ball;
   const fair = Math.abs(ball.phi) <= 45;
   if (ball.hr) return { res: 'HR', bases: 4, who: null };
@@ -186,6 +264,7 @@ export function judge(ball, F, defs, bat, S) {
       const f = F[k], need = 0.45 + d2(f, [x, z]) / fspd(defs[k]);
       if (need <= t) {
         if (!fair && Math.hypot(x, z) > 80) continue;
+        if (fair && error(k)) return { res: 'E', bases: 1, who: k, t, at: [x, z] };
         return { res: 'FO', bases: 0, who: k, t, at: [x, z], fly: ball.peak > 6, deep: Math.hypot(x, z) > 62, foul: !fair };
       }
     }
@@ -205,12 +284,15 @@ export function judge(ball, F, defs, bat, S) {
   if (!best) { const e = path[path.length - 1]; best = { k: 'CF', t: e[0] + 1.2, at: [e[1], e[3]] }; }
   const outfield = !INFIELD.has(best.k) || ball.landDist > 42;
   // 3) 打者は何塁まで行ける？
-  const ballAt = n => best.t + 0.35 + d2(best.at, BASES[n % 4]) / THROW;
+  const fi = info[best.k] || { arm: 50 };
+  const ballAt = n => best.t + 0.35 + d2(best.at, BASES[n % 4]) / throwSpd(fi.arm, fi.laser);
+  const spd = bat.spd + (has(bat, 'run') ? 10 : 0), spd1 = bat.spd + (has(bat, 'infield') ? 14 : 0);
   let n = 0;
-  for (let b = 1; b <= 3; b++) { if (runTime(bat.spd, b) + 0.12 < ballAt(b)) n = b; else break; }
+  for (let b = 1; b <= 3; b++) { if (runTime(b === 1 ? Math.max(spd, spd1) : spd, b) + 0.12 < ballAt(b)) n = b; else break; }
   if (!outfield) {
     if (n === 0) {
-      const margin = ballAt(1) - runTime(bat.spd, 1);
+      if (error(best.k)) return { res: 'E', bases: 1, who: best.k, t: best.t, at: best.at };
+      const margin = ballAt(1) - runTime(spd1, 1);
       const dp = S && S.bases[0] && S.outs < 2 && margin < -0.9;
       return { res: dp ? 'DP' : 'GO', bases: 0, who: best.k, t: best.t, at: best.at };
     }
@@ -222,16 +304,27 @@ export function judge(ball, F, defs, bat, S) {
 
 // ---------- 試合の状態 ----------
 export function newGame(away, home, innings = 3) {
-  return { away, home, inn: 1, top: true, outs: 0, b: 0, s: 0, bases: [null, null, null], score: [0, 0], line: [[], []], hits: [0, 0], ord: [0, 0], innings, over: false, last: null, seq: 0 };
+  return { away, home, inn: 1, top: true, outs: 0, b: 0, s: 0, bases: [null, null, null], score: [0, 0], line: [[], []], hits: [0, 0], ord: [0, 0], innings, over: false, last: null, seq: 0,
+    pc: [0, 0], pi: [0, 0], box: [Array.from({ length: 9 }, () => [0, 0, 0, 0]), Array.from({ length: 9 }, () => [0, 0, 0, 0])] }; // box: [打数, 安打, 本塁打, 打点]
 }
 export const batTeamIdx = S => S.top ? 0 : 1;
 export function curBatter(S) { const i = batTeamIdx(S); return { idx: S.ord[i] % 9, team: teamById(i ? S.home : S.away) }; }
-export function curPitcher(S) { return pitcherOf(teamById(S.top ? S.home : S.away)); }
+// 疲れも入った、いまのピッチャー
+export function curPitcher(S) {
+  const fi = S.top ? 1 : 0, p = pitcherOf(teamById(fi ? S.home : S.away), (S.pi || [0, 0])[fi]);
+  const pc = (S.pc || [0, 0])[fi], lim = pitchLimit(p.sta);
+  p.pc = pc; p.lim = lim; p.stamina = clamp(1 - pc / (lim + 30), 0, 1);
+  const tired = Math.max(0, (pc - lim) / 25);
+  if (tired > 0) { p.kmh = Math.round(p.kmh - Math.min(10, tired * 5)); p.ctl = Math.round(Math.max(5, p.ctl - tired * 14)); p.tired = true; }
+  return p;
+}
 
 // 1球の結果を反映（純粋：新しい S を返す）。ev: {kind, res?, bases?, deep?}
 export function applyEvent(S0, ev) {
   const S = JSON.parse(JSON.stringify(S0));
-  const ti = batTeamIdx(S);
+  if (!S.pc) { S.pc = [0, 0]; S.pi = [0, 0]; } if (!S.box) S.box = [Array.from({ length: 9 }, () => [0, 0, 0, 0]), Array.from({ length: 9 }, () => [0, 0, 0, 0])];
+  const ti = batTeamIdx(S), fi = 1 - ti;
+  S.pc[fi]++;
   const runner = S.ord[ti] % 9;
   let msg = '', runs = 0, pa = false;
   const score = n => { runs += n; };
@@ -262,6 +355,7 @@ export function applyEvent(S0, ev) {
     case 'inplay': {
       const r = ev.res;
       if (r === 'FOUL') { if (S.s < 2) S.s++; msg = 'ファウル'; break; }
+      if (r === 'E') { adv(1); msg = { P: 'ピッチャー', C: 'キャッチャー', '1B': 'ファースト', '2B': 'セカンド', SS: 'ショート', '3B': 'サード', LF: 'レフト', CF: 'センター', RF: 'ライト' }[ev.who] + 'のエラー！'; S.err = (S.err || 0) + 1; nextBatter(); break; }
       if (r === 'HR') { adv(4); msg = runs >= 4 ? '満塁ホームラン！！' : 'ホームラン！'; S.hits[ti]++; nextBatter(); break; }
       if (r === '1B' || r === '2B' || r === '3B') { adv(ev.bases); msg = { '1B': ev.infield ? '内野安打' : 'ヒット', '2B': 'ツーベース！', '3B': 'スリーベース！' }[r]; S.hits[ti]++; nextBatter(); break; }
       if (r === 'FO') {
@@ -283,6 +377,15 @@ export function applyEvent(S0, ev) {
       }
       nextBatter(); break;
     }
+  }
+  // 成績
+  if (pa) {
+    const bx = S.box[ti][runner], k = ev.kind, r = ev.res;
+    const walk = k === 'ball', sac = k === 'inplay' && r === 'FO' && /犠牲/.test(msg);
+    if (!walk && !sac) bx[0]++;
+    if (k === 'inplay' && ['1B', '2B', '3B', 'HR'].includes(r)) bx[1]++;
+    if (k === 'inplay' && r === 'HR') bx[2]++;
+    if (r !== 'DP' && r !== 'E') bx[3] += runs;
   }
   // 得点
   if (runs) {
@@ -306,8 +409,13 @@ export function applyEvent(S0, ev) {
     }
     if (!S.over) S.line[batTeamIdx(S)][S.inn - 1] = S.line[batTeamIdx(S)][S.inn - 1] || 0;
   }
+  let relief = null;
+  {
+    const ft = teamById(fi ? S.home : S.away);
+    if (pa && !S.over && S.pi[fi] === 0 && ft.rp && S.pc[fi] >= pitchLimit(pitcherOf(ft).sta) + 22) { S.pi[fi] = 1; S.pc[fi] = 0; relief = ft.rp[0]; }
+  }
   S.seq++;
-  S.last = { msg, runs, change, pa };
+  S.last = { msg, runs, change, pa, relief, kind: ev.kind === 'inplay' ? ev.res : ev.kind, who: runner, team: ti };
   return S;
 }
 
@@ -331,7 +439,44 @@ export function cpuSwing(pitch, bat, S, rng, lv = 1) {
   const chase = pitch.type === 'fk' || pitch.type === 'cu' || pitch.type === 'sk' ? 0.32 : 0.2;
   const p = z ? (S.s === 2 ? 0.82 : 0.56) : (S.s === 2 ? chase + 0.1 : chase * 0.75);
   if (rng() > p) return null;
-  const r = meetR(bat.con), e = r * (0.8 - bat.con / 100 * 0.35) * [1.35, 1.0, 0.75][lv];
+  const pw = bat.pow >= 70 && S.b > S.s && S.s < 2 && rng() < 0.5; // 打者有利のカウントで強振
+  const r = cursorR(bat, S, pitch, pw), e = r * (0.8 - bat.con / 100 * 0.35) * [1.35, 1.0, 0.75][lv];
   const brkK = Math.hypot(pitch.brk[0], pitch.brk[1]) * 0.12;
-  return { cx: bx + rng.n(e + brkK), cy: by + rng.n(e + brkK) - 0.01, dt: rng.n(0.045 * [1.3, 1, 0.8][lv]) };
+  return { cx: bx + rng.n(e + brkK), cy: by + rng.n(e + brkK) - 0.01, dt: rng.n(0.045 * [1.3, 1, 0.8][lv]), pw };
 }
+
+// ---------- マイチーム（サクセスで作った選手を入れたチーム） ----------
+// 外から来たチームのデータは、ここで数字の範囲と形をそろえてから使う
+const POSS = ['投', '捕', '一', '二', '三', '遊', '左', '中', '右'];
+const num = (v, a, b, d) => Number.isFinite(+v) ? clamp(Math.round(+v), a, b) : d;
+const str = (v, n, d) => typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : d;
+const col = (v, d) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d;
+const skin = v => SKINS[v] ? v : 'pink';
+const abls = (v, t) => (Array.isArray(v) ? v : []).filter(k => ABIL[k] && ABIL[k].t === t).slice(0, 8);
+const ars = v => { const o = { st: 1 }; if (v && typeof v === 'object') for (const k in v) if (PITCHES[k] && k !== 'st') o[k] = num(v[k], 1, 7, 1); return o; };
+const imgOk = v => typeof v === 'string' && /^images\/[\w\-\/]+\.webp$/.test(v) ? v : null;
+function cleanBat(b, i) {
+  b = Array.isArray(b) ? b : [];
+  return [str(b[0], 8, '選手' + (i + 1)), POSS.includes(b[1]) ? b[1] : '右', num(b[2], 1, 100, 50), num(b[3], 1, 100, 50), num(b[4], 1, 100, 50), num(b[5], 1, 100, 50), skin(b[6]), b[7] ? 1 : 0,
+    num(b[8], 1, 100, 50), num(b[9], 1, 100, 50), num(b[10], 1, 4, 2), abls(b[11], 'b'), imgOk(b[12])];
+}
+function cleanPit(p, nm) {
+  p = Array.isArray(p) ? p : [];
+  return [str(p[0], 8, nm), num(p[1], 110, 170, 140), num(p[2], 1, 100, 50), num(p[3], 1, 100, 50), ars(p[4]), skin(p[5]), p[6] ? 1 : 0, abls(p[7], 'p'), imgOk(p[8])];
+}
+export function cleanTeam(d, id) {
+  d = d && typeof d === 'object' ? d : {};
+  const bat = Array.from({ length: 9 }, (_, i) => cleanBat((d.bat || [])[i], i));
+  // 守備位置がかぶったら、空いている位置に入れ直す
+  const used = new Set(); bat.forEach(b => { if (used.has(b[1])) b[1] = POSS.find(p => !used.has(p) && !bat.some(x => x !== b && x[1] === p)) || b[1]; used.add(b[1]); });
+  for (const p of POSS) if (!bat.some(b => b[1] === p)) { const dup = bat.find((b, i) => bat.findIndex(x => x[1] === b[1]) !== i); if (dup) dup[1] = p; }
+  return { id, n: str(d.n, 14, 'マイチーム'), s: str(d.s, 1, 'マ'), c: col(d.c, '#ff5c8a'), c2: col(d.c2, '#ffffff'), cap: col(d.cap, '#1d2340'), bat, pit: cleanPit(d.pit, '投手'), rp: d.rp ? cleanPit(d.rp, 'リリーフ') : null, custom: true };
+}
+export function registerTeam(d, id) {
+  const t = cleanTeam(d, id), i = TEAMS.findIndex(x => x.id === id);
+  if (i >= 0) TEAMS[i] = t; else TEAMS.push(t);
+  return t;
+}
+export const BUILTIN = TEAMS.slice(0, 4).map(t => t.id);
+// 試合で使う形にした、チームのデータ（オンラインで相手に送る）
+export const teamData = t => ({ n: t.n, s: t.s, c: t.c, c2: t.c2, cap: t.cap, bat: t.bat, pit: t.pit, rp: t.rp });

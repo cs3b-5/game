@@ -20,20 +20,21 @@ export function createWorld(canvas) {
   scene.fog = new THREE.Fog(0x2a2350, 140, 420);
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 900);
 
-  // ---------- 空（夕暮れ） ----------
+  // ---------- 空 ----------
+  const skyStar = { value: 1 };
   {
     const g = new THREE.SphereGeometry(600, 32, 16);
     const m = new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color('#141238') }, mid: { value: new THREE.Color('#5a3a8a') }, low: { value: new THREE.Color('#ff9a6a') } },
+      uniforms: { top: { value: new THREE.Color('#141238') }, mid: { value: new THREE.Color('#5a3a8a') }, low: { value: new THREE.Color('#ff9a6a') }, star: skyStar },
       vertexShader: 'varying vec3 vp; void main(){ vp = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
-      fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 low; varying vec3 vp;
+      fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 low; uniform float star; varying vec3 vp;
         float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
         void main(){ float y = normalize(vp).y; vec3 c = mix(low, mid, smoothstep(-.02, .18, y)); c = mix(c, top, smoothstep(.18, .65, y));
           vec2 sp = floor(normalize(vp).xz * 380.); float s = step(.9965, h(sp)) * smoothstep(.25, .6, y);
-          gl_FragColor = vec4(c + s * .8, 1.); }`,
+          gl_FragColor = vec4(c + s * .8 * star, 1.); }`,
     });
-    scene.add(new THREE.Mesh(g, m));
+    scene.add(new THREE.Mesh(g, m)); var skyMat = m;
   }
 
   // ---------- 光 ----------
@@ -169,12 +170,14 @@ export function createWorld(canvas) {
     return { im, base, n, m, jump: 0 };
   })();
   // 照明塔
+  const glows = [], panels = [];
   const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,240,1)'); gr.addColorStop(.25, 'rgba(255,240,200,.55)'); gr.addColorStop(1, 'rgba(255,220,180,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
   for (const a of [-70, -28, 28, 70]) {
     const p = a * Math.PI / 180, R = rin(a) + 34, x = Math.sin(p) * R, z = -Math.cos(p) * R;
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(.6, .9, 44, 8), new THREE.MeshStandardMaterial({ color: 0x3a3f5a })); pole.position.set(x, 22, z); scene.add(pole);
     const panel = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6e0, emissiveIntensity: 1.6 })); panel.position.set(x, 46, z); panel.lookAt(0, 0, -30); scene.add(panel);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); sp.scale.set(48, 48, 1); sp.position.set(x, 46, z); scene.add(sp);
+    glows.push(sp); panels.push(panel);
   }
   // スコアボード
   const board = (() => {
@@ -363,6 +366,23 @@ export function createWorld(canvas) {
     trail.geometry.attributes.position.needsUpdate = true;
   }
 
+  // ---------- 昼（デーゲーム）と夜（ナイター） ----------
+  const TIMES = {
+    day: { top: '#2f7fe0', mid: '#7fc0ff', low: '#e8f6ff', fog: 0xbfe0ff, hemi: [0xdff0ff, 0x4a7a3a, 1.15], sun: [0xfffaf0, 3.0], fill: [0xfff2e0, 0.35], exp: 1.0, glow: false },
+    night: { top: '#141238', mid: '#5a3a8a', low: '#ff9a6a', fog: 0x2a2350, hemi: [0xbcc8ff, 0x3a5a2a, 0.9], sun: [0xfff0dd, 2.2], fill: [0xffb0d0, 0.5], exp: 1.05, glow: true },
+  };
+  function setTime(k) {
+    const T = TIMES[k] || TIMES.day;
+    skyMat.uniforms.top.value.set(T.top); skyMat.uniforms.mid.value.set(T.mid); skyMat.uniforms.low.value.set(T.low);
+    scene.fog.color.setHex(T.fog);
+    hemi.color.setHex(T.hemi[0]); hemi.groundColor.setHex(T.hemi[1]); hemi.intensity = T.hemi[2];
+    sun.color.setHex(T.sun[0]); sun.intensity = T.sun[1]; fill.color.setHex(T.fill[0]); fill.intensity = T.fill[1];
+    renderer.toneMappingExposure = T.exp;
+    for (const g of glows) g.visible = T.glow;
+    for (const p of panels) p.material.emissiveIntensity = T.glow ? 1.6 : 0.15;
+    skyStar.value = T.glow ? 1 : 0;
+  }
+
   // ---------- ストライクゾーンとカーソル ----------
   const zoneG = new THREE.Group(); scene.add(zoneG); zoneG.visible = false;
   {
@@ -389,8 +409,8 @@ export function createWorld(canvas) {
   // ---------- カメラ ----------
   const cam = { mode: 'bat', from: null, t: 1, look: new V3(0, 1, -18), pos: new V3(0, 1.72, 4.6) };
   const VIEWS = {
-    bat: { pos: new V3(0, 1.85, 4.8), look: new V3(0, .85, -18), fov: 34 },
-    pitch: { pos: new V3(0, 1.85, 4.8), look: new V3(0, .85, -18), fov: 34 },
+    bat: { pos: new V3(0, 2.35, 5.4), look: new V3(0, .7, -18), fov: 33 },
+    pitch: { pos: new V3(0, 2.35, 5.4), look: new V3(0, .7, -18), fov: 33 },
     title: { pos: new V3(0, 6, 14), look: new V3(0, 1.5, -10), fov: 44 },
     wide: { pos: new V3(0, 26, 24), look: new V3(0, 0, -45), fov: 50 },
   };
@@ -407,8 +427,8 @@ export function createWorld(canvas) {
     const r = canvas.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height);
     renderer.setSize(W, H, false); camera.aspect = W / H;
     // 縦長の画面ではゾーンが小さくならないよう少し寄る
-    const port = W / H < .9; VIEWS.bat.fov = VIEWS.pitch.fov = port ? 50 : 34; VIEWS.bat.pos.set(0, port ? 1.8 : 1.85, port ? 4.5 : 4.8); VIEWS.pitch.pos.copy(VIEWS.bat.pos);
-    if (cam.mode === 'bat' || cam.mode === 'pitch') { camera.fov = VIEWS.bat.fov; camera.position.copy(VIEWS.bat.pos); }
+    const port = W / H < .9; VIEWS.bat.fov = VIEWS.pitch.fov = port ? 49 : 33; VIEWS.bat.pos.set(0, port ? 2.15 : 2.35, port ? 4.9 : 5.4); VIEWS.bat.look.set(0, port ? -.6 : -1.5, -18); VIEWS.pitch.look.copy(VIEWS.bat.look); VIEWS.pitch.pos.copy(VIEWS.bat.pos);
+    if (cam.mode === 'bat' || cam.mode === 'pitch') { camera.fov = VIEWS.bat.fov; camera.position.copy(VIEWS.bat.pos); cam.look.copy(VIEWS.bat.look); }
     camera.updateProjectionMatrix();
   }
   function frame(dt, extra) {
@@ -476,7 +496,7 @@ export function createWorld(canvas) {
 
   resize();
   return {
-    THREE, renderer, scene, camera, resize, frame, setView, followBall, setBall, setCursor, aim, zoneG, toPlane, pxPerM,
+    THREE, renderer, scene, camera, resize, frame, setView, setTime, followBall, setBall, setCursor, aim, zoneG, toPlane, pxPerM,
     makeUpa, animUpa, setTeams, setBatter, setRunners, drawBoard, pitchPos,
     get FIELD() { return FIELD; }, get batter() { return batterU; }, get pitcher() { return pitcherU; }, get catcher() { return catcherU; }, get runners() { return runnersU; },
     cheer(sec = 3) { crowd.jump = sec; },

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>うぱるぱスピリッツ</title>
+<link rel="icon" href="images/icon192.webp">
+<link rel="apple-touch-icon" href="images/icon192.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Dela+Gothic+One&display=swap">
 <style>
@@ -112,6 +114,75 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
   #tip { top: calc(max(10px, env(safe-area-inset-top)) + 70px); font-size: .76rem; }
   #pitchBar button { padding: 7px 9px; font-size: .78rem; }
 }
+/* パワプロ風の追加 */
+.pcard .nm small { font-size: .7rem; opacity: .75; margin-left: 4px; }
+.lr { font-style: normal; font-size: .62rem; background: #5a8cff; color: #fff; border-radius: 4px; padding: 0 3px; margin-left: 3px; vertical-align: 2px; }
+.pcard .traj b { color: #fff; background: #ff5c8a; border-radius: 4px; padding: 0 3px; margin-left: 2px; font-family: "Dela Gothic One"; }
+.ab { font-style: normal; font-size: .6rem; font-weight: 900; padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
+.abg { background: linear-gradient(180deg, #ffe680, #e0a800); color: #3a2400; } .abb { background: #3a7aff; color: #fff; } .abr { background: #e0384a; color: #fff; }
+.sta { width: 38px; height: 7px; border-radius: 4px; background: #2c2f4a; align-self: center; overflow: hidden; display: inline-block; }
+.sta i { display: block; height: 100%; }
+#jk { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 66px); transform: translate(-50%, 10px); width: min(640px, 92vw); padding: 8px 14px; border-radius: 10px;
+  background: linear-gradient(90deg, rgba(10,30,90,.92), rgba(20,60,150,.92)); border: 2px solid #8fb8ff; font-weight: 900; font-size: .92rem; line-height: 1.45; opacity: 0; transition: opacity .25s, transform .25s; min-height: 2.2em; }
+#jk::before { content: '実況'; position: absolute; left: 10px; top: -11px; font-size: .62rem; background: #ffd23a; color: #3a2400; padding: 1px 6px; border-radius: 4px; }
+#jk.on { opacity: 1; transform: translate(-50%, 0); }
+body.batting #jk { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 66px); }
+#pwBtn { position: absolute; right: max(132px, calc(env(safe-area-inset-right) + 132px)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 80px); width: 72px; height: 72px; border-radius: 50%; pointer-events: auto;
+  background: rgba(14,12,36,.82); border: 3px solid #ffd23a; color: #ffd23a; font-family: "Dela Gothic One"; font-size: .95rem; line-height: 1.1; }
+#pwBtn.on { background: radial-gradient(circle at 35% 30%, #fff1c0, #ff9a3a 50%, #e0381a); color: #3a0a00; border-color: #fff; }
+#pwBtn small { display: block; font: 900 .55rem "M PLUS Rounded 1c"; }
+@media (hover: hover) and (pointer: fine) { #pwBtn { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 14px); width: auto; height: auto; border-radius: 12px; padding: 6px 12px; font-size: .8rem; } #pwBtn small { display: inline; margin-left: 6px; } #jk { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 70px); } }
+@media (max-width: 560px) { #jk { font-size: .78rem; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px); } #pwBtn { width: 62px; height: 62px; right: 118px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 74px); } .ab { font-size: .55rem; padding: 0 3px; } }
+/* サクセス */
+.col.sc, .col.tm { width: min(760px, 100%); align-self: start; }
+.sc-top { display: flex; gap: 10px; align-items: center; justify-content: space-between; width: 100%; background: linear-gradient(90deg, #1a3a8a, #2a5ad0); border: 2px solid #8fb8ff; border-radius: 14px; padding: 8px 12px; flex-wrap: wrap; }
+.sc-top small { display: block; font-size: .7rem; opacity: .8; }
+.sc-hp { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: .8rem; }
+.sc-hp i { width: 110px; height: 12px; border-radius: 6px; background: rgba(0,0,0,.45); overflow: hidden; display: block; } .sc-hp i b { display: block; height: 100%; }
+.sc-mood { font-weight: 900; font-size: .8rem; } .sc-mood b { font-size: 1rem; }
+.sc-pts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: 100%; }
+.sc-pts span { background: rgba(0,0,0,.4); border: 2px solid var(--c); border-radius: 10px; padding: 3px 10px; font-weight: 900; font-size: .78rem; }
+.sc-pts b { margin-left: 6px; font-family: "Dela Gothic One"; font-weight: 400; font-size: 1rem; color: var(--c); }
+.sc-me { display: flex; gap: 10px; align-items: center; width: 100%; background: var(--glass); border: 1px solid var(--line); border-radius: 14px; padding: 8px; }
+.sc-me img, .sc-end img, .tm-p img { width: 56px; height: 56px; border-radius: 12px; flex: none; }
+.sc-me > div { flex: 1; min-width: 0; } .sc-me small { opacity: .75; font-size: .72rem; }
+.sc-st { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: .74rem; font-weight: 800; margin-top: 4px; } .sc-st b { font-family: "Dela Gothic One"; font-weight: 400; margin-left: 2px; }
+.sc-st .traj b, .trj { color: #fff; background: #ff5c8a; border-radius: 4px; padding: 0 4px; font-family: "Dela Gothic One"; }
+.sc-upbtn { padding: 10px 12px; font-size: .85rem; flex: none; }
+.sc-prac { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; width: 100%; }
+.sc-pb { position: relative; display: grid; gap: 2px; padding: 12px 8px 26px; border-radius: 14px; background: linear-gradient(180deg, #fff, #ffe0ea); color: #3a0a1e; box-shadow: 0 4px 0 #c2185b; text-align: center; min-height: 92px; }
+.sc-pb:active { transform: translateY(3px); box-shadow: 0 1px 0 #c2185b; }
+.sc-pb b { font-size: 1.05rem; } .sc-pb small { font-size: .66rem; font-weight: 900; } .sc-pb small i { font-style: normal; margin: 0 2px; }
+.sc-pb em { position: absolute; left: 0; right: 0; bottom: 5px; font-style: normal; font-size: .62rem; opacity: .65; }
+.sc-pb.rest { background: linear-gradient(180deg, #e8fff0, #b8f0cc); box-shadow: 0 4px 0 #2a9a5a; color: #0a3a1e; } .sc-pb.play { background: linear-gradient(180deg, #fff8d8, #ffe08a); box-shadow: 0 4px 0 #c09000; color: #3a2400; }
+.sc-mates { display: flex; justify-content: center; gap: 2px; min-height: 26px; } .sc-mates img { width: 26px; height: 26px; border-radius: 8px; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
+.sc-ev { width: 100%; background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,236,242,.96)); color: #2a0a18; border-radius: 16px; padding: 14px; border: 3px solid #ff5c8a; }
+.sc-ev p { margin: 6px 0 10px; line-height: 1.7; font-weight: 800; }
+.sc-who { display: inline-block; background: #ff5c8a; color: #fff; border-radius: 8px; padding: 2px 10px; font-weight: 900; font-size: .8rem; }
+.sc-ch { display: flex; gap: 8px; flex-wrap: wrap; } .sc-ch .btn { flex: 1; padding: 10px; font-size: .95rem; } .sc-ev .btn.ghost { color: #3a0a1e; border-color: #e0a0b4; }
+.sc-log { width: 100%; background: rgba(0,0,0,.35); border-radius: 12px; padding: 6px 12px; font-size: .78rem; line-height: 1.6; max-height: 170px; overflow: auto; }
+.sc-log p { margin: 4px 0; } .sc-log small { opacity: .8; }
+.sc-up { width: 100%; display: grid; gap: 6px; }
+.sc-row { display: grid; grid-template-columns: 6em 4.2em 1fr 1fr; gap: 6px; align-items: center; background: var(--glass); border-radius: 10px; padding: 6px 8px; font-weight: 900; font-size: .85rem; }
+.sc-row b { font-family: "Dela Gothic One"; font-weight: 400; }
+.sc-row button, .sc-brk button { padding: 7px 4px; border-radius: 9px; background: rgba(255,255,255,.92); color: #2a0a18; font-weight: 900; font-size: .78rem; } .sc-row button i, .sc-brk i, .sc-abl i { font-style: normal; font-size: .68rem; margin-left: 3px; }
+.sc-row button:disabled, .sc-brk button:disabled, .sc-abl button:disabled { opacity: .35; cursor: default; }
+.sc-brk { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 6px; } .sc-brk b { margin: 0 4px; color: #c07aff; }
+.sc-abl { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; } .sc-abl .ab { font-size: .78rem; padding: 6px 8px; border-radius: 8px; } .sc-abl .got { outline: 2px solid #fff; }
+.sc-skins { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .sc-skins button { background: rgba(255,255,255,.06); border: 2px solid transparent; border-radius: 12px; padding: 6px; display: grid; justify-items: center; gap: 2px; font-size: .68rem; font-weight: 900; }
+.sc-skins button.on { border-color: var(--gold); } .sc-skins img { width: 44px; height: 44px; border-radius: 10px; }
+.sc-end { display: grid; justify-items: center; gap: 4px; text-align: center; } .sc-rank { font-family: "Dela Gothic One"; font-size: 3.4rem; color: var(--gold); line-height: 1; text-shadow: 0 4px 0 #b07800; }
+/* チーム */
+.tm-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; } .tm-tabs button { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 10px; background: rgba(255,255,255,.06); border: 2px solid transparent; font-weight: 900; font-size: .8rem; }
+.tm-tabs button.on { border-color: var(--gold); } .tm-tabs .em { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-family: "Dela Gothic One"; font-size: .8rem; }
+.tm-table { overflow-x: auto; padding: 10px; } .tm-table table { border-collapse: collapse; width: 100%; font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.tm-table th { font-size: .66rem; opacity: .7; padding: 4px; } .tm-table td { padding: 5px 4px; text-align: center; border-top: 1px solid var(--line); }
+.tm-table td b { font-family: "Dela Gothic One"; font-weight: 400; } .tm-table td small { font-size: .6rem; opacity: .6; margin-left: 2px; }
+.tm-table select { font: 900 .78rem "M PLUS Rounded 1c"; background: #1a1838; color: #fff; border: 1px solid var(--gold); border-radius: 8px; padding: 4px; max-width: 150px; }
+.tm-edit { display: grid; gap: 10px; } .tm-mine { display: grid; gap: 6px; }
+.tm-p { display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,.05); border-radius: 12px; padding: 6px; } .tm-p > div { flex: 1; min-width: 0; } .tm-p img { width: 44px; height: 44px; }
+.tm-p .rk { font-family: "Dela Gothic One"; color: var(--gold); } .tm-p small { opacity: .7; font-size: .7rem; } .tm-st { font-size: .7rem; opacity: .9; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tm-del { background: rgba(255,80,80,.2); border-radius: 8px; width: 32px; height: 32px; flex: none; }
 .loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 50; background: #12102a; font-weight: 900; }
 </style>
 </head>
@@ -131,11 +202,13 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
   <div id="banner"></div>
   <div id="tip"></div>
   <div id="oppWait" hidden>相手を待っています…</div>
+  <div id="jk"></div>
   <div class="pcard" id="batCard"><div class="face" id="batFace"></div><div style="min-width:0"><div class="nm" id="batNm"></div><div class="st" id="batSt"></div></div></div>
   <div class="pcard" id="pitCard"><div class="face" id="pitFace"></div><div style="min-width:0"><div class="nm" id="pitNm"></div><div class="st" id="pitSt"></div></div></div>
 </div>
 <div id="ctl" hidden>
   <button id="swingBtn" type="button" hidden>SWING</button>
+  <button id="pwBtn" type="button" hidden>強振<small>Shift</small></button>
   <div id="pitchBar" hidden></div>
 </div>
 <button id="pauseBtn" type="button" hidden aria-label="メニュー">⏸</button>
@@ -147,6 +220,7 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
     <div class="menu">
       <button class="btn gold" data-go="setup">CPUと試合<small>好きなチームで1試合</small></button>
       <button class="btn" data-go="online">オンライン対戦<small>部屋番号で友だちと</small></button>
+      <div class="row" style="gap:10px;flex-wrap:nowrap"><button class="btn" data-go="succ" id="succBtn" style="flex:1">サクセス<small>選手を育てる</small></button><button class="btn" data-go="team" style="flex:1">チーム<small>能力・マイチーム</small></button></div>
       <button class="btn ghost" data-go="help">あそびかた</button>
       <a class="btn ghost" href="../index.html" style="text-decoration:none">← ゲーム一覧へ</a>
     </div>
@@ -162,6 +236,7 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
     <div class="card" style="display:grid;gap:10px">
       <div><div class="lbl">イニング</div><div class="seg" id="innSeg"><button data-v="3" class="on">3回</button><button data-v="6">6回</button><button data-v="9">9回</button></div></div>
       <div><div class="lbl">CPUの強さ</div><div class="seg" id="lvSeg"><button data-v="0">やさしい</button><button data-v="1" class="on">ふつう</button><button data-v="2">つよい</button></div></div>
+      <div><div class="lbl">時間</div><div class="seg" id="timeSeg"><button data-v="day" class="on">☀ デーゲーム</button><button data-v="night">🌙 ナイター</button></div></div>
       <div><div class="lbl">先攻・後攻</div><div class="seg" id="sideSeg"><button data-v="home" class="on">後攻（守りから）</button><button data-v="away">先攻（打つから）</button></div></div>
     </div>
     <div class="row"><button class="btn ghost" data-back style="flex:1">もどる</button><button class="btn gold" id="playGo" style="flex:2">プレイボール！</button></div>
@@ -176,6 +251,7 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
       <div><div class="lbl">名前</div><input class="name" id="olName" maxlength="10" placeholder="なまえ"></div>
       <div><div class="lbl">あなたのチーム</div><div class="teams" id="olTeams"></div></div>
       <div><div class="lbl">イニング（部屋を作る人が決める）</div><div class="seg" id="olInn"><button data-v="3" class="on">3回</button><button data-v="6">6回</button><button data-v="9">9回</button></div></div>
+      <div><div class="lbl">時間（部屋を作る人が決める）</div><div class="seg" id="olTime"><button data-v="day" class="on">☀ デーゲーム</button><button data-v="night">🌙 ナイター</button></div></div>
       <button class="btn gold" id="hostBtn">部屋を作る</button>
       <div id="hostBox" hidden><div class="lbl" style="text-align:center">この番号を相手に教えてね</div><div class="codeBig" id="roomCode">----</div></div>
       <div class="row"><input class="code" id="joinCode" inputmode="numeric" maxlength="4" placeholder="0000"><button class="btn" id="joinBtn">入る</button></div>
@@ -196,16 +272,24 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
       スマホ：画面をなぞってカーソルを動かす／右下のボタンで振る<br>
       PC：マウスでカーソル、クリックか<b>スペース</b>で振る（<b>WASD</b>・矢印でも動く）<br>
       ・カーソルの<b>まん中</b>で当てるほど強い打球。ボールより<b>上</b>で当てるとゴロ、<b>下</b>で当てるとフライ。<br>
-      ・振るのが<b>早い</b>と引っぱり、<b>遅い</b>と流し打ち。<br><br>
+      ・振るのが<b>早い</b>と引っぱり、<b>遅い</b>と流し打ち。<br>
+      ・<b>強振</b>（スマホ：強振ボタン／PC：<b>Shift</b>）：カーソルが小さくなるかわりに、打球が強くなる。もう一度押すとミート打ちにもどる。<br><br>
       <b>投げるとき</b><br>
       下のボタンで球種をえらんで、ゾーンの<b>投げたい場所をタップ</b>。コントロールが低いとずれます。<br>
       球種の数字は変化の大きさ。<br><br>
       <b>能力</b>　S＞A＞B＞C＞D＞E＞F＞G<br>
-      ミート＝カーソルの大きさ／パワー＝打球の強さ／走力＝足の速さ
+      弾道＝打球の上がりやすさ（1〜4）／ミート＝カーソルの大きさ／パワー＝打球の強さ／走力＝足の速さ／肩力＝送球の速さ／守備＝打球に追いつく速さ／捕球＝エラーのしにくさ<br>
+      ピッチャーは球速・コントロール・スタミナ（投げるほど疲れて、球が遅く・荒れる。ヘトヘトになるとリリーフに交代）・変化球。<br>
+      <b>特殊能力</b>：<em class="ab abg">金</em>はすごい、<em class="ab abb">青</em>は得意、<em class="ab abr">赤</em>は苦手。チームの画面で確認できる。
     </div>
     <div class="row"><button class="btn ghost" data-back>もどる</button></div>
   </div>
 </section>
+
+<!-- サクセス -->
+<section class="scr dim" id="succ" hidden><div class="col sc" id="succBox"></div></section>
+<!-- チーム -->
+<section class="scr dim" id="team" hidden><div class="col tm" id="teamBox"></div></section>
 
 <!-- ポーズ -->
 <section class="scr dim" id="pause" hidden>
@@ -213,6 +297,7 @@ body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
     <h2>タイム</h2>
     <div class="menu">
       <button class="btn gold" id="resumeBtn">試合にもどる</button>
+      <button class="btn ghost" id="sndBtn">効果音：オン</button>
       <button class="btn ghost" id="quitBtn">試合をやめる</button>
     </div>
   </div>

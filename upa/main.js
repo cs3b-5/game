@@ -1,6 +1,7 @@
 // うぱるぱスピリッツ：試合の進行・操作・オンライン
 import * as E from './engine.js';
 import { createWorld } from './scene.js';
+import { initSuccess } from './success.js';
 
 const $ = id => document.getElementById(id);
 const W = createWorld($('cv'));
@@ -10,21 +11,72 @@ const save = () => { try { localStorage.setItem(SAVE, JSON.stringify(SV)); } cat
 const LAG = 0.1; // ボタンを押してからバットが当たるまで
 const isTouch = matchMedia('(hover: none)').matches;
 
+// ================= 効果音（ファイルなし。その場で合成） =================
+const SND = (() => {
+  let ac = null, on = SV.sound !== false;
+  const ctx = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (ac.state === 'suspended') ac.resume(); return ac; };
+  function noise(dur, f0, q, vol, type = 'bandpass', t0 = 0) {
+    const a = ctx(); if (!a || !on) return; const n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+    const src = a.createBufferSource(), fl = a.createBiquadFilter(), g = a.createGain(); src.buffer = buf; fl.type = type; fl.frequency.value = f0; fl.Q.value = q; g.gain.value = vol;
+    src.connect(fl).connect(g).connect(a.destination); src.start(a.currentTime + t0);
+  }
+  function tone(f, dur, vol, type = 'sine', t0 = 0, f2) {
+    const a = ctx(); if (!a || !on) return; const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + t0;
+    o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .02);
+  }
+  return {
+    get on() { return on; }, set on(v) { on = v; SV.sound = v; save(); },
+    unlock: ctx,
+    hit(q = 1) { noise(.09, 2600, 1.2, .9 * q, 'bandpass'); tone(900, .08, .25 * q, 'triangle'); },   // カキーン
+    mitt() { noise(.07, 700, 2, .7, 'lowpass'); },                                                        // バシッ
+    swing() { noise(.18, 1200, .6, .25, 'highpass'); },                                                   // ブンッ
+    cheer(sec = 2) { for (let i = 0; i < sec * 4; i++) noise(.5, 900 + Math.random() * 900, .4, .12, 'bandpass', i * .25); },
+    jingle(big) { const n = big ? [523, 659, 784, 1047] : [784, 1047]; n.forEach((f, i) => tone(f, .22, .18, 'square', i * .11)); },
+    ohh() { noise(.9, 400, .5, .25, 'lowpass'); },
+  };
+})();
+addEventListener('pointerdown', () => SND.unlock(), { once: true });
+
 // ================= 画面 =================
-const SCREENS = ['title', 'setup', 'online', 'help', 'pause', 'result'];
+const SCREENS = ['title', 'setup', 'online', 'help', 'pause', 'result', 'succ', 'team'];
 let screenStack = [];
-function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; if (id) screenStack.push(id); }
+function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; if (id) screenStack.push(id); if (id === 'succ') SUC.open(); if (id === 'team') renderTeam(); if (id === 'title') titleMenu(); }
 function back() { screenStack.pop(); const prev = screenStack.pop() || 'title'; show(prev); }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = back);
 function seg(id, cb) { const el = $(id); el.querySelectorAll('button').forEach(b => b.onclick = () => { el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); cb && cb(b.dataset.v); }); }
 const segVal = id => $(id).querySelector('button.on').dataset.v;
 function setSeg(id, v) { $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
-seg('innSeg'); seg('lvSeg'); seg('sideSeg'); seg('olInn');
+seg('innSeg'); seg('lvSeg'); seg('sideSeg'); seg('olInn'); seg('timeSeg'); seg('olTime');
 
+// ================= マイチーム =================
+const myPlayer = id => (SV.myPlayers || []).find(p => p.id === id);
+function buildMy() {
+  const M = SV.myTeam; if (!M) { const i = E.TEAMS.findIndex(t => t.id === 'my'); if (i >= 0) E.TEAMS.splice(i, 1); return null; }
+  const base = E.teamById(E.BUILTIN.includes(M.base) ? M.base : 'upa');
+  const d = E.teamData(base); d.bat = d.bat.map(b => b.slice()); d.n = M.n || 'マイチーム'; d.s = (d.n || 'マ')[0];
+  d.bat.forEach((b, i) => { b[12] = `images/cards/${base.id}_${i + 1}.webp`; });
+  d.pit = d.pit.slice(); d.pit[8] = `images/cards/${base.id}_9.webp`;
+  (M.slots || []).forEach((pid, i) => {
+    const p = myPlayer(pid); if (!p || p.type !== 'bat' || d.bat[i][1] === '投') return;
+    d.bat[i] = [p.name, d.bat[i][1], p.con, p.pow, p.spd, p.def, p.skin, p.left ? 1 : 0, p.arm, p.cat, p.traj, p.abl, null];
+  });
+  const sp = myPlayer(M.sp);
+  if (sp && sp.type === 'pit') {
+    d.pit = [sp.name, sp.kmh, sp.ctl, sp.sta, sp.ars, sp.skin, sp.left ? 1 : 0, sp.abl, null];
+    const pi = d.bat.findIndex(b => b[1] === '投'); if (pi >= 0) { d.bat[pi] = d.bat[pi].slice(); d.bat[pi][0] = sp.name; d.bat[pi][6] = sp.skin; d.bat[pi][11] = []; d.bat[pi][12] = null; }
+  }
+  const rp = myPlayer(M.rp); if (rp && rp.type === 'pit') d.rp = [rp.name, rp.kmh, rp.ctl, rp.sta, rp.ars, rp.skin, rp.left ? 1 : 0, rp.abl, null];
+  return E.registerTeam(d, 'my');
+}
+buildMy();
+function refreshPickers() { teamPicker('myTeams', 'my', 'upa'); teamPicker('cpuTeams', 'cpu', 'mex'); teamPicker('olTeams', 'my', 'upa'); }
 function teamPicker(id, key, def) {
   const el = $(id); el.innerHTML = '';
   for (const t of E.TEAMS) {
+    if (!E.BUILTIN.includes(t.id) && t.id !== 'my') continue;
     const b = document.createElement('button'); b.className = 'team'; b.dataset.id = t.id;
     b.innerHTML = `<span class="em" style="background:${t.c};color:${t.c2 === '#ffffff' ? '#fff' : t.c2};box-shadow:inset 0 0 0 2px ${t.cap}">${t.s}</span><b></b>`;
     b.querySelector('b').textContent = t.n;
@@ -33,10 +85,11 @@ function teamPicker(id, key, def) {
   }
   const v = SV[key] || def; el.querySelectorAll('.team').forEach(x => x.classList.toggle('on', x.dataset.id === v));
 }
-teamPicker('myTeams', 'my', 'upa'); teamPicker('cpuTeams', 'cpu', 'mex'); teamPicker('olTeams', 'my', 'upa');
+refreshPickers();
 const pickedTeam = id => ($(id).querySelector('.team.on') || {}).dataset?.id || E.TEAMS[0].id;
 if (SV.inn) { setSeg('innSeg', SV.inn); setSeg('olInn', SV.inn); }
 if (SV.lv !== undefined) setSeg('lvSeg', SV.lv);
+if (SV.time) { setSeg('timeSeg', SV.time); setSeg('olTime', SV.time); }
 
 // ================= 試合 =================
 let G = null;
@@ -46,11 +99,14 @@ const teamAt = (S, i) => E.teamById(i ? S.home : S.away);
 
 function startGame(opt) {
   const S = E.newGame(opt.away, opt.home, opt.innings);
+  W.setTime(opt.time === 'night' ? 'night' : 'day');
   G = { S, me: opt.me, mode: opt.mode, lv: opt.lv ?? 1, rng: E.rngOf(opt.seed ?? (Math.random() * 2 ** 32)), names: opt.names || [teamAt(S, 0).n, teamAt(S, 1).n], phase: 'idle', pending: null, half: null, inbox: [] };
   show(null); screenStack = [];
   $('hud').hidden = false; $('ctl').hidden = false; $('pauseBtn').hidden = false; document.body.classList.add('playing');
   setupHalf(true);
   banner(`プレイボール！`, `${teamAt(S, 0).n} 対 ${teamAt(S, 1).n}`, true);
+  jk(`さあ、${opt.time === 'night' ? 'ナイター' : 'デーゲーム'}で行われます、${teamAt(S, 0).n}対${teamAt(S, 1).n}。プレイボールです！`);
+  SND.cheer(1.5);
   setTimeout(nextPitch, 1600);
 }
 function setupHalf(force) {
@@ -90,20 +146,37 @@ function hud() {
   [1, 2, 3].forEach(i => $('b' + i).classList.toggle('on', S.bases[i - 1] !== null));
   const bt = teamAt(S, S.top ? 0 : 1), { idx } = E.curBatter(S), b = E.batterOf(bt, idx);
   const pt = teamAt(S, S.top ? 1 : 0), p = E.pitcherOf(pt);
-  face($('batFace'), b.skin, bt, `images/cards/${bt.id}_${idx + 1}.webp`);
-  face($('pitFace'), p.skin, pt, `images/cards/${pt.id}_9.webp`);
-  $('batNm').textContent = `${idx + 1}番 ${b.name}${b.left ? '（左）' : ''}`;
-  $('batSt').innerHTML = [['ミート', b.con], ['パワー', b.pow], ['走力', b.spd]].map(([l, v]) => { const g = E.grade(v); return `<span>${l}<b class="g-${g}">${g}</b></span>`; }).join('');
-  $('pitNm').textContent = `${p.name}${p.left ? '（左）' : ''}`;
-  $('pitSt').innerHTML = `<span><b>${p.kmh}</b>km</span><span>コン<b class="g-${E.grade(p.ctl)}">${E.grade(p.ctl)}</b></span>` + Object.entries(p.ars).filter(([k]) => k !== 'st').map(([k, v]) => `<span>${E.PITCHES[k].s}${v}</span>`).join('');
+  const builtin = t => E.BUILTIN.includes(t.id);
+  face($('batFace'), b.skin, bt, builtin(bt) ? `images/cards/${bt.id}_${idx + 1}.webp` : b.img);
+  face($('pitFace'), p.skin, pt, (S.pi || [0, 0])[S.top ? 1 : 0] ? null : builtin(pt) ? `images/cards/${pt.id}_9.webp` : p.img);
+  const bx = (S.box || [[], []])[S.top ? 0 : 1][idx] || [0, 0];
+  $('batNm').innerHTML = `${idx + 1}番 ${esc(b.name)}${b.left ? '<i class="lr">左</i>' : ''} <small>${bx[0] || bx[1] ? `${bx[0]}-${bx[1]}` : ''}</small>`;
+  const G1 = (l, v) => { const g = E.grade(v); return `<span>${l}<b class="g-${g}">${g}</b></span>`; };
+  $('batSt').innerHTML = `<span class="traj">弾道<b>${b.traj}</b></span>` + G1('ミ', b.con) + G1('パ', b.pow) + G1('走', b.spd) + abChips(b);
+  $('pitNm').innerHTML = `${esc(p.name)}${p.left ? '<i class="lr">左</i>' : ''}${(S.pi || [0, 0])[S.top ? 1 : 0] ? '<small>（リリーフ）</small>' : ''}`;
+  $('pitSt').innerHTML = `<span><b>${p.kmh}</b>km</span>` + G1('コ', p.ctl) + `<span class="sta" title="スタミナ"><i style="width:${Math.round(p.stamina * 100)}%;background:${p.stamina > .5 ? '#3ad06a' : p.stamina > .25 ? '#ffd23a' : '#ff4a4a'}"></i></span>` + Object.entries(p.ars).filter(([k]) => k !== 'st').map(([k, v]) => `<span>${E.PITCHES[k].s}${v}</span>`).join('') + abChips(p);
+  $('pwBtn').classList.toggle('on', !!pwOn);
   W.drawBoard(S, G.names.map(n => n));
 }
+// 特殊能力のチップ（金・青・赤）
+function abChips(x) { return (x.abl || []).slice(0, 3).map(k => { const a = E.ABIL[k]; return `<em class="ab ab${a.g > 1 ? 'g' : a.g < 0 ? 'r' : 'b'}">${a.n}</em>`; }).join(''); }
 // 顔：画像があれば画像、なければ絵を描く
 const faceCache = {};
+function faceURL(skin, team = { id: '_', c: '#3a3f6a', cap: '#1d2340' }) {
+  if (!E.SKINS[skin]) skin = 'pink';
+  if (!faceCache[skin + team.id]) drawFace(skin, team);
+  return faceCache[skin + team.id];
+}
 function face(el, skin, team, img) {
   const key = skin + team.id + img;
   if (el.dataset.key === key) return; el.dataset.key = key; el.innerHTML = '';
-  if (!faceCache[skin + team.id]) {
+  if (!faceCache[skin + team.id]) drawFace(skin, team);
+  const base = document.createElement('img'); base.src = faceCache[skin + team.id]; base.alt = ''; el.appendChild(base);
+  if (!img) return;
+  const pic = document.createElement('img'); pic.alt = ''; pic.style.opacity = 0; pic.onload = () => { pic.style.opacity = 1; }; pic.onerror = () => pic.remove(); pic.src = img; el.appendChild(pic);
+}
+function drawFace(skin, team) {
+  {
     const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d'), sk = E.SKINS[skin];
     g.fillStyle = team.c; g.fillRect(0, 0, 96, 96);
     g.fillStyle = sk.gill;
@@ -115,13 +188,52 @@ function face(el, skin, team, img) {
     g.fillStyle = 'rgba(255,111,143,.35)'; for (const sx of [-1, 1]) { g.beginPath(); g.arc(48 + sx * 24, 66, 5, 0, 7); g.fill(); }
     faceCache[skin + team.id] = c.toDataURL();
   }
-  const base = document.createElement('img'); base.src = faceCache[skin + team.id]; base.alt = ''; el.appendChild(base);
-  const pic = document.createElement('img'); pic.alt = ''; pic.style.opacity = 0; pic.onload = () => { pic.style.opacity = 1; }; pic.onerror = () => pic.remove(); pic.src = img; el.appendChild(pic);
 }
 let bannerT = 0;
 function banner(txt, sub = '', big = false, ms = 1500) {
   const b = $('banner'); b.innerHTML = ''; b.append(txt); if (sub) { const s = document.createElement('small'); s.textContent = sub; b.append(s); }
   b.classList.toggle('big', big); b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), ms);
+}
+// 実況のテロップ（1文字ずつ出る）
+let jkT = 0;
+function jk(text) {
+  const el = $('jk'); if (!el) return; clearInterval(jkT); el.textContent = ''; el.classList.add('on');
+  let i = 0; jkT = setInterval(() => { i += 2; el.textContent = text.slice(0, i); if (i >= text.length) { clearInterval(jkT); jkT = setTimeout(() => el.classList.remove('on'), 2600 + text.length * 40); } }, 30);
+}
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const POSN = { '投': 'ピッチャー', '捕': 'キャッチャー', '一': 'ファースト', '二': 'セカンド', '三': 'サード', '遊': 'ショート', '左': 'レフト', '中': 'センター', '右': 'ライト' };
+function jkBatter() {
+  const S = G.S, bt = teamAt(S, S.top ? 0 : 1), { idx } = E.curBatter(S), b = E.batterOf(bt, idx), bx = S.box[S.top ? 0 : 1][idx];
+  let t = `${idx + 1}番、${POSN[b.pos] || ''}、${b.name}。`;
+  if (bx[0] || bx[1]) t += bx[1] ? `今日は${bx[0]}打数${bx[1]}安打${bx[2] ? `、ホームランも打っています` : ''}。` : `今日はここまで${bx[0]}打数ノーヒット。`;
+  const sc = S.bases[1] !== null || S.bases[2] !== null;
+  if (sc && E.has(b, 'chance')) t += 'チャンスに強いバッターです！';
+  else if (sc) t += pick(['得点圏にランナーをおいて', 'ここはチャンスです！', '一打先制、いや一打で点が入る場面！']);
+  else if (S.outs === 2 && S.bases.every(x => x === null)) t += pick(['ツーアウト、ランナーなし。', '']);
+  else if (E.has(b, 'power') || b.traj >= 4) t += '一発のあるバッターです。';
+  return t;
+}
+function jkResult(L, S0) {
+  const k = L.kind, bt = teamAt(S0, S0.top ? 0 : 1), b = E.batterOf(bt, L.who);
+  const nm = b.name;
+  const T = {
+    HR: [`打ったー！ 大きい、大きい、入ったー！ ${nm}のホームラン！`, `${nm}、完ぺきにとらえた！ 文句なしのホームラン！`, `いったー！ 打球はスタンドへ一直線！`],
+    '3B': [`打球は右中間をまっぷたつ！ ${nm}は三塁へ！ スリーベース！`], '2B': [`打球はフェンスまで転がる！ ${nm}、二塁へ！ ツーベース！`, `ライン際に落ちた！ ツーベースヒット！`],
+    '1B': [`きれいにはじき返した！ ${nm}のヒット！`, `打球は野手の間を抜けていく！ ヒット！`, `ポテンとおちた！ ヒットです！`],
+    E: ['あーっと、ファンブル！ エラーです！', 'まさかのエラー！ ランナーが生きる！'],
+    whiff: [`空振り三振！ ${nm}のバットが空を切った！`, '三振ー！ 最後は空振り！'], strikeLook: ['見逃し三振！ 手が出なかった！', '最後はズバッと見逃し三振！'],
+    ball: ['フォアボール。歩かせました。', '四球を選んで、一塁へ。'],
+    GO: ['打球は内野へ。さばいて、アウト。', 'ゴロでアウトです。', '内野ゴロ、一塁送球、アウト！'],
+    FO: ['打ち上げた、これは捕られます。アウト。', 'フライ、がっちりつかんでアウト。', 'いい当たりだったが、野手の正面！'],
+    DP: ['ゲッツー！ 6-4-3、ダブルプレー！', '痛いダブルプレー…'],
+  };
+  if (/犠牲/.test(L.msg)) return '犠牲フライ！ ランナーがかえって1点！';
+  if (/サヨナラ/.test(L.msg)) return `サヨナラー！！ ${nm}が試合を決めたー！`;
+  if (!L.pa && k !== 'E') return null;
+  let t = pick(T[k] || ['']);
+  if (L.runs && k !== 'HR') t += ` ${L.runs}点が入ります！`;
+  if (k === 'HR' && L.runs >= 4) t = `満塁ホームランー！！ ${nm}、走者一掃！`;
+  return t;
 }
 function tip(t) { $('tip').textContent = t || ''; $('tip').hidden = !t; }
 
@@ -133,6 +245,7 @@ function nextPitch() {
   if (S.over) return endGame();
   setupHalf();
   refreshPeople(); hud();
+  if (S.b === 0 && S.s === 0 && G.jkSeq !== S.ord.join()) { G.jkSeq = S.ord.join(); jk(jkBatter()); }
   G.phase = 'ready'; G.swung = false; G.play = null; G.waitRemote = false; aimAt = null;
   W.setBall(0, 0, 0, false); $('speed').classList.remove('on');
   const pc = ctrlOf('pitch'), bc = ctrlOf('bat');
@@ -140,7 +253,8 @@ function nextPitch() {
   $('swingBtn').hidden = !(bc === 'me' && isTouch);
   W.zoneG.visible = true;
   const bat = curBat();
-  W.setCursor(cur.x, cur.y, E.meetR(bat.con), bc === 'me');
+  W.setCursor(cur.x, cur.y, curR(), bc === 'me', pwOn ? 0xff6a3a : 0xffe14a);
+  $('pwBtn').hidden = bc !== 'me';
   $('oppWait').hidden = true;
   if (pc === 'me') { showPitchBar(); tip(isTouch ? '球種 → 場所をタップ → もう一度タップで投球' : '球種をえらんで、投げたい場所をクリック'); }
   else {
@@ -151,6 +265,10 @@ function nextPitch() {
   }
 }
 const curBat = () => { const { idx, team } = E.curBatter(G.S); return E.batterOf(team, idx); };
+// 強振（パワーを上げて、カーソルを小さくする）
+let pwOn = false;
+const curR = () => E.cursorR(curBat(), G.S, G.p && G.phase !== 'ready' ? G.p : null, pwOn);
+function setPw(v) { pwOn = v; if (G && batting()) W.setCursor(cur.x, cur.y, curR(), true, pwOn ? 0xff6a3a : 0xffe14a); $('pwBtn').classList.toggle('on', pwOn); }
 const curPit = () => E.curPitcher(G.S);
 function slowOf() { return G.mode === 'online' ? 1.15 : [1.35, 1.15, 1.0][G.lv]; }
 function showPitchBar() {
@@ -164,7 +282,7 @@ function showPitchBar() {
 }
 function throwPitch(type, tx, ty) {
   if (!G || G.phase !== 'ready') return;
-  const p = E.makePitch(curPit(), type, tx, ty, G.rng, slowOf());
+  const p = E.makePitch(curPit(), type, tx, ty, G.rng, slowOf(), G.S, curBat());
   p.seq = G.S.seq;
   if (G.mode === 'online' && myRole() === 'pitch') send({ t: 'pitch', p });
   runPitch(p);
@@ -180,7 +298,8 @@ function doSwing() {
   const t = performance.now() / 1000 - G.t0;
   if (t < -0.2) return; // 早すぎる（投げる前）
   G.swung = true; G.swingAt = t;
-  const sw = { cx: cur.x, cy: cur.y, dt: t + LAG - G.p.dur };
+  const sw = { cx: cur.x, cy: cur.y, dt: t + LAG - G.p.dur, pw: pwOn ? 1 : 0 };
+  SND.swing();
   G.sw = sw;
   swingAnim();
 }
@@ -192,13 +311,12 @@ function swingAnim() {
 function resolvePitch() {
   const p = G.p, bat = curBat();
   const sw = ctrlOf('bat') === 'me' ? (G.swung ? G.sw : null) : G.cpuSw;
-  const r = E.resolveSwing(p, bat, sw, G.rng);
+  const r = E.resolveSwing(p, bat, sw, G.rng, G.S);
   let ev = r, ball = null;
   if (r.kind === 'inplay') {
     ball = E.flight(r.v, r.la, r.sp);
-    const ft = teamAt(G.S, G.S.top ? 1 : 0), dm = E.defenseOf(ft), defs = {};
-    for (const k of E.FIELD_ORDER) defs[k] = E.batterOf(ft, dm[k]).def;
-    const j = E.judge(ball, E.FIELDERS, defs, bat, G.S);
+    const ft = teamAt(G.S, G.S.top ? 1 : 0);
+    const j = E.judge(ball, E.FIELDERS, E.defsOf(ft), bat, G.S, G.rng);
     ev = { kind: 'inplay', ...j };
   }
   const play = { seq: p.seq, sw, r: { kind: r.kind, v: r.v, la: r.la, sp: r.sp }, ev };
@@ -210,6 +328,7 @@ function showPlay(play, ball) {
   const r = play.r;
   if (r.kind === 'inplay') {
     ball = ball || E.flight(r.v, r.la, r.sp);
+    SND.hit(Math.min(1, (r.v || 30) / 45));
     G.phase = 'flight'; G.ball = ball; G.ft0 = performance.now() / 1000; G.ev = play.ev;
     W.setBall(0, .9, -.4, true, false);
     W.zoneG.visible = false; W.setCursor(0, 0, 0, false);
@@ -224,6 +343,7 @@ function showPlay(play, ball) {
     if (ev.res !== 'FOUL' && W.batter) { W.batter.userData.busy = true; W.batter.userData.runBases = ev.res === 'HR' ? 4 : Math.max(1, ev.bases || 1); W.batter.userData.run0 = performance.now() / 1000; }
   } else {
     G.phase = 'catch'; G.ct0 = performance.now() / 1000;
+    if (r.kind === 'foul') SND.hit(.35);
   }
 }
 function finishPlay() {
@@ -232,8 +352,12 @@ function finishPlay() {
   const L = G.S.last;
   W.followBall(false);
   const kind = ev.kind === 'inplay' ? ev.res : ev.kind;
-  const big = ['HR', '2B', '3B', 'DP'].includes(kind) || /三振|サヨナラ|ヒット|安打/.test(L.msg);
-  if (kind === 'HR') W.cheer(3.5);
+  const big = ['HR', '2B', '3B', 'DP', 'E'].includes(kind) || /三振|サヨナラ|ヒット|安打/.test(L.msg);
+  if (kind === 'HR') { W.cheer(3.5); SND.cheer(3); SND.jingle(true); }
+  else if (L.runs) { SND.cheer(1.5); SND.jingle(false); }
+  else if (['2B', '3B', '1B'].includes(kind)) SND.cheer(1);
+  else if (kind === 'DP' || kind === 'E') SND.ohh();
+  const jt = jkResult(L, prev); if (jt) jk(jt);
   banner(L.msg, L.runs ? `${G.names[0].slice(0, 8)} ${G.S.score[0]} - ${G.S.score[1]} ${G.names[1].slice(0, 8)}` : '', big, big ? 1800 : 900);
   void prev;
   G.phase = 'after';
@@ -243,7 +367,8 @@ function finishPlay() {
   setTimeout(() => {
     if (!G) return;
     if (G.S.over) return endGame();
-    if (L.change) { banner(`${G.S.inn}回${G.S.top ? '表' : '裏'}`, `${teamAt(G.S, G.S.top ? 0 : 1).n}の攻撃`, false, 1200); setTimeout(nextPitch, 1300); }
+    if (L.relief) { banner('ピッチャー交代', `${L.relief} がマウンドへ`, false, 1400); jk(`ここでピッチャー交代です。マウンドには${L.relief}。`); }
+    if (L.change) { banner(`${G.S.inn}回${G.S.top ? '表' : '裏'}`, `${teamAt(G.S, G.S.top ? 0 : 1).n}の攻撃`, false, 1200); jk(`${G.S.inn}回の${G.S.top ? '表' : '裏'}、${teamAt(G.S, G.S.top ? 0 : 1).n}の攻撃です。`); G.jkSeq = G.S.ord.join(); setTimeout(() => { if (G) { G.jkSeq = null; nextPitch(); } }, 2400); }
     else nextPitch();
   }, wait);
 }
@@ -314,7 +439,7 @@ function loop(now) {
     if (G.phase === 'catch') {
       const k = Math.min(1, (T - G.ct0) / .12), [ex, ey] = p.end;
       W.setBall(ex, ey, 0.9 * k, k < 1, true);
-      if (k >= 1 && !G.caught) { G.caught = true; setTimeout(() => { G.caught = false; finishPlay(); }, 250); G.phase = 'caught'; }
+      if (k >= 1 && !G.caught) { G.caught = true; SND.mitt(); setTimeout(() => { G.caught = false; finishPlay(); }, 250); G.phase = 'caught'; }
     }
     if (G.phase === 'flight') {
       const b = G.ball, ev = G.ev, el = (T - G.ft0) * 1.15;
@@ -367,7 +492,7 @@ cv.addEventListener('pointermove', e => {
   if (batting()) {
     const k = 1.25 / W.pxPerM();
     cur.x += (e.clientX - drag.x) * k; cur.y -= (e.clientY - drag.y) * k; clampCur();
-    W.setCursor(cur.x, cur.y, E.meetR(curBat().con));
+    W.setCursor(cur.x, cur.y, curR(), true, pwOn ? 0xff6a3a : 0xffe14a);
   }
   drag.x = e.clientX; drag.y = e.clientY;
 });
@@ -382,12 +507,14 @@ cv.addEventListener('pointerup', e => {
   }
 });
 const clampT = (v, a) => a === 'x' ? Math.max(-.55, Math.min(.55, v)) : Math.max(.15, Math.min(1.45, v));
-function mouseCur(e) { const [x, y] = W.toPlane(e.clientX, e.clientY); cur.x = x; cur.y = y; clampCur(); W.setCursor(cur.x, cur.y, E.meetR(curBat().con)); }
+function mouseCur(e) { const [x, y] = W.toPlane(e.clientX, e.clientY); cur.x = x; cur.y = y; clampCur(); W.setCursor(cur.x, cur.y, curR(), true, pwOn ? 0xff6a3a : 0xffe14a); }
 $('swingBtn').addEventListener('pointerdown', e => { e.preventDefault(); doSwing(); });
+$('pwBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (batting()) setPw(!pwOn); });
 const keys = {};
 addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'Enter') { if (batting()) { e.preventDefault(); doSwing(); } }
   if (e.code === 'Escape' && G) pause();
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') && batting() && !e.repeat) setPw(!pwOn);
   keys[e.code] = true;
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -396,13 +523,15 @@ setInterval(() => {
   const v = .025; let mv = false;
   if (keys.KeyA || keys.ArrowLeft) { cur.x -= v; mv = true; } if (keys.KeyD || keys.ArrowRight) { cur.x += v; mv = true; }
   if (keys.KeyW || keys.ArrowUp) { cur.y += v; mv = true; } if (keys.KeyS || keys.ArrowDown) { cur.y -= v; mv = true; }
-  if (mv) { clampCur(); W.setCursor(cur.x, cur.y, E.meetR(curBat().con)); }
+  if (mv) { clampCur(); W.setCursor(cur.x, cur.y, curR(), true, pwOn ? 0xff6a3a : 0xffe14a); }
 }, 16);
 
 // ---------- ポーズ・終了 ----------
 function pause() { if ($('pause').hidden) show('pause'); else { show(null); screenStack = []; } }
 $('pauseBtn').onclick = pause;
 $('resumeBtn').onclick = () => { show(null); screenStack = []; };
+const sndLabel = () => { $('sndBtn').textContent = `効果音：${SND.on ? 'オン' : 'オフ'}`; };
+$('sndBtn').onclick = () => { SND.on = !SND.on; sndLabel(); }; sndLabel();
 $('quitBtn').onclick = () => { if (G && G.mode === 'online') { send({ t: 'bye' }); netClose(); } quitGame(); };
 function quitGame() {
   G = null; $('hud').hidden = true; $('ctl').hidden = true; $('pauseBtn').hidden = true; document.body.classList.remove('playing');
@@ -416,7 +545,8 @@ function endGame() {
   $('resTitle').textContent = draw ? '引き分け' : win === null ? 'ゲームセット' : win ? 'かち！' : 'まけ…';
   const rows = [0, 1].map(i => `<tr><td style="text-align:left;padding-right:10px">${esc(G.names[i])}</td>${Array.from({ length: Math.max(S.innings, S.inn) }, (_, k) => `<td>${S.line[i][k] ?? '-'}</td>`).join('')}<td style="color:var(--gold);padding-left:8px">${S.score[i]}</td></tr>`).join('');
   $('resBox').innerHTML = `<div style="font-family:'Dela Gothic One';font-size:2.4rem">${S.score[0]} - ${S.score[1]}</div><div style="overflow:auto"><table style="margin:8px auto;border-collapse:collapse;font-weight:900;font-size:.9rem">${rows}</table></div>`;
-  if (win) W.cheer(4);
+  if (win) { W.cheer(4); SND.cheer(3); SND.jingle(true); }
+  jk(`試合終了！ ${S.score[0]}対${S.score[1]}で、${draw ? '引き分け' : (S.score[0] > S.score[1] ? teamAt(S, 0).n : teamAt(S, 1).n) + 'の勝利'}です！`);
   setTimeout(() => { $('hud').hidden = true; $('ctl').hidden = true; $('pauseBtn').hidden = true; show('result'); }, 1500);
   $('againBtn').hidden = G.mode === 'online';
 }
@@ -426,9 +556,9 @@ $('toTitle').onclick = () => { if (G && G.mode === 'online') { send({ t: 'bye' }
 
 $('playGo').onclick = () => {
   const my = pickedTeam('myTeams'), cpu = pickedTeam('cpuTeams'), inn = +segVal('innSeg'), lv = +segVal('lvSeg'), side = segVal('sideSeg');
-  SV.inn = inn; SV.lv = lv; save();
+  const time = segVal('timeSeg'); SV.inn = inn; SV.lv = lv; SV.time = time; save();
   const opt = side === 'home' ? { away: cpu, home: my, me: 1 } : { away: my, home: cpu, me: 0 };
-  Object.assign(opt, { innings: inn, lv, mode: 'cpu' });
+  Object.assign(opt, { innings: inn, lv, mode: 'cpu', time });
   startGame(opt); G.opt = opt;
 };
 
@@ -490,7 +620,7 @@ $('joinBtn').onclick = async () => {
     await loadPeerJS(); peer = await openPeer();
     const c = peer.connect(ROOM + code, { reliable: true }); conn = c;
     const to = setTimeout(() => { if (!c.open) { netMsg('部屋が見つかりませんでした'); netClose(); } }, 12000);
-    c.on('open', () => { if (c._opened) return; c._opened = true; clearTimeout(to); netMsg('つながった！'); c.send({ t: 'hello', name: myName(), team: pickedTeam('olTeams') }); });
+    c.on('open', () => { if (c._opened) return; c._opened = true; clearTimeout(to); netMsg('つながった！'); const tid = pickedTeam('olTeams'); c.send({ t: 'hello', name: myName(), team: tid, def: tid === 'my' ? E.teamData(E.teamById('my')) : null }); });
     c.on('data', d => onData(d, false));
     c.on('close', () => onLost());
     peer.on('error', e => { if (e.type === 'peer-unavailable') { clearTimeout(to); netMsg('部屋が見つかりませんでした'); netClose(); } });
@@ -501,15 +631,24 @@ function onData(d, isHost) {
   if (!d || typeof d !== 'object') return;
   if (d.t === 'full') { netMsg('その部屋はもういっぱい'); netClose(); return; }
   if (d.t === 'hello' && isHost && !G) {
-    const away = E.teamById(String(d.team)).id, home = pickedTeam('olTeams'), inn = +segVal('olInn');
+    // マイチームは、両方の画面で同じ名前（ol_a / ol_h）で登録して使う
+    let away = E.BUILTIN.includes(String(d.team)) ? String(d.team) : 'upa', home = pickedTeam('olTeams');
+    const defs = {};
+    if (d.team === 'my' && d.def) { E.registerTeam(d.def, 'ol_a'); away = 'ol_a'; defs.ol_a = E.teamData(E.teamById('ol_a')); }
+    if (home === 'my') { E.registerTeam(E.teamData(E.teamById('my')), 'ol_h'); home = 'ol_h'; defs.ol_h = E.teamData(E.teamById('ol_h')); }
+    const inn = +segVal('olInn');
     const names = [String(d.name || 'ゲスト').slice(0, 10), myName()];
     const seed = Math.floor(Math.random() * 2 ** 31);
-    send({ t: 'start', away, home, inn, names, seed });
-    startGame({ away, home, innings: inn, me: 1, mode: 'online', names, seed }); G.host = true;
+    const time = segVal('olTime');
+    send({ t: 'start', away, home, inn, names, seed, time, defs });
+    startGame({ away, home, innings: inn, me: 1, mode: 'online', names, seed, time }); G.host = true;
     return;
   }
   if (d.t === 'start' && !isHost && !G) {
-    startGame({ away: E.teamById(d.away).id, home: E.teamById(d.home).id, innings: [3, 6, 9].includes(d.inn) ? d.inn : 3, me: 0, mode: 'online', names: (d.names || []).map(n => String(n).slice(0, 10)), seed: (d.seed >>> 0) + 1 }); G.host = false;
+    const ok = id => E.BUILTIN.includes(id) || ((id === 'ol_a' || id === 'ol_h') && d.defs && d.defs[id]);
+    for (const id of ['ol_a', 'ol_h']) if (d.defs && d.defs[id]) E.registerTeam(d.defs[id], id);
+    d.away = ok(d.away) ? d.away : 'upa'; d.home = ok(d.home) ? d.home : 'mex';
+    startGame({ away: E.teamById(d.away).id, home: E.teamById(d.home).id, innings: [3, 6, 9].includes(d.inn) ? d.inn : 3, me: 0, mode: 'online', names: (d.names || []).map(n => String(n).slice(0, 10)), seed: (d.seed >>> 0) + 1, time: d.time === 'night' ? 'night' : 'day' }); G.host = false;
     return;
   }
   if (!G) return;
@@ -536,13 +675,68 @@ function checkInbox() {
 }
 function sanitizePitch(p) {
   const n = (v, a, b, d) => Number.isFinite(+v) ? Math.max(a, Math.min(b, +v)) : d;
-  return { type: E.PITCHES[p.type] ? p.type : 'st', kmh: n(p.kmh, 80, 180, 140), dur: n(p.dur, .4, 3, 1.1), end: [n(p.end?.[0], -1, 1, 0), n(p.end?.[1], 0, 2, .7)], brk: [n(p.brk?.[0], -1, 1, 0), n(p.brk?.[1], -1, 1, 0)], rel: [n(p.rel?.[0], -1, 1, -.42), n(p.rel?.[1], 1, 2.2, 1.62), n(p.rel?.[2], -20, -15, -16.9)], seq: p.seq };
+  return { type: E.PITCHES[p.type] ? p.type : 'st', kmh: n(p.kmh, 80, 180, 140), dur: n(p.dur, .4, 3, 1.1), end: [n(p.end?.[0], -1, 1, 0), n(p.end?.[1], 0, 2, .7)], brk: [n(p.brk?.[0], -1, 1, 0), n(p.brk?.[1], -1, 1, 0)], rel: [n(p.rel?.[0], -1, 1, -.42), n(p.rel?.[1], 1, 2.2, 1.62), n(p.rel?.[2], -20, -15, -16.9)], seq: p.seq, nobi: p.nobi ? 1 : 0, heavy: p.heavy ? 1 : 0, k: p.k ? 1 : 0, pl: p.pl ? 1 : 0 };
 }
 // ゲスト：ホストの状態がずれていたら合わせる
 setInterval(() => { if (G && G.hostS && G.phase === 'ready' && G.hostS.seq > G.S.seq) { G.S = G.hostS; G.hostS = null; hud(); } }, 500);
 
+// ================= サクセス・チーム =================
+const SUC = initSuccess({ $, SV, save, show, faceURL, onSaved: () => {} });
+function titleMenu() { const b = $('succBtn'); if (b) b.querySelector('small').textContent = SV.succ ? `つづきから（${SV.succ.name}・${SV.succ.turn}週目）` : '選手を育てる'; }
+let teamTab = null;
+const POSK = { '投': '投', '捕': '捕', '一': '一', '二': '二', '三': '三', '遊': '遊', '左': '左', '中': '中', '右': '右' };
+function gradeCell(v) { const g = E.grade(v); return `<td><b class="g-${g}">${g}</b><small>${v}</small></td>`; }
+function renderTeam() {
+  buildMy(); refreshPickers();
+  const tabs = [...E.BUILTIN.map(id => E.teamById(id)), ...(E.TEAMS.find(t => t.id === 'my') ? [E.teamById('my')] : [])];
+  if (!teamTab || !tabs.some(t => t.id === teamTab)) teamTab = SV.myTeam ? 'my' : 'upa';
+  const t = E.teamById(teamTab), M = SV.myTeam, mine = teamTab === 'my';
+  let h = `<h2>チーム</h2><div class="tm-tabs">${tabs.map(x => `<button data-tab="${x.id}" class="${x.id === teamTab ? 'on' : ''}"><span class="em" style="background:${x.c};color:${x.c2 === '#ffffff' ? '#fff' : x.c2}">${esc(x.s)}</span>${esc(x.n)}</button>`).join('')}${SV.myTeam ? '' : '<button data-tab="new">＋ マイチームを作る</button>'}</div>`;
+  if (mine) {
+    h += `<div class="card tm-edit"><div><div class="lbl">チーム名</div><input class="name" id="myName" maxlength="12" value="${esc(M.n || '')}"></div><div><div class="lbl">もとにするチーム（ユニフォームと、入れかえない選手）</div><div class="seg" id="myBase">${E.BUILTIN.map(id => `<button data-v="${id}" class="${M.base === id ? 'on' : ''}">${esc(E.teamById(id).n.slice(0, 5))}</button>`).join('')}</div></div></div>`;
+  }
+  const bats = (SV.myPlayers || []).filter(p => p.type === 'bat'), pits = (SV.myPlayers || []).filter(p => p.type === 'pit');
+  h += `<div class="card tm-table"><table><thead><tr><th>打順</th><th>守</th><th style="text-align:left">名前</th><th>弾道</th><th>ミート</th><th>パワー</th><th>走力</th><th>肩力</th><th>守備</th><th>捕球</th><th style="text-align:left">特殊能力</th></tr></thead><tbody>`;
+  t.bat.forEach((_, i) => {
+    const b = E.batterOf(t, i), can = mine && b.pos !== '投';
+    const sel = can ? `<select data-slot="${i}"><option value="">${esc(E.batterOf(E.teamById(M.base), i).name)}（もとの選手）</option>${bats.map(p => `<option value="${p.id}" ${(M.slots || [])[i] === p.id ? 'selected' : ''}>${esc(p.name)}（${p.rank}）</option>`).join('')}</select>` : esc(b.name);
+    h += `<tr><td>${i + 1}</td><td>${POSK[b.pos]}</td><td style="text-align:left">${sel}${b.left ? '<i class="lr">左</i>' : ''}</td><td><span class="trj">${b.traj}</span></td>${gradeCell(b.con)}${gradeCell(b.pow)}${gradeCell(b.spd)}${gradeCell(b.arm)}${gradeCell(b.def)}${gradeCell(b.cat)}<td style="text-align:left">${abChips({ abl: b.abl })}</td></tr>`;
+  });
+  h += `</tbody></table><table style="margin-top:10px"><thead><tr><th></th><th style="text-align:left">投手</th><th>球速</th><th>コントロール</th><th>スタミナ</th><th style="text-align:left">変化球</th><th style="text-align:left">特殊能力</th></tr></thead><tbody>`;
+  for (const [lab, w, key] of [['先発', 0, 'sp'], ['リリーフ', 1, 'rp']]) {
+    if (w && !t.rp) continue;
+    const p = E.pitcherOf(t, w);
+    const sel = mine ? `<select data-pslot="${key}"><option value="">${esc(E.pitcherOf(E.teamById(M.base), w).name)}（もとの選手）</option>${pits.map(x => `<option value="${x.id}" ${M[key] === x.id ? 'selected' : ''}>${esc(x.name)}（${x.rank}）</option>`).join('')}</select>` : esc(p.name);
+    h += `<tr><td>${lab}</td><td style="text-align:left">${sel}${p.left ? '<i class="lr">左</i>' : ''}</td><td><b>${p.kmh}</b>km</td>${gradeCell(p.ctl)}${gradeCell(p.sta)}<td style="text-align:left">${Object.entries(p.ars).filter(([k]) => k !== 'st').map(([k, v]) => `${E.PITCHES[k].n}${v}`).join(' ')}</td><td style="text-align:left">${abChips(p)}</td></tr>`;
+  }
+  h += `</tbody></table></div>`;
+  // マイ選手
+  const ps = SV.myPlayers || [];
+  h += `<div class="card"><div class="lbl">サクセスで作った選手（${ps.length}人）</div>${ps.length ? `<div class="tm-mine">${ps.map(p => `<div class="tm-p"><img src="${faceURL(p.skin)}" alt=""><div><b>${esc(p.name)}</b> <span class="rk">${p.rank}</span> <small>${p.type === 'bat' ? '野手' : '投手'}</small><div class="tm-st">${p.type === 'bat' ? `弾道${p.traj} ミ${E.grade(p.con)} パ${E.grade(p.pow)} 走${E.grade(p.spd)} 肩${E.grade(p.arm)} 守${E.grade(p.def)} 捕${E.grade(p.cat)}` : `${p.kmh}km コ${E.grade(p.ctl)} ス${E.grade(p.sta)} ${Object.entries(p.ars).filter(([k]) => k !== 'st').map(([k, v]) => E.PITCHES[k].s + v).join(' ')}`} ${abChips(p)}</div></div><button class="tm-del" data-del="${p.id}" aria-label="消す">✕</button></div>`).join('')}</div>` : '<p class="note">まだいないよ。サクセスで作ってみよう！</p>'}</div>`;
+  h += `<div class="row"><button class="btn ghost" id="teamBack">もどる</button><button class="btn gold" id="teamSucc">サクセスへ</button></div>`;
+  const root = $('teamBox'); root.innerHTML = h;
+  root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+    if (b.dataset.tab === 'new') { SV.myTeam = { base: 'upa', n: 'マイウパーズ', slots: [], sp: null, rp: null }; save(); teamTab = 'my'; }
+    else teamTab = b.dataset.tab; renderTeam();
+  });
+  const upd = () => { save(); buildMy(); refreshPickers(); renderTeam(); };
+  root.querySelectorAll('[data-slot]').forEach(sel => sel.onchange = () => { const i = +sel.dataset.slot; M.slots = M.slots || []; // 同じ選手を2か所に入れない
+    if (sel.value) M.slots = M.slots.map(x => x === sel.value ? null : x); M.slots[i] = sel.value || null; upd(); });
+  root.querySelectorAll('[data-pslot]').forEach(sel => sel.onchange = () => { const k = sel.dataset.pslot, o = k === 'sp' ? 'rp' : 'sp'; if (sel.value && M[o] === sel.value) M[o] = null; M[k] = sel.value || null; upd(); });
+  if ($('myName')) { $('myName').onchange = () => { M.n = $('myName').value.trim().slice(0, 12) || 'マイチーム'; upd(); }; }
+  root.querySelectorAll('#myBase button').forEach(b => b.onclick = () => { M.base = b.dataset.v; upd(); });
+  root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    const p = myPlayer(b.dataset.del); if (!p || !confirm(`${p.name}を消す？（もとにもどせません）`)) return;
+    SV.myPlayers = SV.myPlayers.filter(x => x.id !== p.id);
+    if (M) { M.slots = (M.slots || []).map(x => x === p.id ? null : x); if (M.sp === p.id) M.sp = null; if (M.rp === p.id) M.rp = null; }
+    upd();
+  });
+  $('teamBack').onclick = () => show('title'); $('teamSucc').onclick = () => show('succ');
+}
+
 // ================= タイトル =================
 function titleTeams() {
+  W.setTime(SV.time === 'night' ? 'night' : 'day');
   const t = E.teamById(SV.my || 'upa'), o = E.teamById(SV.cpu || 'mex');
   W.setTeams(t, skinsOf(t), o, E.batterOf(o, 0), false);
   W.setView('title', true);
@@ -552,4 +746,4 @@ show('title');
 addEventListener('resize', () => W.resize());
 $('loading').remove();
 requestAnimationFrame(loop);
-window.UPA = { E, W, get G() { return G; }, startGame };
+window.UPA = { E, W, get G() { return G; }, startGame, SUC: () => SUC, SV };
