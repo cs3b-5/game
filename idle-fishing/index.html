@@ -228,7 +228,7 @@ function tone(f, d = .12, type = 'sine', v = .12, delay = 0) {
 }
 const SND = {
   bite: () => { tone(1100, .07, 'square', .05); tone(1400, .07, 'square', .05, .07); },
-  catch: r => { const i = F.RORDER.indexOf(r); const base = [523, 587, 659, 784, 880, 1047][i]; tone(base, .12, 'triangle', .1); if (i >= 2) tone(base * 1.5, .2, 'triangle', .08, .08); if (i >= 3) { tone(base * 2, .3, 'triangle', .08, .16); tone(base * 2.5, .4, 'sine', .06, .26); } },
+  catch: r => { const i = F.RORDER.indexOf(r); const base = [523, 587, 659, 784, 880, 1047, 1319][i]; tone(base, .12, 'triangle', .1); if (i >= 2) tone(base * 1.5, .2, 'triangle', .08, .08); if (i >= 3) { tone(base * 2, .3, 'triangle', .08, .16); tone(base * 2.5, .4, 'sine', .06, .26); } },
   nice: () => tone(1568, .1, 'sine', .08),
   splash: () => tone(180, .08, 'sawtooth', .03),
   buy: () => { tone(660, .06, 'square', .06); tone(990, .1, 'square', .06, .05); },
@@ -677,7 +677,7 @@ function hud() {
   if (S.pond === DR) { k = S.dreamCoins / F.depthNeed(S.depth); txt = `夢の池 深さ ${S.depth}（最深 ${S.bestDepth || 0}）→ 次の深さまで ${Math.floor(k * 100)}%`; }
   else if (!S.cleared && S.maxPond === DR - 1) { k = S.coins / F.GOAL; txt = `ゴール ${fmt(F.GOAL)}コイン まで ${Math.floor(Math.min(1, k) * 100)}%${S.pond !== DR - 1 ? '（星空の池で）' : ''}`; ready = k >= 1; }
   else if (nx > 0 && (!F.PONDS[nx].dream || S.cleared)) { k = S.coins / F.PONDS[nx].need; ready = k >= 1; txt = ready ? `「${F.PONDS[nx].nm}」へ移れる！ 🗺️池から` : `次の池「${F.PONDS[nx].nm}」まで ${Math.floor(k * 100)}%`; if (ready) markDot('pond'); }
-  else { k = F.goldCount(S) / 45; txt = `金色の魚 ${F.goldCount(S)}/45・ぬし ${Object.keys(S.trophy).length}/${F.BOSSES.length}`; }
+  else { k = F.goldCount(S) / F.NFISH; txt = `金色の魚 ${F.goldCount(S)}/${F.NFISH}・ぬし ${Object.keys(S.trophy).length}/${F.BOSSES.length}`; }
   if (S.pond < S.maxPond) txt = `🏠 里帰り中・` + txt;
   pr.querySelector('b').style.width = (Math.min(1, k) * 100) + '%';
   pr.querySelector('span').textContent = txt;
@@ -739,25 +739,26 @@ const RENDER = {
         else { const c = F.upCost(u.k, lv, S); b.className = 'buy'; b.disabled = S.coins < c; const h = `買う<small class="num" style="font-size:.9rem">${fmt(c)}</small>`; if (b.dataset.h !== h) { b.dataset.h = h; b.innerHTML = h; } }
       });
       const st = S.stats, zk = Object.keys(S.zukan).length;
-      sh.querySelector('#stats').innerHTML = [['釣った数', fmt(st.catches)], ['ナイス', fmt(st.nice)], ['図鑑', zk + '/45'], ['宝箱', st.chests], ['ガチャ', st.gacha], ['遊んだ時間', fmtT(st.playT)]].concat(S.cleared ? [['金色の魚', F.goldCount(S) + '/45'], ['ぬし', Object.keys(S.trophy).length + '/' + F.BOSSES.length], ['夢の池 最深', S.bestDepth || 0]] : []).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('');
+      sh.querySelector('#stats').innerHTML = [['釣った数', fmt(st.catches)], ['ナイス', fmt(st.nice)], ['図鑑', zk + '/' + F.NFISH], ['宝箱', st.chests], ['ガチャ', st.gacha], ['遊んだ時間', fmtT(st.playT)]].concat(S.cleared ? [['金色の魚', F.goldCount(S) + '/' + F.NFISH], ['ぬし', Object.keys(S.trophy).length + '/' + F.BOSSES.length], ['夢の池 最深', S.bestDepth || 0]] : []).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('');
     };
     refresh();
   },
   zukan(sh) {
     const total = Object.keys(S.zukan).length;
-    let h = head(`📖 図鑑 <small style="color:var(--muted)">${total} / 45</small>`);
-    if (S.cleared) h += `<p class="note" style="color:#ffd040">👑 金色の魚 ${F.goldCount(S)} / 45（はじめて釣った種類ごとに、ずっと値段+3%。それぞれの池でだけ出る）</p>`;
+    let h = head(`📖 図鑑 <small style="color:var(--muted)">${total} / ${F.NFISH}</small>`);
+    if (S.cleared) h += `<p class="note" style="color:#ffd040">👑 金色の魚 ${F.goldCount(S)} / ${F.NFISH}（はじめて釣った種類ごとに、ずっと値段+3%。それぞれの池でだけ出る）</p>`;
     F.PONDS.forEach((P, pi) => {
-      if (!P.fish.length) return;
-      const fs = F.FISH.filter(f => f.pond === pi), got = fs.filter(f => S.zukan[f.id]).length, gg = fs.filter(f => S.gold[f.id]).length;
+      const fs = F.FISH.filter(f => f.pond === pi);
+      if (P.dream && !S.cleared && !fs.some(f => S.zukan[f.id])) return;
+      const fs2 = fs, got = fs.filter(f => S.zukan[f.id]).length, gg = fs.filter(f => S.gold[f.id]).length;
       const reached = pi <= S.maxPond || got > 0;
-      h += `<div class="zk-head"><span>${reached ? esc(P.nm) : '？？？の池'}${S.trophy[pi] ? ' 🏆' : ''}</span><small>${got} / 9${S.cleared ? `・👑${gg}` : ''}</small></div><div class="zk">`;
+      h += `<div class="zk-head"><span>${reached ? esc(P.nm) : '？？？の池'}${S.trophy[pi] ? ' 🏆' : ''}</span><small>${got} / ${fs.length}${S.cleared ? `・👑${gg}` : ''}</small></div><div class="zk">`;
       fs.forEach(f => { const z = S.zukan[f.id], gd = S.gold[f.id]; h += `<button data-f="${f.id}" class="${z ? '' : 'no'}${gd ? ' gold' : ''}" style="--rc:${z ? F.RAR[f.r].c : '#2a3a50'}">${gd ? '<span class="cr">👑</span>' : ''}<img alt="" src="${fishIcon(f, !!z)}"><span>${z ? esc(f.nm) : '？？？'}</span></button>`; });
       h += '</div>';
     });
-    h += `<p class="note">運が高いほど、レアな魚が出やすくなります。<br>出やすさ（今の運 ${F.luck(S)}）：${(() => { const w = F.weights(S), s = w.reduce((a, b) => a + b, 0); return F.RORDER.map((r, i) => `${F.RAR[r].nm} ${(w[i] / s * 100).toFixed(w[i] / s < .01 ? 2 : 1)}%`).join('・'); })()}</p>`;
+    h += `<p class="note">運が高いほど、レアな魚が出やすくなります。<br>出やすさ（今の運 ${F.luck(S)}）：${(() => { const w = F.weights(S), s = w.reduce((a, b) => a + b, 0); return F.RORDER.filter(r => r !== 'ULT').map((r, i) => `${F.RAR[r].nm} ${(w[i] / s * 100).toFixed(w[i] / s < .01 ? 2 : 1)}%`).join('・'); })()}<br><span style="color:#ff6a6a">究極：1釣りごとに 1/${fmt(1 / F.ULT_CHANCE)}（運や強化では上がらない。その池でしか出ない）</span></p>`;
     sh.innerHTML = h;
-    sh.querySelectorAll('[data-f]').forEach(b => b.onclick = () => fishModal(F.FISH[+b.dataset.f]));
+    sh.querySelectorAll('[data-f]').forEach(b => b.onclick = () => fishModal(F.FISH.find(f => f.id === +b.dataset.f)));
     refresh = null;
   },
   gacha(sh) {
@@ -805,7 +806,7 @@ const RENDER = {
       if (P.dream && !S.cleared && S.maxPond < i) return;   // 夢の池はゴールのあとに出てくる
       const cur = i === S.pond, been = i <= S.maxPond, next = i === nx, lock = !been && !next;
       const fs = F.FISH.filter(f => f.pond === i), got = fs.filter(f => S.zukan[f.id]).length, gg = fs.filter(f => S.gold[f.id]).length;
-      const ex = P.dream ? `深さ ${S.depth}・最深 ${S.bestDepth || 0}・ぜんぶの池の魚が出る` : been ? `図鑑 ${got}/9${S.cleared ? `・👑金色 ${gg}/9・${S.trophy[i] ? '🏆ぬし討伐ずみ' : 'ぬし まだ'}` : ''}` : '';
+      const ex = P.dream ? `深さ ${S.depth}・最深 ${S.bestDepth || 0}・ぜんぶの池の魚が出る` : been ? `図鑑 ${got}/${fs.length}${S.cleared ? `・👑金色 ${gg}/${fs.length}・${S.trophy[i] ? '🏆ぬし討伐ずみ' : 'ぬし まだ'}` : ''}` : '';
       h += `<div class="pondrow ${lock ? 'lock' : ''}" style="background:linear-gradient(160deg, ${P.sky[0]} 0%, ${P.water[0]} 45%, ${P.water[1]} 100%)">
         <div class="t">${lock ? '？？？' : esc(P.nm)}</div>
         <div class="d">魚の値段 ×${fmt(F.pondMult(S, i))}${i > 0 && !been ? `・進むのに ${fmt(P.need)} コイン` : ''}</div>
@@ -854,18 +855,19 @@ function rarePopup(ev) {
   const f = ev.fish, R = F.RAR[f.r];
   showModal(`<span class="rar" style="background:${R.c}">${R.nm}</span>${ev.isNew ? ' <span class="rar" style="background:#8affa0">NEW</span>' : ''}${ev.gold ? ` <span class="rar" style="background:#ffd040;color:#3a2200">👑 金色${ev.goldNew ? '・はじめて！' : ''}</span>` : ''}
     <canvas class="fishbig"></canvas><h3>${esc(f.nm)}</h3>
-    <p>大きさ ${ev.size.toFixed(2)}倍${ev.size >= 1.3 ? '（大物！）' : ''}<br><b style="color:var(--gold)">+${fmt(ev.v)} コイン</b>${ev.pearls ? `　真珠 +${ev.pearls}` : ''}${ev.goldNew ? `<br><span style="color:#ffd040">金のうろこ：ずっと値段 +3%（いま ${F.goldCount(S)}/45）</span>` : ''}</p>
+    <p>大きさ ${ev.size.toFixed(2)}倍${ev.size >= 1.3 ? '（大物！）' : ''}<br><b style="color:var(--gold)">+${fmt(ev.v)} コイン</b>${ev.pearls ? `　真珠 +${ev.pearls}` : ''}${ev.goldNew ? `<br><span style="color:#ffd040">金のうろこ：ずっと値段 +3%（いま ${F.goldCount(S)}/${F.NFISH}）</span>` : ''}</p>
     <button class="big" data-close>やったね！</button>`, card => {
       card.style.setProperty('--rc', R.c); bigFishCanvas(card, f);
-      const auto = setTimeout(() => { if (card.isConnected) closeModal(); }, f.r === 'GOD' || f.r === 'LR' ? 6000 : 3500);
+      const auto = setTimeout(() => { if (card.isConnected) closeModal(); }, f.r === 'ULT' ? 12000 : f.r === 'GOD' || f.r === 'LR' ? 6000 : 3500);
       card.addEventListener('click', () => clearTimeout(auto), { once: true });
       const obs = new MutationObserver(() => { if (!card.isConnected) { rareOpen--; obs.disconnect(); } }); obs.observe(modal, { childList: true });
     }, 'glow');
-  if (f.r === 'GOD' || f.r === 'LR' || ev.gold) sparkle(W / 2, H / 2, 70, ev.gold ? '#ffd040' : R.c);
+  if (f.r === 'GOD' || f.r === 'LR' || f.r === 'ULT' || ev.gold) sparkle(W / 2, H / 2, f.r === 'ULT' ? 160 : 70, ev.gold ? '#ffd040' : R.c);
+  if (f.r === 'ULT') { sparkle(W / 2, H / 2, 120, '#ffffff'); popText(W / 2, H * .25, '究極の魚！！', '#ff4a4a', 1); }
 }
 function fishModal(f) {
   const z = S.zukan[f.id], R = F.RAR[f.r];
-  if (!z) { showModal(`<h3>？？？</h3><p>まだ釣っていない魚。<br>${f.pond <= S.maxPond ? `「${esc(F.PONDS[f.pond].nm)}」にいるらしい。🗺️池からもどれるよ。` : '先の池にいるらしい。'}</p><p class="note">レア度：${R.nm}</p><button class="big ghost" data-close>とじる</button>`); return; }
+  if (!z) { showModal(`<h3>？？？</h3><p>まだ釣っていない魚。<br>${f.pond <= S.maxPond ? `「${esc(F.PONDS[f.pond].nm)}」にいるらしい。🗺️池からもどれるよ。` : '先の池にいるらしい。'}</p><p class="note">レア度：${R.nm}${f.r === 'ULT' ? '<br>運や強化では出やすくならない、とても珍しい魚。その池でのんびり待とう。' : ''}</p><button class="big ghost" data-close>とじる</button>`); return; }
   showModal(`<span class="rar" style="background:${R.c}">${R.nm}</span><canvas class="fishbig"></canvas><h3>${esc(f.nm)}</h3>
     <p>${esc(F.PONDS[f.pond].nm)}の魚<br>釣った数 ${fmt(z.n)}匹・最大 ${z.big.toFixed(2)}倍${S.gold[f.id] ? `<br><span style="color:#ffd040">👑 金色 ${S.gold[f.id]}匹</span>` : S.cleared ? '<br><span style="color:var(--muted)">金色はまだ</span>' : ''}</p><button class="big ghost" data-close>とじる</button>`, card => { card.style.setProperty('--rc', R.c); bigFishCanvas(card, f); }, 'glow');
 }
@@ -967,7 +969,7 @@ function offlineModal(r) {
 }
 function clearModal() {
   SND.prize(); sparkle(W / 2, H / 2, 90, '#ffd040');
-  showModal(`<h3>🎉 ゴール！</h3><p>星空の池で ${fmt(F.GOAL)} コイン貯めました！<br>遊んだ時間：${fmtT(S.stats.playT)}<br>図鑑：${Object.keys(S.zukan).length} / 45</p><p style="color:#ffd0f0"><b>ここからがエンドコンテンツ！</b></p><p class="note" style="text-align:left">🌙 <b>夢の池</b>：${fmt(F.PONDS[F.DREAM].need)}コインで行ける。ぜんぶの池の魚が出て、稼ぐほど深くもぐれる（どこまでも）。<br>👑 <b>金色の魚</b>：それぞれの池で、まれに釣れる。値段×10、はじめての種類ごとにずっと値段+3%。<br>🐉 <b>池のぬし</b>：ときどき現れる。タイミングよくリールを巻いて釣り上げると🏆（ずっと運+2）。<br>🗺️ 前の池にもどって、図鑑と金色をうめよう。</p><button class="big gold" data-close>まだまだ釣る</button>`);
+  showModal(`<h3>🎉 ゴール！</h3><p>星空の池で ${fmt(F.GOAL)} コイン貯めました！<br>遊んだ時間：${fmtT(S.stats.playT)}<br>図鑑：${Object.keys(S.zukan).length} / ${F.NFISH}</p><p style="color:#ffd0f0"><b>ここからがエンドコンテンツ！</b></p><p class="note" style="text-align:left">🌙 <b>夢の池</b>：${fmt(F.PONDS[F.DREAM].need)}コインで行ける。ぜんぶの池の魚が出て、稼ぐほど深くもぐれる（どこまでも）。<br>👑 <b>金色の魚</b>：それぞれの池で、まれに釣れる。値段×10、はじめての種類ごとにずっと値段+3%。<br>🐉 <b>池のぬし</b>：ときどき現れる。タイミングよくリールを巻いて釣り上げると🏆（ずっと運+2）。<br>🗺️ 前の池にもどって、図鑑と金色をうめよう。</p><button class="big gold" data-close>まだまだ釣る</button>`);
 }
 
 // =============================================================

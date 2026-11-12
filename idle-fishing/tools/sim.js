@@ -34,4 +34,4 @@ for (let r = 0; r < RUNS; r++) {
   const caught = Object.keys(S.zukan).length;
   res.push({ times, caught, lv: S.lv, luck: F.luck(S), charm: S.charm, depths, gold: F.goldCount(S) });
 }
-for (const r of res) console.log('池ごと:', r.times.map(fmt).join(' / '), '図鑑', r.caught + '/45', '運', r.luck, '\n  夢の池 深さが増えた時刻:', r.depths.join(' '), '金色', r.gold + '/45');
+for (const r of res) console.log('池ごと:', r.times.map(fmt).join(' / '), '図鑑', r.caught + '/' + F.NFISH, '運', r.luck, '\n  夢の池 深さが増えた時刻:', r.depths.join(' '), '金色', r.gold + '/' + F.NFISH);

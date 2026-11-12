@@ -13,8 +13,11 @@ const RAR = {
   UR:  { nm: 'ウルトラ',   w: 2.5,  k: .15,  v: 60,   p: 3,  c: '#b06aff' },
   LR:  { nm: 'レジェンド', w: .45,  k: .3,   v: 250,  p: 10, c: '#ffb020' },
   GOD: { nm: '幻',         w: .05,  k: .6,   v: 1200, p: 30, c: '#ff4fa0' },
+  // 究極：運や強化では出やすくならない。釣れるたびに「1/30000」のくじを引くだけ
+  ULT: { nm: '究極',       w: 0,    k: 0,    v: 30000, p: 200, c: '#ff2a2a' },
 };
-const RORDER = ['N', 'R', 'SR', 'UR', 'LR', 'GOD'];
+const RORDER = ['N', 'R', 'SR', 'UR', 'LR', 'GOD', 'ULT'];
+const ULT_CHANCE = 1 / 30000;
 
 // ---------------- 池と魚 ----------------
 // 魚：[名前, レア度, 形, 色1, 色2, 模様]
@@ -44,6 +47,11 @@ const PONDS = [
 ];
 const FISH = [], DREAM = 5;
 PONDS.forEach((p, pi) => p.fish.forEach((f, i) => FISH.push({ id: pi * 9 + i, pond: pi, nm: f[0], r: f[1], shape: f[2], c1: f[3], c2: f[4], pat: f[5] })));
+// 究極の魚（池ごとに1匹＋夢の池に1匹）。番号は100から（前のセーブの図鑑とぶつからないように）
+[['水神の白蛇', 'eel', '#ffffff', '#a0e0ff', 'shine'], ['湖底の古代魚', 'sturgeon', '#3a2a1a', '#ffd040', 'shine'], ['海神の大クジラ', 'whale', '#1a2a6a', '#8affff', 'glow'],
+ ['深淵の大眼', 'squid', '#120a14', '#ff2a2a', 'glow'], ['流れ星の魚', 'fish', '#ffffff', '#ffe060', 'rainbow'], ['夢見る神魚', 'dragon', '#ffd0f0', '#b07aff', 'rainbow']]
+  .forEach((f, pi) => FISH.push({ id: 100 + pi, pond: pi, nm: f[0], r: 'ULT', shape: f[1], c1: f[2], c2: f[3], pat: f[4], ult: true }));
+const NFISH = FISH.length;
 
 // 池の値段の倍率（夢の池は深さ1ごとに×1.6）
 const pondMult = (S, p) => PONDS[p].mult * (PONDS[p].dream ? Math.pow(1.6, S.depth || 0) : 1);
@@ -113,8 +121,9 @@ function rollRarity(S, rng) {
   return 'N';
 }
 function rollFish(S, rng) {
-  const r = rollRarity(S, rng);
-  const pool = FISH.filter(f => (PONDS[S.pond].dream || f.pond === S.pond) && f.r === r);
+  const r = rng() < ULT_CHANCE ? 'ULT' : rollRarity(S, rng);
+  const dream = PONDS[S.pond].dream;
+  const pool = FISH.filter(f => f.r === r && (r === 'ULT' ? f.pond === S.pond : dream || f.pond === S.pond));
   const f = pool[Math.floor(rng() * pool.length)];
   const size = .7 + rng() * .6 + (rng() < .03 ? .6 : 0);   // まれに大物
   const gold = !PONDS[S.pond].dream && rng() < goldChance(S);   // 金色はそれぞれの池でだけ出る
@@ -311,7 +320,7 @@ function offline(S, secs, rng = Math.random) {
   return { secs, n, coins, pearls, best, got, deeper };
 }
 
-const API = { DREAM, pondMult, depthNeed, BOSSES, bossOf, bossWin, goldChance, goldCount, nextPond, travel, GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
+const API = { NFISH, ULT_CHANCE, DREAM, pondMult, depthNeed, BOSSES, bossOf, bossWin, goldChance, goldCount, nextPond, travel, GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
   makeRun, canBuy, buy, WHEEL, spinWheel, applyPrize, GACHA, GACHA_COST, gacha, OMIKUJI, drawOmikuji, omikujiNow, canMove, movePond, offline, fever, addBuff, today, CAST, REEL, WINDOW };
 if (typeof module !== 'undefined') module.exports = API; else root.Fish = API;
 })(this);
