@@ -192,7 +192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 </div>
 <div id="modal" class="modal" hidden></div>
 
-<script src="core.js?v=20261112e"></script>
+<script src="core.js?v=20261112f"></script>
 <script>
 (function () {
 'use strict';
@@ -763,7 +763,7 @@ function upEffect(k) {
 const RENDER = {
   up(sh) {
     sh.innerHTML = head('⬆️ 強化') + F.UPS.map(u => `<div class="row" data-k="${u.k}"><div class="ic">${UPIC[u.k]}</div><div><div class="t">${u.nm}<small class="lv"></small></div><div class="d"></div></div><button class="buy" data-buy="${u.k}"></button></div>`).join('')
-      + `<p class="note">強化は新しい池へ進むとリセットされます（池の値段が上がるので、すぐ取りもどせます）。前の池にもどっても強化はそのまま。強化の値段は、いちばん先の池に合わせて決まります。</p><div class="stats" id="stats"></div><button class="big ghost" id="resetBtn" style="margin-top:14px;font-size:.82rem">データを消して最初から</button>`;
+      + `<p class="note">強化は、新しい池へ進んでも前の池にもどっても、ずっとそのまま。強化の値段は、いちばん先の池に合わせて決まります。</p><div class="stats" id="stats"></div><button class="big ghost" id="resetBtn" style="margin-top:14px;font-size:.82rem">データを消して最初から</button>`;
     sh.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { if (F.buy(S, b.dataset.buy)) { SND.buy(); refresh(); hud(); save(); } });
     sh.querySelector('#resetBtn').onclick = () => confirmModal('データを消しますか？', '図鑑・真珠・お守りもすべて消えます。元にもどせません。', '消す', () => { try { localStorage.removeItem(SAVE); } catch (e) {} location.reload(); });
     refresh = () => {
@@ -862,11 +862,11 @@ const RENDER = {
         ${next ? `<button class="big gold" id="moveBtn" style="margin-top:10px"></button>` : ''}
       </div>`;
     });
-    h += `<p class="note">新しい池へ進むと、コインと強化はリセット。そのかわり<b style="color:#8affa0">お守り（ずっと運+1）</b>がもらえて、魚がずっと高く売れます。図鑑・真珠・お守り・帽子は消えません。<br>行ったことのある池には、いつでも<b>もどれます</b>（コインと強化はそのまま。魚の値段はその池のぶん）。<br>最後の「星空の池」で ${fmt(F.GOAL)} コイン貯めるとゴール！${S.cleared ? '<br><b style="color:#ffd0f0">ゴールのあと：夢の池（どこまでももぐれる）・金色の魚・池のぬし</b>' : ''}</p>`;
+    h += `<p class="note">新しい池へ進むには、表示のコインを払います（<b>強化はそのまま</b>）。<b style="color:#8affa0">お守り（ずっと運+1）</b>ももらえて、魚がずっと高く売れます。図鑑・真珠・お守り・帽子は消えません。<br>行ったことのある池には、いつでも<b>もどれます</b>（コインと強化はそのまま。魚の値段はその池のぶん）。<br>最後の「星空の池」で ${fmt(F.GOAL)} コイン貯めるとゴール！${S.cleared ? '<br><b style="color:#ffd0f0">ゴールのあと：夢の池（どこまでももぐれる）・金色の魚・池のぬし</b>' : ''}</p>`;
     sh.innerHTML = h;
     sh.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const i = +b.dataset.go; if (F.travel(S, i)) { SND.buy(); save(); layoutScene(); RENDER.pond(sh); hud(); popText(W / 2, H * .45, `「${F.PONDS[i].nm}」にもどった`, '#fff', 1); } });
     const mb = sh.querySelector('#moveBtn');
-    if (mb) mb.onclick = () => { const P = F.PONDS[nx]; confirmModal(`「${P.nm}」へ進みますか？`, 'コインと強化はリセットされます。お守り（運+1）がもらえます。', '進む', () => { if (F.movePond(S)) { SND.prize(); save(); layoutScene(); closeModal(); RENDER.pond(sh); hud(); clearDot('pond'); popText(W / 2, H * .45, `ようこそ「${P.nm}」へ！`, '#fff', 1); sparkle(W / 2, H * .45, 40, '#ffd040'); } }); };
+    if (mb) mb.onclick = () => { if (!F.canMove(S)) return; const P = F.PONDS[nx]; confirmModal(`「${P.nm}」へ進みますか？`, `${fmt(P.need)} コインを使います。強化はそのまま。お守り（運+1）がもらえます。`, '進む', () => { if (F.movePond(S)) { SND.prize(); save(); layoutScene(); closeModal(); RENDER.pond(sh); hud(); clearDot('pond'); popText(W / 2, H * .45, `ようこそ「${P.nm}」へ！`, '#fff', 1); sparkle(W / 2, H * .45, 40, '#ffd040'); } }); };
     refresh = () => { if (!mb) return; const need = F.PONDS[nx].need; mb.disabled = !F.canMove(S); mb.textContent = F.canMove(S) ? 'この池へ進む' : `あと ${fmt(Math.max(0, need - S.coins))} コイン`; };
     refresh();
   },
@@ -886,6 +886,8 @@ function showModal(html, onopen, cls = '') {
 function closeModal() { modal.hidden = true; modal.innerHTML = ''; if (modalQueue.length) { const [h, o, c] = modalQueue.shift(); showModal(h, o, c); } }
 modal.addEventListener('click', e => { if (e.target === modal && !modal.dataset.lock) closeModal(); if (e.target.closest('[data-close]')) closeModal(); });
 function confirmModal(title, msg, ok, fn) {
+  // 同じ確認がもう出ている・待っているなら出さない（連打で2回出るのを防ぐ）
+  if (!modal.hidden && (modal.textContent.includes(title) || modalQueue.some(q => q[0].includes(esc(title))))) return;
   showModal(`<h3>${esc(title)}</h3><p>${esc(msg)}</p><div class="two"><button class="big ghost" data-close>やめる</button><button class="big gold" id="okBtn">${esc(ok)}</button></div>`, c => c.querySelector('#okBtn').onclick = () => { const q = modalQueue; modalQueue = []; closeModal(); modalQueue = q; fn(); });
 }
 function bigFishCanvas(card, f) {

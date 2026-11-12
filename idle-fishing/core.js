@@ -26,24 +26,24 @@ const PONDS = [
     fish: [['メダカ', 'N', 'fish', '#d8c8a0', '#a08a60', ''], ['フナ', 'N', 'fish', '#8a9a6a', '#5a6a40', ''], ['ドジョウ', 'R', 'long', '#a08a5a', '#6a5a3a', 'spots'],
       ['オイカワ', 'R', 'fish', '#c8d8f0', '#ff6a8a', 'stripes'], ['ヤマメ', 'SR', 'fish', '#c0c8b0', '#6a7a5a', 'spots'], ['アユ', 'SR', 'fish', '#d8d0a0', '#e8c040', ''],
       ['主のナマズ', 'UR', 'catfish', '#5a5040', '#3a3020', ''], ['黄金のコイ', 'LR', 'fish', '#ffd040', '#ff9a20', 'shine'], ['カッパ', 'GOD', 'kappa', '#5ac86a', '#2a8a4a', ''] ] },
-  { id: 'lake', nm: '山の湖', mult: 10, need: 5000, sky: ['#a0c8f0', '#e0f0ff'], water: ['#3a8ac8', '#1a4a8a'], shore: '#5a8a5a',
+  { id: 'lake', nm: '山の湖', mult: 10, need: 8000, sky: ['#a0c8f0', '#e0f0ff'], water: ['#3a8ac8', '#1a4a8a'], shore: '#5a8a5a',
     fish: [['ワカサギ', 'N', 'fish', '#d0e0e8', '#8aa0b0', ''], ['ブルーギル', 'N', 'round', '#6a8aa0', '#ffa040', 'stripes'], ['ニジマス', 'R', 'fish', '#c0c8d0', '#ff7a9a', 'rainbow'],
       ['ブラックバス', 'R', 'fish', '#5a7a4a', '#2a3a20', 'stripes'], ['ヒメマス', 'SR', 'fish', '#ff6a5a', '#5a8a4a', ''], ['ライギョ', 'SR', 'long', '#4a4a3a', '#8a8a5a', 'spots'],
       ['湖の主イトウ', 'UR', 'fish', '#a05a4a', '#5a3a2a', 'spots'], ['白銀のチョウザメ', 'LR', 'sturgeon', '#e0e8f0', '#8a9ab0', 'shine'], ['湖の竜', 'GOD', 'dragon', '#3ac8b0', '#ffd040', 'shine'] ] },
-  { id: 'sea', nm: '港の海', mult: 120, need: 1.0e5, sky: ['#7ac0ff', '#e8f6ff'], water: ['#2a7ac8', '#0a3a7a'], shore: '#c8b088',
+  { id: 'sea', nm: '港の海', mult: 120, need: 6e6, sky: ['#7ac0ff', '#e8f6ff'], water: ['#2a7ac8', '#0a3a7a'], shore: '#c8b088',
     fish: [['アジ', 'N', 'fish', '#c0d0d8', '#e8d070', ''], ['サバ', 'N', 'fish', '#4a7aa0', '#d0e0e8', 'stripes'], ['マダイ', 'R', 'fish', '#ff7a7a', '#ffc0b0', 'spots'],
       ['ヒラメ', 'R', 'flat', '#8a7a5a', '#5a4a3a', 'spots'], ['ブリ', 'SR', 'fish', '#5a7ab0', '#ffe060', 'stripes'], ['クロマグロ', 'SR', 'tuna', '#2a3a6a', '#c0c8d8', ''],
       ['カジキ', 'UR', 'marlin', '#3a5aa0', '#a0c8ff', 'stripes'], ['七色のマンボウ', 'LR', 'sunfish', '#ff8ad0', '#8ad0ff', 'rainbow'], ['竜宮の姫魚', 'GOD', 'fish', '#fff0f8', '#ff5fb8', 'shine'] ] },
-  { id: 'deep', nm: '深海', mult: 1600, need: 2.4e6, sky: ['#0a1a3a', '#1a3a6a'], water: ['#0a2a5a', '#000a1a'], shore: '#3a4a5a',
+  { id: 'deep', nm: '深海', mult: 1600, need: 3e8, sky: ['#0a1a3a', '#1a3a6a'], water: ['#0a2a5a', '#000a1a'], shore: '#3a4a5a',
     fish: [['ハダカイワシ', 'N', 'fish', '#4a5a7a', '#8affff', 'glow'], ['チョウチンアンコウ', 'N', 'angler', '#3a2a3a', '#ffe060', 'glow'], ['ダイオウグソクムシ', 'R', 'bug', '#c8b8a0', '#8a7a6a', ''],
       ['リュウグウノツカイ', 'R', 'long', '#e0e8f0', '#ff4a4a', 'shine'], ['ラブカ', 'SR', 'eel', '#5a5a6a', '#8a8a9a', ''], ['シーラカンス', 'SR', 'fish', '#3a4a7a', '#e0e8ff', 'spots'],
       ['ダイオウイカ', 'UR', 'squid', '#ff6a5a', '#a03a3a', ''], ['光る深海竜', 'LR', 'dragon', '#2a3a8a', '#8affff', 'glow'], ['深淵の王', 'GOD', 'angler', '#1a0a2a', '#ff4fa0', 'glow'] ] },
-  { id: 'star', nm: '星空の池', mult: 25000, need: 6e7, sky: ['#05051a', '#2a1a5a'], water: ['#1a0a4a', '#05001a'], shore: '#2a2a5a',
+  { id: 'star', nm: '星空の池', mult: 25000, need: 1.5e10, sky: ['#05051a', '#2a1a5a'], water: ['#1a0a4a', '#05001a'], shore: '#2a2a5a',
     fish: [['ほしくずウオ', 'N', 'fish', '#c8d0ff', '#ffffff', 'glow'], ['つきのウオ', 'N', 'round', '#fff0c0', '#d0c090', ''], ['すいせいサバ', 'R', 'fish', '#8ac8ff', '#ffffff', 'stripes'],
       ['ぎんがエイ', 'R', 'flat', '#4a3aa0', '#ff8ad0', 'glow'], ['オーロラクジラ', 'SR', 'whale', '#3ad0b0', '#b06aff', 'rainbow'], ['せいうんクラゲ', 'SR', 'jelly', '#ff8ad0', '#8ad0ff', 'glow'],
       ['ほしのリュウ', 'UR', 'dragon', '#ffe060', '#ffffff', 'glow'], ['たいようの金魚', 'LR', 'fish', '#ff6a2a', '#ffd040', 'shine'], ['はじまりの魚', 'GOD', 'fish', '#ffffff', '#ffd0f0', 'rainbow'] ] },
   // ゴールのあとに行ける、終わりのない池。ここではすべての池の魚が出る。深くもぐるほど値段が上がる
-  { id: 'dream', nm: '夢の池', mult: 2e5, need: 3e9, dream: true, sky: ['#ffd6f0', '#c8b0ff'], water: ['#a07aff', '#3a1a7a'], shore: '#8a6ac8', fish: [] },
+  { id: 'dream', nm: '夢の池', mult: 2e5, need: 8e11, dream: true, sky: ['#ffd6f0', '#c8b0ff'], water: ['#a07aff', '#3a1a7a'], shore: '#8a6ac8', fish: [] },
 ];
 const FISH = [], DREAM = 5;
 PONDS.forEach((p, pi) => p.fish.forEach((f, i) => FISH.push({ id: pi * 9 + i, pond: pi, nm: f[0], r: f[1], shape: f[2], c1: f[3], c2: f[4], pat: f[5] })));
@@ -56,7 +56,7 @@ const NFISH = FISH.length;
 // 池の値段の倍率（夢の池は深さ1ごとに×1.6）
 const pondMult = (S, p) => PONDS[p].mult * (PONDS[p].dream ? Math.pow(1.6, S.depth || 0) : 1);
 // 夢の池：つぎの深さまでに稼ぐコイン
-const depthNeed = d => 4e10 * Math.pow(2.1, d);
+const depthNeed = d => 6e11 * Math.pow(2.1, d);
 
 // ---------------- エンドコンテンツ：ぬし ----------------
 // ゴールのあと、各池にときどき「ぬし」が現れる。タイミングよくリールを巻いて釣り上げる
@@ -289,13 +289,13 @@ function drawOmikuji(S, rng) {
 }
 
 // ---------------- 池を移る ----------------
-const GOAL = 1.5e9;   // 星空の池でここまで貯めたらクリア
-// 新しい池へ進む（いちばん先の池から、つぎの池へ。コインと強化はリセット）
+const GOAL = 4e11;   // 星空の池でここまで貯めたらクリア
+// 新しい池へ進む（いちばん先の池から、つぎの池へ。必要なコインを払う。強化はそのまま）
 function nextPond(S) { const m = S.maxPond ?? S.pond; return m < PONDS.length - 1 ? m + 1 : -1; }
 function canMove(S) { const n = nextPond(S); return n > 0 && S.coins >= PONDS[n].need && (!PONDS[n].dream || S.cleared); }
 function movePond(S) {
   if (!canMove(S)) return false;
-  S.maxPond = nextPond(S); S.pond = S.maxPond; S.coins = 0; S.lv = { fisher: 0, rod: 0, bait: 0, net: 0, master: 0 };
+  const n = nextPond(S); S.coins = Math.max(0, S.coins - PONDS[n].need); S.maxPond = n; S.pond = n;
   S.charm += 1; S.stats.moves++;
   return true;
 }
