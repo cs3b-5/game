@@ -123,7 +123,7 @@
     $('selGo').textContent = mode === 'online' ? '次へ' : 'たたかう！';
     show('select');
   }
-  $('selGo').onclick = () => { if (mode === 'online') { $('myName').value = S.name || ''; $('netMsg').textContent = ''; $('hostBox').hidden = true; show('online'); } else startLocal(); };
+  $('selGo').onclick = () => { if (mode === 'online') { $('myName').value = S.name || (window.GAMES_ACC ? GAMES_ACC.name() : ''); $('netMsg').textContent = ''; $('hostBox').hidden = true; show('online'); } else startLocal(); };
 
   // ================= 操作説明 =================
   { const sel = document.getElementById('helpChar'); for (const id in FG.CHARS) { const o = document.createElement('option'); o.value = id; o.textContent = FG.CHARS[id].nm; sel.appendChild(o); } sel.onchange = () => { helpChar = sel.value; buildHelp(helpCtl); }; }

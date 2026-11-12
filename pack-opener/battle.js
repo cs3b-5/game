@@ -1608,7 +1608,7 @@ function tryConnectAny(peer, ids, ms = 3500) {
   });
 }
 window.__net = () => NET;
-function myName() { return (A.S.name || '').trim() || 'ななしの金魚'; }
+function myName() { return (A.S.name || '').trim() || (window.GAMES_ACC ? GAMES_ACC.name() : '') || 'ななしの金魚'; }
 function netStatus(t, err) { const el = $('onStatus'); if (el) { el.textContent = t; el.style.color = err ? '#ff8aa0' : ''; } }
 function netClose(reason) {
   const n = NET; NET = null;

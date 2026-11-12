@@ -396,7 +396,7 @@
   }
 
   // ================= はじめ =================
-  $('mpName').value = SV.name || '';
+  $('mpName').value = SV.name || (window.GAMES_ACC ? GAMES_ACC.name() : '');
   $('mpHost').onclick = () => host(false);
   $('mpLocal').onclick = () => host(true);
   $('mpJoin').onclick = join;

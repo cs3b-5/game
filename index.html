@@ -26,7 +26,7 @@ a.app:hover::after, a.app:focus-visible::after, a.app:hover::before, a.app:focus
 
 /* スマホ：アイコンを小さく、名前は常に下に出す */
 @media (hover: none), (max-width: 520px) {
-  main { padding: calc(32px + env(safe-area-inset-top, 0px)) 14px 60px; gap: 28px; }
+  main { padding: calc(64px + env(safe-area-inset-top, 0px)) 14px 60px; gap: 28px; }
   .grid { grid-template-columns: repeat(auto-fill, 84px); gap: 40px 22px; }
   a.app, a.app svg { width: 84px; height: 84px; border-radius: 20px; }
   a.app::before { display: none; }
@@ -35,11 +35,41 @@ a.app:hover::after, a.app:focus-visible::after, a.app:hover::before, a.app:focus
 }
 /* スマホ共通 */
 [hidden] { display: none !important; }
+
+/* アカウント（ユーザー名だけ） */
+.acc { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; background: rgba(27,31,39,.85); border: 1px solid rgba(255,255,255,.1); color: var(--ink); font: 700 .85rem "Noto Sans JP", sans-serif; cursor: pointer; backdrop-filter: blur(6px); max-width: calc(100vw - 24px); }
+.acc .av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #3a4152; font-size: .95rem; flex: none; }
+.acc .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc.on .av { background: linear-gradient(135deg, #ff9ec4, #8fd8ff); color: #111318; font-weight: 900; }
+.accDlg { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(5,6,10,.6); padding: 16px; }
+.accBox { width: min(380px, 100%); background: var(--bg2); border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 22px 20px 18px; display: grid; gap: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.accBox h2 { margin: 0; font-size: 1.1rem; font-weight: 900; }
+.accBox p { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.6; }
+.accBox input { width: 100%; font: 900 1.15rem "Noto Sans JP", sans-serif; padding: 10px 12px; border-radius: 10px; border: 1px solid #3a4152; background: #0d0f14; color: var(--ink); outline: none; }
+.accBox input:focus { border-color: #8fd8ff; }
+.accRow { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.accRow button { font: 900 .9rem "Noto Sans JP", sans-serif; padding: 10px 16px; border-radius: 10px; border: 0; cursor: pointer; background: #2a3040; color: var(--ink); }
+.accRow button.main { background: #8fd8ff; color: #111318; }
+.accRow button:disabled { opacity: .5; cursor: default; }
+.accMsg { min-height: 1.3em; font-size: .82rem; font-weight: 700; }
+.accMsg.ng { color: #ff8a8a; } .accMsg.ok { color: #8fe8a8; }
+.accNote { font-size: .72rem !important; }
 html { -webkit-text-size-adjust: 100%; }
 button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
+<button class="acc" id="acc" type="button" aria-haspopup="dialog"><span class="av" id="accAv">👤</span><span class="nm" id="accNm">名前をつける</span></button>
+<div class="accDlg" id="accDlg" hidden role="dialog" aria-modal="true" aria-labelledby="accTtl">
+  <form class="accBox" id="accForm" autocomplete="off">
+    <h2 id="accTtl">プレイヤー名</h2>
+    <p>ここで決めた名前が、オンライン対戦などの名前に入ります。同じ名前はほかの人と使えません。</p>
+    <input id="accIn" maxlength="10" placeholder="名前（10文字まで）" spellcheck="false" autocapitalize="off">
+    <div class="accMsg" id="accMsg"></div>
+    <div class="accRow"><button type="button" id="accOut">名前を消す</button><button type="button" id="accX">とじる</button><button type="submit" class="main" id="accGo">決める</button></div>
+    <p class="accNote">集めるのは、この名前だけ。メールアドレス・本名・パスワードなどは使いません。名前はほかの人にも見えるので、本名や個人がわかる名前はやめておこう。</p>
+  </form>
+</div>
 <main>
   <h1>GAMES</h1>
   <nav class="grid" aria-label="ゲーム一覧">
@@ -250,5 +280,96 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 
   </nav>
 </main>
+<script src="account.js"></script>
+<script>
+// ユーザー名だけのアカウント。
+// claude.ai で開いたとき：共有の名簿（db）で「名前のダブり」を防ぐ。保存するのは 名前 と 中のID（ランダムな記号）だけ。
+// GitHub などで開いたとき：この端末だけに保存。
+(() => {
+  const $ = id => document.getElementById(id);
+  const K = GAMES_ACC.KEY;
+  let db = null, uid = null, busy = false;
+  const local = () => GAMES_ACC.get();
+  const saveLocal = a => { try { a ? localStorage.setItem(K, JSON.stringify(a)) : localStorage.removeItem(K); } catch (e) {} };
+  // 同じ名前の判定：全角半角・大文字小文字・空白をそろえる
+  const norm = s => (s || '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+  const clean = s => (s || '').normalize('NFKC').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10);
+  const hex = s => Array.from(new TextEncoder().encode(s), b => b.toString(16).padStart(2, '0')).join('');
+  const ok = s => /^[\p{L}\p{N}_\-・ー〜!?！？☆★♪.]+$/u.test(s.replace(/\s/g, ''));
+
+  function paint() {
+    const a = local();
+    $('acc').classList.toggle('on', !!(a && a.name));
+    $('accNm').textContent = a && a.name ? a.name : '名前をつける';
+    $('accAv').textContent = a && a.name ? [...a.name][0] : '👤';
+    $('accOut').hidden = !(a && a.name);
+  }
+  function msg(t, cls) { $('accMsg').textContent = t || ''; $('accMsg').className = 'accMsg' + (cls ? ' ' + cls : ''); }
+  function open() { const a = local(); $('accIn').value = a ? a.name : ''; msg(db && uid ? '' : 'この画面では名前はこの端末だけに保存されます'); $('accDlg').hidden = false; setTimeout(() => $('accIn').focus(), 30); }
+  function close() { $('accDlg').hidden = true; }
+
+  async function claim(name) {
+    const key = norm(name);
+    if (!db || !uid) { saveLocal({ name, key, shared: false }); return { ok: true }; }
+    const lock = db.doc('locks/' + hex(key));
+    const L = await lock.acquire({ holder: uid, ttlMs: 8000 });
+    if (!L.acquired) return { ok: false, why: 'いま同じ名前をだれかが登録中。少し待ってね' };
+    const q = await db.collection('accounts').where('key', '==', key).get();
+    if (q.docs.some(d => d.id !== uid)) return { ok: false, why: 'その名前はもう使われています' };
+    await db.doc('accounts/' + uid).set({ name, key, at: Date.now() });
+    saveLocal({ name, key, shared: true });
+    return { ok: true };
+  }
+
+  $('acc').onclick = open;
+  $('accX').onclick = close;
+  $('accDlg').addEventListener('click', e => { if (e.target === $('accDlg')) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('accDlg').hidden) close(); });
+  $('accForm').onsubmit = async e => {
+    e.preventDefault(); if (busy) return;
+    const name = clean($('accIn').value);
+    if (!name) return msg('名前を入れてね', 'ng');
+    if (!ok(name)) return msg('使えない記号が入っています', 'ng');
+    const a = local();
+    if (a && a.name === name && (a.shared || !db)) { close(); return; }
+    busy = true; $('accGo').disabled = true; msg('たしかめ中…');
+    try {
+      const r = await claim(name);
+      if (r.ok) { msg('決まり！', 'ok'); paint(); setTimeout(close, 500); }
+      else msg(r.why, 'ng');
+    } catch (err) {
+      // 書けない人（閲覧だけの共有など）はこの端末だけに保存
+      saveLocal({ name, key: norm(name), shared: false }); paint();
+      msg('名簿に書きこめなかったので、この端末だけに保存しました', 'ng');
+    } finally { busy = false; $('accGo').disabled = false; }
+  };
+  $('accOut').onclick = async () => {
+    if (busy) return; busy = true;
+    try { if (db && uid) await db.doc('accounts/' + uid).delete(); } catch (e) {}
+    saveLocal(null); paint(); busy = false; close();
+  };
+
+  paint();
+  // claude.ai の中なら共有の名簿をつなぐ
+  (async () => {
+    for (let i = 0; i < 20 && !(window.claude && claude.use); i++) await new Promise(r => setTimeout(r, 100));
+    if (!window.claude || !claude.use) return;
+    try {
+      const [d, u] = await Promise.all([claude.use('db'), claude.use('user')]);
+      if (!d || !u) return;
+      const id = await u.id(); if (!id) return;
+      db = d; uid = id;
+      // 名簿の自分の名前に合わせる（ほかの端末で変えたとき用）
+      const me = await db.doc('accounts/' + uid).get();
+      const a = local();
+      if (me.exists) { const v = me.data(); if (!a || a.name !== v.name || !a.shared) { saveLocal({ name: v.name, key: v.key, shared: true }); paint(); } }
+      else if (a && a.name && !a.shared) {
+        // この端末だけの名前を、空いていれば名簿にのせる
+        try { await claim(a.name); } catch (e) {}
+      }
+    } catch (e) { /* つながらなければこの端末だけ */ }
+  })();
+})();
+</script>
 </body>
 </html>
