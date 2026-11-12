@@ -277,8 +277,9 @@ button { font-family: inherit; color: inherit; }
       d.onclick = () => { if (slots[i] && !busy) { slots.splice(i, 1); sfx.pop(); renderPanel(); } };
       sl.appendChild(d);
     }
-    $('read').innerHTML = !slots.length ? '釜は空<small>素材を入れて飲んでみよう</small>' : `素材 ${slots.length}つ<small>どこへ運ばれるかは飲んでみるまで…</small>`;
-    $('bDrink').disabled = !slots.length || busy;
+    const P = slots.length ? plan(slots, S) : null, th = P && P.ok ? thingsAt(P.end.x, P.end.y) : [];
+    $('read').innerHTML = !P ? '釜は空<small>素材を入れると道すじが見える</small>' : !P.ok ? '<span style="color:#8a2a1a">降りられない</span><small>入れる素材や順番を変えてみよう</small>' : th.length ? '<span style="color:#2a5a2a">ぴったり！</span><small>' + th.map(t => t.nm).join('・') + '</small>' : '着地できる<small>道すじは地図の点線</small>';
+    $('bDrink').disabled = !P || !P.ok || busy;
     const sh = $('shelf'); sh.innerHTML = '';
     for (const m in MAT) {
       if (!(m in S.inv)) continue;
@@ -571,8 +572,20 @@ button { font-family: inherit; color: inherit; }
     // 霧
     if (fogDirty) paintFog();
     cx.imageSmoothingEnabled = true; cx.drawImage(fogC, 0, 0, W, W); cx.drawImage(labels, 0, 0);
+    // 道すじの予告（数字は出さず、線だけ）
+    if (slots.length && !busy) {
+      const P = plan(slots, S), path = P.stop ? P.pts.slice(0, P.stop.at).concat([P.end]) : P.pts;
+      cx.lineCap = 'round';
+      if (P.stop) { cx.strokeStyle = 'rgba(138,42,26,.5)'; cx.lineWidth = 1.5; cx.setLineDash([3, 4]); cx.beginPath(); cx.moveTo((P.end.x + .5) * CS, (P.end.y + .5) * CS); for (const p of P.pts.slice(P.stop.at)) cx.lineTo((p.x + .5) * CS, (p.y + .5) * CS); cx.stroke(); }
+      cx.strokeStyle = P.ok ? INK : '#8a2a1a'; cx.lineWidth = 2.4; cx.setLineDash(P.jump ? [8, 6] : [2, 5]);
+      cx.beginPath(); path.forEach((p, i) => { const X = (p.x + .5) * CS, Y = (p.y + .5) * CS; i ? cx.lineTo(X, Y) : cx.moveTo(X, Y); }); cx.stroke(); cx.setLineDash([]);
+      cx.fillStyle = INK; for (const p of path.slice(1, -1)) { cx.beginPath(); cx.arc((p.x + .5) * CS, (p.y + .5) * CS, 2.6, 0, 7); cx.fill(); }
+      const X = (P.end.x + .5) * CS, Y = (P.end.y + .5) * CS;
+      if (P.ok) { const hit = thingsAt(P.end.x, P.end.y).length; cx.strokeStyle = hit ? '#2a5a2a' : INK; cx.lineWidth = hit ? 2.6 : 1.6; cx.beginPath(); cx.arc(X, Y, CS * (.55 + Math.sin(t * 5) * .04), 0, 7); cx.stroke(); flask(X, Y - 2, CS * 1.05, S.liquid, .4); }
+      else { cx.strokeStyle = '#8a2a1a'; cx.lineWidth = 2.6; const q = CS * .3; cx.beginPath(); cx.moveTo(X - q, Y - q); cx.lineTo(X + q, Y + q); cx.moveTo(X + q, Y - q); cx.lineTo(X - q, Y + q); cx.stroke(); }
+    }
     // さっき通った道（インクのあと）
-    if (lastPath && !busy) {
+    if (lastPath && !busy && !slots.length) {
       cx.strokeStyle = 'rgba(58,38,20,.45)'; cx.lineWidth = 1.8; cx.setLineDash([2, 5]); cx.lineCap = 'round';
       cx.beginPath(); lastPath.forEach((p, i) => { const X = (p.x + .5) * CS, Y = (p.y + .5) * CS; i ? cx.lineTo(X, Y) : cx.moveTo(X, Y); }); cx.stroke(); cx.setLineDash([]);
       cx.fillStyle = 'rgba(58,38,20,.5)'; for (const p of lastPath.slice(0, -1)) { cx.beginPath(); cx.arc((p.x + .5) * CS, (p.y + .5) * CS, 2.2, 0, 7); cx.fill(); }
