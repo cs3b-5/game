@@ -26,7 +26,7 @@ button { font-family: inherit; color: inherit; }
 #top .sp { flex: 1; }
 #compass { position: fixed; right: 10px; top: calc(52px + env(safe-area-inset-top)); width: 58px; height: 58px; pointer-events: none; opacity: .85; }
 /* 下の釜 */
-#panel { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(8px + env(safe-area-inset-bottom)); width: min(560px, calc(100% - 12px)); border-radius: 8px; padding: 8px 9px 9px; display: grid; gap: 7px; }
+#panel { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(8px + env(safe-area-inset-bottom)); width: min(560px, calc(100% - 12px)); border-radius: 8px; padding: 8px 9px 9px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; }
 #mixRow { display: flex; gap: 5px; align-items: center; }
 #bDrink { flex: 0 0 auto; padding: 8px 10px; }
 #pot { width: 38px; height: 38px; flex: 0 0 auto; }
@@ -43,7 +43,7 @@ button { font-family: inherit; color: inherit; }
 .it:disabled { opacity: .3; }
 /* カード */
 .big { position: fixed; inset: 0; z-index: 50; background: rgba(30,18,8,.55); display: grid; place-items: center; padding: 14px; }
-.card { width: min(400px, 100%); max-height: 100%; overflow: auto; border-radius: 8px; padding: 18px 16px; display: grid; gap: 11px; justify-items: center; text-align: center; touch-action: pan-y; }
+.card { width: min(400px, 100%); max-height: 100%; overflow: auto; border-radius: 8px; padding: 18px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 11px; justify-items: center; text-align: center; touch-action: pan-y; }
 .card .e { font-size: 3rem; line-height: 1; }
 .card h2 { margin: 0; font-family: "Zen Antique", serif; font-weight: 400; font-size: 1.45rem; letter-spacing: .06em; }
 .card h1 { margin: 0; font-family: "Zen Antique", serif; font-weight: 400; font-size: 2rem; letter-spacing: .1em; color: #5a2a14; }
@@ -54,6 +54,9 @@ button { font-family: inherit; color: inherit; }
 .zk { display: grid; grid-template-columns: 40px 1fr auto; gap: 8px; align-items: center; text-align: left; width: 100%; border-bottom: 1px dashed var(--line); padding: 4px 2px; }
 .zk .e { font-size: 1.6rem; }
 .zk small { display: block; color: var(--mute); font-size: .74rem; line-height: 1.4; }
+.memo { width: 100%; display: flex; gap: 6px; align-items: center; border-bottom: 1px dashed var(--line); padding-bottom: 4px; }
+.memo input, #memoText { flex: 1; min-width: 0; width: 100%; font: 600 16px "Shippori Mincho", serif; color: var(--ink); background: rgba(255,250,232,.7); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; user-select: text; -webkit-user-select: text; }
+#memoText { width: 100%; resize: vertical; line-height: 1.6; background-image: repeating-linear-gradient(transparent 0 25px, rgba(58,38,20,.15) 25px 26px); }
 .toast { position: fixed; left: 50%; top: calc(54px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 60; background: rgba(42,28,16,.92); color: #f2e2bc; padding: 7px 14px; border-radius: 6px; font-weight: 800; font-size: .86rem; pointer-events: none; transition: opacity .3s; max-width: calc(100% - 30px); text-align: center; border: 1px solid #a88a5a; }
 </style>
 </head>
@@ -64,6 +67,7 @@ button { font-family: inherit; color: inherit; }
   <div class="chip paper" id="day">1日目</div>
   <div class="chip paper" id="found">発見 0</div>
   <span class="sp"></span>
+  <button class="btn sm" id="bMemo" aria-label="メモ帳">📝</button>
   <button class="btn sm" id="bBook" aria-label="記録">📜</button>
   <button class="btn sm" id="bCenter" aria-label="自分の位置へ">◎</button>
   <button class="btn sm" id="bRest" aria-label="野営地で休む">⛺</button>
@@ -129,17 +133,17 @@ button { font-family: inherit; color: inherit; }
     ruins: { nm: '古の遺跡', mats: ['shadow', 'comet', 'glow'], cre: { fairy: 3, owl: 2 }, spots: 4 },
   };
   const MARKS = [
-    { id: 'home', x: 32, y: 50, nm: 'アトリエ', e: '🏠', camp: 1, txt: '森のはずれの小さなアトリエ。ここから旅が始まる。<br>⛺で休むと、ここや見つけた野営地で朝をむかえて、基本の素材（🍒💧🪨🪶）が補充される。' },
-    { id: 'well', x: 24, y: 45, nm: '古い井戸', e: '🪣', txt: '底の見えない古い井戸。ふちの石にこう刻まれている。<br>「<b>ほたる草🌟</b>を混ぜれば、とぶ力は倍になり、川も森も<b>跳び越える</b>」' },
-    { id: 'circle', x: 41, y: 44, nm: '石の環', e: '🗿', txt: '苔むした石が輪にならぶ。<br>外の世界は川に囲まれている。跳び越えるには、着地するところまで届く力がいる。' },
-    { id: 'hunter', x: 30, y: 29, nm: '狩人の小屋', e: '🛖', camp: 1, txt: '誰もいない狩人の小屋（野営地）。壁の落書き：<br>「うさぎは まっすぐ走り、ぶつかると引き返す。<b>着地する時に同じマス</b>なら捕まえられる」' },
-    { id: 'oak', x: 23, y: 20, nm: '大樫の木', e: '🌳', txt: '森でいちばん古い樫の木。根元にどんぐりが散らばっている。<br>ななめに進む素材は、森の木のすきまを抜けるのにべんり。' },
-    { id: 'shrine', x: 52, y: 44, nm: '湖の祠', e: '⛩️', camp: 1, txt: '湖のほとりの小さな祠（野営地）。<br>「カエルは二つ先の石へ跳ぶ」と昔から言われている。' },
-    { id: 'bell', x: 57, y: 21, nm: '沈んだ鐘', e: '🔔', txt: '湖に沈んだ鐘。水面をのぞくと、かすかに鐘の音が聞こえた気がした。' },
-    { id: 'mtcamp', x: 11, y: 37, nm: '山の野営地', e: '🔥', camp: 1, txt: '岩山のふもとの野営地。たき火のあとがまだ温かい。<br>ペンギンが氷の上をななめにすべっていく。' },
-    { id: 'bones', x: 8, y: 15, nm: '竜の骨', e: '🦴', txt: '巨大な竜の骨。風がうなるたびに、骨が笛のように鳴る。' },
-    { id: 'gate', x: 32, y: 16, nm: '崩れた門', e: '🏛️', camp: 1, txt: '遺跡の崩れた門（野営地）。奥の城壁は厚くて、歩いては越えられない。<br>柱の文字：「<b>影の実🫐</b>は 向きを裏返す」' },
-    { id: 'stone', x: 32, y: 6, nm: '賢者の石', e: '💎', goal: 1, txt: '城壁の奥で、<b>賢者の石</b>を見つけた！<br>長い旅の終わり。けれど地図には、まだ見ぬ場所が残っているかもしれない。' },
+    { id: 'home', x: 32, y: 50, nm: 'アトリエ', e: '🏠', camp: 1, txt: 'エルマ師匠と暮らしたアトリエ。<br>⛺で休むと、ここや見つけた野営地で朝をむかえて、基本の素材（🍒💧🪨🪶）が6つずつにもどる。' },
+    { id: 'well', x: 24, y: 45, nm: '古い井戸', e: '🪣', txt: '古い井戸のふちに、師匠の字のメモがはさまっていた。<br>「川は歩いては渡れない。星のように光る草をお探し。あれは旅人を<b>空へ</b>持ち上げる」' },
+    { id: 'circle', x: 41, y: 44, nm: '石の環', e: '🗿', txt: '苔むした石の環。まんなかに師匠の足あと。<br>「素材は、入れる<b>順番</b>で道が変わる。急がば回れ、だよ」' },
+    { id: 'hunter', x: 30, y: 29, nm: '狩人の小屋', e: '🛖', camp: 1, txt: '誰もいない狩人の小屋（野営地）。壁に師匠の落書き。<br>「うさぎは まっすぐ走って、ぶつかると引き返す。<b>降りたとき同じ場所</b>にいれば捕まえられる。——E」' },
+    { id: 'oak', x: 23, y: 20, nm: '大樫の木', e: '🌳', txt: '大樫の根元に、師匠のハンカチが結ばれていた。<br>「森は木と木のすきまが狭い。まっすぐだけが道じゃない」' },
+    { id: 'shrine', x: 52, y: 44, nm: '湖の祠', e: '⛩️', camp: 1, txt: '湖のほとりの祠（野営地）。お供えの横に手紙。<br>「カエルはひとつ飛ばしで跳ぶ。それと、湖の水は<b>重たい</b>よ。——E」' },
+    { id: 'bell', x: 57, y: 21, nm: '沈んだ鐘', e: '🔔', txt: '湖に沈んだ鐘。内側に師匠が刻んだ文字。<br>「遺跡の壁は厚い。ふつうに跳ぶだけでは届かない。力を<b>重ねる</b>こと」' },
+    { id: 'mtcamp', x: 11, y: 37, nm: '山の野営地', e: '🔥', camp: 1, txt: '岩山のふもとの野営地。たき火のあとに、焦げずに残った手紙。<br>「ペンギンはななめにすべる。山の素材は、どれも<b>力が強い</b>。——E」' },
+    { id: 'bones', x: 8, y: 15, nm: '竜の骨', e: '🦴', txt: '巨大な竜の骨。骨のすきまに、師匠のとんがり帽子が引っかかっていた。<br>師匠もここを通ったんだ。北の遺跡はもうすぐだ。' },
+    { id: 'gate', x: 32, y: 16, nm: '崩れた門', e: '🏛️', camp: 1, txt: '遺跡の崩れた門（野営地）。柱に師匠の最後の手紙。<br>「影は物ごとを<b>裏返す</b>。壁の向こうで待っているよ」' },
+    { id: 'stone', x: 32, y: 6, nm: '賢者の石', e: '💎', goal: 1, hd: 'エピローグ', txt: '城壁の奥、光る石のそばで、エルマ師匠が昼寝をしていた。<br>「おや、来たのかい。よくここまで来たね」<br>師匠は笑って、あなたのメモ帳を指さした。<br>「賢者の石なんてね、ほんとうはただの光る石さ。<b>ほんとうの宝は、旅で書きためたそのメモ帳</b>だよ」<br>二人は並んで、アトリエへの帰り道を歩きはじめた。' },
   ];
 
   // ================= 地図を作る（毎回同じ） =================
@@ -210,7 +214,7 @@ button { font-family: inherit; color: inherit; }
 
   // ================= セーブ =================
   const LS = 'potion-quest-v3';
-  const fresh = () => ({ x: HOME.x, y: HOME.y, day: 1, turn: 0, inv: { berry: 6, drop: 6, pebble: 6, feather: 6 }, fog: '', caught: {}, cre: {}, spot: {}, found: { home: 1 }, zukan: {}, won: 0, liquid: '#8aa898' });
+  const fresh = () => ({ x: HOME.x, y: HOME.y, day: 1, turn: 0, inv: { berry: 6, drop: 6, pebble: 6, feather: 6 }, fog: '', caught: {}, cre: {}, spot: {}, found: { home: 1 }, zukan: {}, won: 0, liquid: '#8aa898', known: { berry: 1, drop: 1, pebble: 1, feather: 1 }, story: 0 });
   let S = (() => { try { const o = JSON.parse(localStorage.getItem(LS)); return o ? Object.assign(fresh(), o) : null; } catch (e) { return null; } })();
   const isNew = !S; if (!S) S = fresh();
   const save = () => { S.fog = btoa(String.fromCharCode(...fog)); S.cre = Object.fromEntries(CRES.map(c => [c.id, [c.x, c.y, c.dx | 0, c.dy | 0, c.ix | 0]])); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
@@ -273,23 +277,15 @@ button { font-family: inherit; color: inherit; }
       d.onclick = () => { if (slots[i] && !busy) { slots.splice(i, 1); sfx.pop(); renderPanel(); } };
       sl.appendChild(d);
     }
-    const P = slots.length ? plan(slots, S) : null;
-    if (!P) $('read').innerHTML = '釜は空<small>素材を入れると道すじが出る</small>';
-    else {
-      const dx = P.end.x - S.x, dy = P.end.y - S.y, ps = [];
-      if (dy < 0) ps.push('北' + -dy); if (dy > 0) ps.push('南' + dy); if (dx > 0) ps.push('東' + dx); if (dx < 0) ps.push('西' + -dx);
-      const th = P.ok ? thingsAt(P.end.x, P.end.y) : [];
-      const tags = [P.jump ? `跳躍×${P.mul}` : '', P.flip ? '反転' : '', P.stop ? 'とちゅうで止まる' : ''].filter(Boolean).join('・');
-      $('read').innerHTML = (ps.join(' ') || 'その場') + `<small>${!P.ok ? '<span style="color:#8a2a1a">そこには降りられない</span>' : th.length ? '<b style="color:#2a5a2a">ぴったり：' + th.map(t => t.nm).join('・') + '</b>' : (tags || '着地できる')}</small>`;
-    }
-    $('bDrink').disabled = !P || !P.ok || busy;
+    $('read').innerHTML = !slots.length ? '釜は空<small>素材を入れて飲んでみよう</small>' : `素材 ${slots.length}つ<small>どこへ運ばれるかは飲んでみるまで…</small>`;
+    $('bDrink').disabled = !slots.length || busy;
     const sh = $('shelf'); sh.innerHTML = '';
     for (const m in MAT) {
       if (!(m in S.inv)) continue;
       const have = S.inv[m] - (cnt[m] || 0);
       const b = document.createElement('button'); b.className = 'it'; b.disabled = have <= 0 || slots.length >= 5 || busy;
-      const v = MAT[m].v, tg = [v[0] ? '↑' + v[0] : '', v[1] ? '↓' + v[1] : '', v[2] ? '←' + v[2] : '', v[3] ? '→' + v[3] : '', v[4] ? '跳×2' : '', v[5] ? '反転' : ''].filter(Boolean).join(' ');
-      b.innerHTML = `<span class="n">${have}</span><span class="e emo">${MAT[m].e}</span>${MAT[m].nm}<span class="tg">${tg}</span>`;
+      const memo = (MEMO.mat[m] || '').trim();
+      b.innerHTML = `<span class="n">${have}</span><span class="e emo">${MAT[m].e}</span>${MAT[m].nm}<span class="tg">${memo ? esc(memo.slice(0, 6)) : '？'}</span>`;
       b.onclick = () => { if (have > 0 && slots.length < 5 && !busy) { slots.push(m); sfx.drop(); renderPanel(); } };
       sh.appendChild(b);
     }
@@ -306,13 +302,14 @@ button { font-family: inherit; color: inherit; }
   }
 
   // ================= 飲む =================
-  let busy = false, anim = null, parts = [];
+  let busy = false, anim = null, parts = [], fizzle = '', lastPath = null;
   function drink() {
     if (busy || !slots.length) return;
-    const P = plan(slots, S); if (!P.ok) return;
+    const P = plan(slots, S);
     for (const m of slots) { S.inv[m]--; if (!S.inv[m] && !BASIC.includes(m)) delete S.inv[m]; }
     S.liquid = mixCol(slots);
-    const path = P.stop ? P.pts.slice(0, P.stop.at).concat([P.end]) : P.pts;
+    const path = !P.ok ? [{ x: S.x, y: S.y }] : P.stop ? P.pts.slice(0, P.stop.at).concat([P.end]) : P.pts;
+    fizzle = !P.ok ? (P.segs.length ? 'ふわっと浮いたけれど、降りる場所がなくて元の場所にもどった' : '…何も起きなかった') : P.stop ? 'とちゅうで何かにぶつかって止まった' : '';
     slots = []; busy = true; sfx.gulp();
     anim = { k: 'move', path, t0: performance.now(), jump: P.jump };
     let len = 0; for (let i = 1; i < path.length; i++) len += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
@@ -327,7 +324,7 @@ button { font-family: inherit; color: inherit; }
   }
   function land() {
     const end = anim.path[anim.path.length - 1];
-    S.x = end.x; S.y = end.y; S.turn++;
+    S.x = end.x; S.y = end.y; S.turn++; lastPath = anim.path.length > 1 ? anim.path : null;
     for (const p of anim.path) reveal(p.x, p.y, 5);
     reveal(S.x, S.y);
     const msgs = [];
@@ -338,18 +335,38 @@ button { font-family: inherit; color: inherit; }
     const mk = MARKS.find(m => m.x === S.x && m.y === S.y);
     for (const c of CRES) { c.px = c.x; c.py = c.y; if (alive(c)) stepCre(c); }
     anim = { k: 'cre', t0: performance.now(), dur: 280 };
-    if (msgs.length) toast(msgs.join(' ／ ')); else sfx.land();
+    for (const k in S.inv) if (!S.known[k]) { S.known[k] = 1; msgs.push(`新しい素材 ${MAT[k].e}${MAT[k].nm}！ 効果は試してみるまでわからない`); }
+    if (fizzle) msgs.unshift(fizzle);
+    if (msgs.length) toast(msgs.join(' ／ ')); if (!msgs.length || fizzle) sfx.land();
     save();
     if (mk && !S.found[mk.id]) {
       S.found[mk.id] = 1; save(); sfx.win();
       setTimeout(() => {
         if (mk.goal) { S.won = 1; save(); }
-        card(`<div class="e emo">${mk.e}</div><h2>${mk.nm}</h2><div class="orn"></div><p>${mk.txt}</p>${mk.camp ? '<p style="font-size:.8rem;color:#8a6e4a">⛺ 野営地として地図に記された</p>' : ''}${mk.goal ? `<p style="font-size:.85rem">${S.day}日目・${S.turn}杯の薬・つかまえた相手 ${Object.keys(S.caught).length}/${CRES.length}</p>` : ''}<div class="row"><button class="btn main" data-ok>旅をつづける</button></div>`);
+        card(`<div class="e emo">${mk.e}</div><h2>${mk.hd ? mk.hd + '：' : ''}${mk.nm}</h2><div class="orn"></div><p>${mk.txt}</p>${mk.camp ? '<p style="font-size:.8rem;color:#8a6e4a">⛺ 野営地として地図に記された</p>' : ''}${mk.goal ? `<p style="font-size:.85rem">${S.day}日目・${S.turn}杯の薬・つかまえた相手 ${Object.keys(S.caught).length}/${CRES.length}</p>` : ''}<div class="row"><button class="btn main" data-ok>旅をつづける</button></div>`);
       }, 500);
     }
   }
   function afterCre() { anim = null; busy = false; for (const c of CRES) { c.px = c.x; c.py = c.y; } renderPanel(); }
   $('bDrink').onclick = drink;
+
+  // ================= メモ帳（自分で書く） =================
+  // はじめからやり直しても消えないように、別の場所に保存する
+  const MK = 'potion-quest-memo';
+  let MEMO = (() => { try { return Object.assign({ mat: {}, text: '' }, JSON.parse(localStorage.getItem(MK)) || {}); } catch (e) { return { mat: {}, text: '' }; } })();
+  const saveMemo = () => { try { localStorage.setItem(MK, JSON.stringify(MEMO)); } catch (e) {} };
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  $('bMemo').onclick = () => {
+    if (busy) return;
+    const mats = Object.keys(MAT).filter(m => S.known[m] || MEMO.mat[m]);
+    card(`<div class="e">📝</div><h2>わたしのメモ帳</h2><div class="orn"></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:6px;width:100%;text-align:left">${mats.map(m => `<label class="memo"><span class="emo" style="font-size:1.4rem">${MAT[m].e}</span><span style="font-weight:800;font-size:.82rem;width:64px">${MAT[m].nm}</span><input data-m="${m}" maxlength="40" placeholder="試してわかったこと" value="${esc(MEMO.mat[m] || '')}"></label>`).join('')}</div>
+      <b style="justify-self:start">自由メモ</b><textarea id="memoText" rows="7" maxlength="3000" placeholder="気づいたこと、地図のこと、師匠の手紙のなぞ…">${esc(MEMO.text)}</textarea>
+      <p style="font-size:.74rem;color:#8a6e4a">書いたらすぐ保存される。はじめからやり直しても消えない。</p>
+      <div class="row"><button class="btn main" data-ok>とじる</button></div>`);
+    $('msgCard').querySelectorAll('input[data-m]').forEach(inp => inp.oninput = () => { MEMO.mat[inp.dataset.m] = inp.value; saveMemo(); renderPanel(); });
+    $('memoText').oninput = e => { MEMO.text = e.target.value; saveMemo(); };
+  };
 
   // ================= 休む・記録 =================
   $('bRest').onclick = () => {
@@ -366,7 +383,7 @@ button { font-family: inherit; color: inherit; }
   };
   $('bBook').onclick = () => {
     const rows = Object.keys(CRE).map(id => { const n = S.zukan[id] || 0, C = CRE[id]; return n ? `<div class="zk"><span class="e emo">${C.e}</span><div><b>${C.nm}</b><small>${C.d}</small></div><b>×${n}</b></div>` : `<div class="zk"><span class="e" style="opacity:.3">？</span><div><b>？？？</b><small>まだ会っていない</small></div><b></b></div>`; }).join('');
-    const ms = MARKS.map(m => S.found[m.id] ? `<div class="zk"><span class="e emo">${m.e}</span><div><b>${m.nm}</b><small>${ZONES[zoneOf(m.x, m.y)].nm}${m.camp ? '・野営地' : ''}</small></div><b></b></div>` : `<div class="zk"><span class="e" style="opacity:.3">？</span><div><b>？？？</b><small>${ZONES[zoneOf(m.x, m.y)].nm}のどこか</small></div><b></b></div>`).join('');
+    const ms = MARKS.map(m => S.found[m.id] ? `<div class="zk"><span class="e emo">${m.e}</span><div><b>${m.nm}</b><small>${ZONES[zoneOf(m.x, m.y)].nm}${m.camp ? '・野営地' : ''}</small><small style="color:#3a2614">${m.txt}</small></div><b></b></div>` : `<div class="zk"><span class="e" style="opacity:.3">？</span><div><b>？？？</b><small>${ZONES[zoneOf(m.x, m.y)].nm}のどこか</small></div><b></b></div>`).join('');
     card(`<div class="e">📜</div><h2>旅の記録</h2><div class="orn"></div><b>いきもの</b>${rows}<b style="margin-top:6px">見つけた場所</b>${ms}<p style="font-size:.8rem;color:#8a6e4a">つかまえた相手 ${Object.keys(S.caught).length}/${CRES.length}</p><div class="row"><button class="btn" id="cReset">はじめから</button><button class="btn main" data-ok>とじる</button></div>`, {
       cReset: () => { if (confirm('旅の記録を消して、はじめからにする？')) { try { localStorage.removeItem(LS); } catch (e) {} location.reload(); } },
     });
@@ -554,17 +571,11 @@ button { font-family: inherit; color: inherit; }
     // 霧
     if (fogDirty) paintFog();
     cx.imageSmoothingEnabled = true; cx.drawImage(fogC, 0, 0, W, W); cx.drawImage(labels, 0, 0);
-    // 道すじの予告
-    if (slots.length && !busy) {
-      const P = plan(slots, S), path = P.stop ? P.pts.slice(0, P.stop.at).concat([P.end]) : P.pts;
-      cx.lineCap = 'round';
-      if (P.stop) { cx.strokeStyle = 'rgba(138,42,26,.5)'; cx.lineWidth = 1.5; cx.setLineDash([3, 4]); cx.beginPath(); P.pts.slice(P.stop.at - 1).forEach((p, i) => { const X = (p.x + .5) * CS, Y = (p.y + .5) * CS; i ? cx.lineTo(X, Y) : cx.moveTo((P.end.x + .5) * CS, (P.end.y + .5) * CS); }); cx.stroke(); }
-      cx.strokeStyle = P.ok ? INK : '#8a2a1a'; cx.lineWidth = 2.4; cx.setLineDash(P.jump ? [8, 6] : [2, 5]);
-      cx.beginPath(); path.forEach((p, i) => { const X = (p.x + .5) * CS, Y = (p.y + .5) * CS; i ? cx.lineTo(X, Y) : cx.moveTo(X, Y); }); cx.stroke(); cx.setLineDash([]);
-      cx.fillStyle = INK; for (const p of path.slice(1, -1)) { cx.beginPath(); cx.arc((p.x + .5) * CS, (p.y + .5) * CS, 2.6, 0, 7); cx.fill(); }
-      const X = (P.end.x + .5) * CS, Y = (P.end.y + .5) * CS;
-      if (P.ok) { const hit = thingsAt(P.end.x, P.end.y).length; cx.strokeStyle = hit ? '#2a5a2a' : INK; cx.lineWidth = hit ? 2.6 : 1.6; cx.beginPath(); cx.arc(X, Y, CS * (.55 + Math.sin(t * 5) * .04), 0, 7); cx.stroke(); flask(X, Y - 2, CS * 1.05, S.liquid, .4); }
-      else { cx.strokeStyle = '#8a2a1a'; cx.lineWidth = 2.6; const s = CS * .3; cx.beginPath(); cx.moveTo(X - s, Y - s); cx.lineTo(X + s, Y + s); cx.moveTo(X + s, Y - s); cx.lineTo(X - s, Y + s); cx.stroke(); }
+    // さっき通った道（インクのあと）
+    if (lastPath && !busy) {
+      cx.strokeStyle = 'rgba(58,38,20,.45)'; cx.lineWidth = 1.8; cx.setLineDash([2, 5]); cx.lineCap = 'round';
+      cx.beginPath(); lastPath.forEach((p, i) => { const X = (p.x + .5) * CS, Y = (p.y + .5) * CS; i ? cx.lineTo(X, Y) : cx.moveTo(X, Y); }); cx.stroke(); cx.setLineDash([]);
+      cx.fillStyle = 'rgba(58,38,20,.5)'; for (const p of lastPath.slice(0, -1)) { cx.beginPath(); cx.arc((p.x + .5) * CS, (p.y + .5) * CS, 2.2, 0, 7); cx.fill(); }
     }
     // 粒
     parts = parts.filter(p => (p.l -= .02) > 0);
@@ -599,7 +610,7 @@ button { font-family: inherit; color: inherit; }
     sleep() { [659, 523, 392].forEach((f, i) => tone(f, f, .3, 'sine', .08, i * .18)); },
   };
   addEventListener('keydown', e => {
-    if (!$('msg').hidden) return;
+    if (!$('msg').hidden || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drink(); }
     else if (e.key === 'Backspace' || e.key === 'Escape') { if (!busy) { e.key === 'Escape' ? slots = [] : slots.pop(); renderPanel(); } }
     else if (/^[1-9]$/.test(e.key)) { const b = $('shelf').children[+e.key - 1]; if (b) b.click(); }
@@ -610,7 +621,16 @@ button { font-family: inherit; color: inherit; }
   reveal(S.x, S.y);
   const start = () => { paintTerrain(); paintLabels(); renderPanel(); cam.x = (S.x + .5) * CS; cam.y = (S.y + .5) * CS; requestAnimationFrame(loop); };
   (document.fonts && document.fonts.load ? Promise.all([document.fonts.load(`${CS}px "Zen Antique"`), document.fonts.load(`16px "Shippori Mincho"`)]).catch(() => {}) : Promise.resolve()).then(start);
-  if (isNew) card(`<h1>ポーション探検記</h1><div class="orn"></div><p>古い地図の上を、<b>ポーション</b>で旅をする。<br>素材を釜に入れると、飲んだときに進む<b>道すじ</b>が決まる。<br><b>🍒北　💧南　🪨西　🪶東</b>へ1マスずつ。混ぜた順に道がのびる。<br>森や水や岩にぶつかると、そこで止まる。<br>いきものや素材の群生地、ふしぎな場所に<b>ぴったり降りる</b>と、つかまえたり、採ったり、調べたりできる。<br>北の果てのどこかに、<b>賢者の石</b>が眠っているという。</p><p style="font-size:.78rem;color:#8a6e4a">地図はドラッグで動かせる（ピンチ・ホイールで拡大）。地図のものをタップすると説明が出る。</p><div class="row"><button class="btn main" data-ok>旅に出る</button></div>`);
+  const PRO = [
+    ['📜', '師匠の置き手紙', 'ある朝、アトリエに<b>エルマ師匠</b>の姿はなかった。<br>机の上には、古い地図と短い手紙。<br>「北の果てに眠る<b>賢者の石</b>を探しに行く。お前もいつか来なさい。——エルマ」'],
+    ['⚗️', 'ポーションの旅', 'この土地の錬金術師は、<b>ポーションを飲んで旅をする</b>。<br>釜に素材を入れて飲むと、体がふわりと運ばれていく。<br>でも、どの素材がどこへ運ぶのか、師匠は教えてくれなかった。<br>「素材の声は、自分で確かめるものだよ」'],
+    ['📝', 'まっさらなメモ帳', '旅立つ前に師匠がくれた<b>メモ帳</b>がある。<br>素材を試したら、わかったことを書きとめておこう（右上の📝）。<br>地図の上のものに<b>ぴったり降りる</b>と、いきものをつかまえたり、素材を採ったり、ふしぎな場所を調べたりできる。<br><small style="color:#8a6e4a">地図はドラッグで動かせる（ピンチ・ホイールで拡大）。地図のものをタップすると説明が出る。</small>'],
+  ];
+  function prologue(i = 0) {
+    const [e, h, p] = PRO[i], last = i === PRO.length - 1;
+    card(`${i ? '' : '<h1>ポーション探検記</h1><div class="orn"></div>'}<div class="e emo">${e}</div><h2>${h}</h2><p>${p}</p><div class="row"><button class="btn${last ? ' main' : ''}" id="cNext">${last ? '旅に出る' : 'つづき ▶'}</button></div>`, { cNext: () => { if (!last) prologue(i + 1); else { S.story = 1; save(); } } });
+  }
+  if (isNew || !S.story) prologue();
   window.POTION = { get S() { return S; }, T, N, MARKS, SPOTS, CRES, free, plan, setSlots(a) { slots = a.slice(); renderPanel(); }, drink, get busy() { return busy; } };
 })();
 </script>
