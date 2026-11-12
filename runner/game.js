@@ -426,7 +426,7 @@ function bot() {
 
 // ================= オンラインランキング =================
 // GAMES（claude.ai）の共有データベースに、1人1行（自分のベスト）だけ書く。名前は GAMES のアカウント名
-const NET = (() => {
+const NET_CLAUDE = (() => {
   let db = null, uid = null, ready = null; let why = '';
   const COL = 'uparun';
   async function init() {
@@ -488,6 +488,76 @@ const NET = (() => {
     get uid() { return uid; }, get why() { return why; },
   };
 })();
+// GitHub などで開いたとき：Firebase（無料の Spark プラン）を使う。名前とランキングは claude.ai 版とは別
+// この設定はページに入れて使うもの（秘密ではない）。勝手な書きこみは Firestore のルールで止めている
+const FB_CONFIG = {
+  apiKey: 'AIzaSyBowpy-aRjDW64x-MM2RLXAWYwtKdn0vS8', authDomain: 'shima-games.firebaseapp.com', projectId: 'shima-games',
+  storageBucket: 'shima-games.firebasestorage.app', messagingSenderId: '609168649733', appId: '1:609168649733:web:b120491bd75e31434ab66c',
+};
+const NET_FB = (() => {
+  const V = '10.12.2', BASE = `https://www.gstatic.com/firebasejs/${V}/`;
+  let F = null, A = null, fs = null, auth = null, uid = null, ready = null, why = '';
+  async function init() {
+    try {
+      const [app, au, st] = await Promise.all([import(BASE + 'firebase-app.js'), import(BASE + 'firebase-auth.js'), import(BASE + 'firebase-firestore.js')]);
+      const a = app.getApps().length ? app.getApp() : app.initializeApp(FB_CONFIG);
+      auth = au.getAuth(a); A = au; F = st; fs = st.getFirestore(a);
+      if (!auth.currentUser) await au.signInAnonymously(auth);
+      uid = auth.currentUser.uid; return true;
+    } catch (e) { why = 'F'; console.warn('firebase', e); return false; }
+  }
+  const on = async () => { if (uid) return true; if (!ready) ready = init().then(ok => { if (!ok) ready = null; return ok; }); return ready; };
+  const norm = s => (s || '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+  const hexKey = s => Array.from(new TextEncoder().encode(s), b => b.toString(16).padStart(2, '0')).join('').slice(0, 300);
+  const sane = r => r && typeof r.name === 'string' && Number.isFinite(r.score) && Number.isFinite(r.dist);
+  async function accName() { try { const a = await F.getDoc(F.doc(fs, 'accounts', uid)); if (a.exists()) return a.data().name; } catch (e) {} return ''; }
+  const api = {
+    on,
+    async claim(raw) {
+      if (!(await on())) return { ok: false, why: 'つながっていません' };
+      const name = (raw || '').normalize('NFKC').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10);
+      if (!name) return { ok: false, why: '名前を入れてね' };
+      if (!/^[\p{L}\p{N}_\-・ー〜!?！？☆★♪.]+$/u.test(name.replace(/\s/g, ''))) return { ok: false, why: '使えない記号が入っています' };
+      const key = hexKey(norm(name)), ref = F.doc(fs, 'names', key);
+      const cur = await F.getDoc(ref);
+      if (cur.exists() && cur.data().uid !== uid) return { ok: false, why: 'その名前はもう使われています' };
+      if (!cur.exists()) { try { await F.setDoc(ref, { uid, name }); } catch (e) { return { ok: false, why: 'その名前はもう使われています' }; } }
+      // 前の名前の予約を消す
+      const old = await accName(); if (old && norm(old) !== norm(name)) { try { await F.deleteDoc(F.doc(fs, 'names', hexKey(norm(old)))); } catch (e) {} }
+      await F.setDoc(F.doc(fs, 'accounts', uid), { name });
+      try { localStorage.setItem('games-account', JSON.stringify({ name, key: norm(name), shared: true })); } catch (e) {}
+      return { ok: true, name };
+    },
+    async submit(run) {
+      if (!(await on())) return { ok: false, why: 'off' };
+      let name = await accName();
+      if (!name) { // この端末で名前をつけていたら、空いていれば登録する
+        const local = (window.GAMES_ACC && GAMES_ACC.name()) || '';
+        if (local) { const c = await api.claim(local); if (c.ok) name = c.name; }
+      }
+      if (!name) return { ok: false, why: 'noname' };
+      const ref = F.doc(fs, 'uparun', uid);
+      let prev = null; try { const g = await F.getDoc(ref); if (g.exists()) prev = g.data(); } catch (e) {}
+      const s = Math.floor(run.s), d = Math.floor(run.d), c = Math.floor(run.c);
+      if (!prev || s > prev.score) await F.setDoc(ref, { name, score: s, dist: d, drops: c, skin: String(SV.skin).slice(0, 10), at: Date.now() });
+      else if (prev.name !== name) await F.setDoc(ref, { ...prev, name });
+      const top = Math.max(s, prev ? prev.score : 0);
+      const list = await api.list();
+      const rank = list.findIndex(r => r.id === uid) + 1 || list.filter(r => r.score > top).length + 1;
+      return { ok: true, rank, best: top, newBest: !prev || s > prev.score };
+    },
+    async list() {
+      if (!(await on())) return null;
+      const q = await F.getDocs(F.query(F.collection(fs, 'uparun'), F.orderBy('score', 'desc'), F.limit(50)));
+      return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(sane);
+    },
+    get uid() { return uid; }, get why() { return why; },
+  };
+  return api;
+})();
+// claude.ai の中なら claude.ai の共有データベース、それ以外（GitHub など）は Firebase
+const IN_CLAUDE = /claudeusercontent\.com$|claude\.ai$/.test(location.hostname);
+const NET = IN_CLAUDE ? NET_CLAUDE : NET_FB;
 NET.on();
 
 // ================= 画面の切りかえ =================
@@ -552,7 +622,7 @@ async function renderRank() {
     $('rankList').innerHTML = '<p class="note" style="text-align:center">読みこみ中…</p>';
     let list = null; try { list = await Promise.race([NET.list(), new Promise(r => setTimeout(() => r('timeout'), 12000))]); } catch (e) { list = 'err'; NET.err = String(e && e.message || e); }
     if (rankTab !== 'all') return;
-    if (list === null) { $('rankList').innerHTML = `<p class="note" style="text-align:center">オンラインランキングにつながらなかった（コード ${NET.why || '?'}）<br>claude.ai のゲーム置き場で開いたときだけ使えるよ</p>`; return; }
+    if (list === null) { $('rankList').innerHTML = `<p class="note" style="text-align:center">オンラインランキングにつながらなかった（コード ${NET.why || '?'}）<br>ネットにつながっているか確かめて、もう一度ためしてね</p>`; return; }
     if (!Array.isArray(list)) { $('rankList').innerHTML = `<p class="note" style="text-align:center">読みこめなかった（コード ${list === 'timeout' ? 'T' : 'X'}）。あとでもう一度ためしてね</p>`; return; }
     $('rankList').innerHTML = list.length ? list.map((r, i) => `<div class="${r.id === NET.uid ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}位`}　${esc(r.name)} <small>${Math.floor(r.dist).toLocaleString()}m</small></span><b>${Math.floor(r.score).toLocaleString()}</b></div>`).join('') : '<p class="note" style="text-align:center">まだだれも記録がないよ。一番乗りしよう！</p>';
     return;
