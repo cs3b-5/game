@@ -192,7 +192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 </div>
 <div id="modal" class="modal" hidden></div>
 
-<script src="core.js?v=20261112f"></script>
+<script src="core.js?v=20261112g"></script>
 <script>
 (function () {
 'use strict';
@@ -811,6 +811,7 @@ const RENDER = {
     const sum = F.GACHA.reduce((s, x) => s + x.w, 0);
     sh.innerHTML = head('🔮 真珠ガチャ') + `<p class="note">SR以上の魚を釣ると真珠がもらえます。真珠${F.GACHA_COST}こで1回。</p>
       <div class="two"><button class="big" id="g1">1回（${F.GACHA_COST}こ）</button><button class="big" id="g10">10回（${F.GACHA_COST * 10}こ）</button></div>
+      <button class="big gold" id="gAll" style="width:100%;margin-top:8px"></button>
       <div id="gout"></div>
       <table class="odds">${F.GACHA.map(g => `<tr><td><span style="color:${F.RAR[g.r].c}">●</span> ${esc(g.nm)}</td><td>${(g.w / sum * 100).toFixed(0)}%</td></tr>`).join('')}</table>
       <p class="note">お守り：${S.charm}こ（運+${S.charm}）　帽子：${S.hat}こ（値段+${S.hat * 10}%）</p>`;
@@ -819,13 +820,18 @@ const RENDER = {
       if (!res.length) return;
       const top = res.reduce((a, g) => F.RORDER.indexOf(g.r) > F.RORDER.indexOf(a.r) ? g : a, res[0]);
       if (F.RORDER.indexOf(top.r) >= 3) SND.prize(); else SND.buy();
-      sh.querySelector('#gout').innerHTML = `<div class="gres">${res.map(g => `<div style="--rc:${F.RAR[g.r].c}">${esc(g.nm)}</div>`).join('')}</div>`;
+      // たくさん引いたときは、同じものをまとめて「×数」で出す
+      const grp = []; for (const g of res) { const e = grp.find(x => x.g.nm === g.nm); if (e) e.n++; else grp.push({ g, n: 1 }); }
+      grp.sort((a, b) => F.RORDER.indexOf(b.g.r) - F.RORDER.indexOf(a.g.r));
+      sh.querySelector('#gout').innerHTML = (res.length > 10 ? `<p class="note" style="margin:8px 0 0">${res.length}回 引きました</p>` : '') + `<div class="gres">${(res.length > 10 ? grp : res.map(g => ({ g, n: 1 }))).map(({ g, n }) => `<div style="--rc:${F.RAR[g.r].c}">${esc(g.nm)}${n > 1 ? ` <b style="color:var(--gold)">×${n}</b>` : ''}</div>`).join('')}</div>`;
       if (F.RORDER.indexOf(top.r) >= 3) { const r = cv.getBoundingClientRect(); sparkle(W / 2, H / 2, 40, F.RAR[top.r].c); }
       save(); hud(); refresh();
     };
     sh.querySelector('#g1').onclick = () => go(1);
     sh.querySelector('#g10').onclick = () => go(10);
-    refresh = () => { sh.querySelector('#g1').disabled = S.pearls < F.GACHA_COST; sh.querySelector('#g10').disabled = S.pearls < F.GACHA_COST * 10; const n = sh.querySelectorAll('.note')[1]; if (n) n.textContent = `お守り：${S.charm}こ（運+${S.charm}）　帽子：${S.hat}こ（値段+${S.hat * 10}%）`; };
+    sh.querySelector('#gAll').onclick = () => go(Math.floor(S.pearls / F.GACHA_COST));
+    refresh = () => { sh.querySelector('#g1').disabled = S.pearls < F.GACHA_COST; sh.querySelector('#g10').disabled = S.pearls < F.GACHA_COST * 10;
+      { const n = Math.floor(S.pearls / F.GACHA_COST), b = sh.querySelector('#gAll'); b.disabled = n < 1; b.textContent = n >= 1 ? `ぜんぶ引く（${fmt(n)}回・真珠${fmt(n * F.GACHA_COST)}こ）` : 'ぜんぶ引く'; } const n = sh.querySelectorAll('.note')[1]; if (n) n.textContent = `お守り：${S.charm}こ（運+${S.charm}）　帽子：${S.hat}こ（値段+${S.hat * 10}%）`; };
     refresh();
   },
   omikuji(sh) {
@@ -974,7 +980,8 @@ const WLABEL = ['💰×20', '真珠5', 'FEVER', '💰×80', '運+10', 'はずれ
 function wheelModal() {
   if (!S.chestN) return;
   showModal(`<h3>🎁 宝箱ルーレット</h3><p class="note">のこり <b id="wn">${S.chestN}</b> 回</p><div class="wheelwrap"><canvas id="wheelCv"></canvas></div><p id="wres" style="min-height:1.6em;font-size:1.05rem"></p>
-    <div class="two"><button class="big ghost" data-close>あとで</button><button class="big gold" id="spin">まわす</button></div>`, card => {
+    <div class="two"><button class="big ghost" data-close>あとで</button><button class="big gold" id="spin">まわす</button></div>
+    <button class="big" id="spinAll" style="width:100%;margin-top:8px"${S.chestN >= 2 ? '' : ' hidden'}>ぜんぶまわす（${S.chestN}回）</button>`, card => {
       const c2 = card.querySelector('#wheelCv'); c2.width = 520; c2.height = 520;
       const k = c2.getContext('2d'), sum = F.WHEEL.reduce((s, x) => s + x.w, 0);
       let ang = 0, spinning = false;
@@ -993,7 +1000,7 @@ function wheelModal() {
       draw();
       card.querySelector('#spin').onclick = () => {
         if (spinning || !S.chestN) return; spinning = true; modal.dataset.lock = 1;
-        card.querySelector('#spin').disabled = true; card.querySelector('[data-close]').disabled = true;
+        card.querySelector('#spin').disabled = true; card.querySelector('[data-close]').disabled = true; card.querySelector('#spinAll').disabled = true;
         S.chestN--; card.querySelector('#wn').textContent = S.chestN;
         const idx = F.spinWheel(Math.random), [s, e] = segs[idx];
         const target = -(s + (e - s) * (.2 + Math.random() * .6));
@@ -1013,6 +1020,40 @@ function wheelModal() {
           spinning = false; delete modal.dataset.lock; save(); hud();
           card.querySelector('[data-close]').disabled = false; card.querySelector('[data-close]').textContent = 'とじる';
           card.querySelector('#spin').disabled = !S.chestN; card.querySelector('#spin').textContent = S.chestN ? 'もう1回' : 'おしまい';
+          const sa = card.querySelector('#spinAll'); sa.disabled = false; sa.hidden = S.chestN < 2; sa.textContent = `ぜんぶまわす（${S.chestN}回）`;
+        };
+        anim();
+      };
+      // ぜんぶまわす：結果は先に決めて、ルーレットは1回だけ速くまわして見せる
+      card.querySelector('#spinAll').onclick = () => {
+        if (spinning || S.chestN < 1) return; spinning = true; modal.dataset.lock = 1;
+        for (const b of card.querySelectorAll('button')) b.disabled = true;
+        const R = F.spinAll(S, Math.random); card.querySelector('#wn').textContent = S.chestN;
+        const show = R.jack ? F.WHEEL.findIndex(w => w.k === 'jackpot') : R.cnt.indexOf(Math.max(...R.cnt));
+        const [s0, e0] = segs[show], target = -(s0 + (e0 - s0) * .5), start = ang % (Math.PI * 2), end = target - Math.PI * 2 * 4;
+        const t0 = performance.now(), D = 1600; let lastTick = 0;
+        const anim = () => {
+          const p = Math.min(1, (performance.now() - t0) / D), q = 1 - Math.pow(1 - p, 3);
+          ang = start + (end - start) * q; draw();
+          const tk = Math.floor(-ang / .45); if (tk !== lastTick) { lastTick = tk; SND.tick(); }
+          if (p < 1) return requestAnimationFrame(anim);
+          const line = [];
+          line.push(`<b>${R.n}回 まわしました</b>`);
+          if (R.jack) line.push(`<b style="color:#ff4fa0;font-size:1.2rem">🎉 大当たり ×${R.jack} 🎉</b>`);
+          if (R.coins) line.push(`<b style="color:var(--gold)">+${fmt(R.coins)} コイン</b>`);
+          if (R.pearls) line.push(`真珠 +${fmt(R.pearls)}`);
+          if (R.feverS) line.push(`<b style="color:#ff5fb8">FEVER ${fmtT(R.feverS)}</b>`);
+          if (R.luckS) line.push(`<span style="color:#4ad66a">運+10（${fmtT(R.luckS)}）</span>`);
+          if (R.jack) line.push(`<span style="color:#4ad66a">運+15（${fmtT(R.jack * 300)}）</span>`);
+          if (R.charm) line.push(`<b style="color:#8affa0">お守りのかけら ×${R.charm}（ずっと運+${R.charm}）！</b>`);
+          if (R.none) line.push(`<span style="opacity:.7">はずれ ×${R.none}</span>`);
+          card.querySelector('#wres').innerHTML = line.join('<br>');
+          SND.prize(); if (R.feverS) feverBanner();
+          if (R.jack) { sparkle(W / 2, H / 2, 160, '#ff4fa0'); sparkle(W / 2, H / 2, 120, '#ffd040'); setTimeout(() => SND.prize(), 250); }
+          spinning = false; delete modal.dataset.lock; save(); hud();
+          const cl = card.querySelector('[data-close]'); cl.disabled = false; cl.textContent = 'とじる';
+          const sp = card.querySelector('#spin'); sp.disabled = true; sp.textContent = 'おしまい';
+          card.querySelector('#spinAll').hidden = true;
         };
         anim();
       };

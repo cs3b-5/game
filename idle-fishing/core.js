@@ -200,7 +200,12 @@ function dreamProgress(S, v) {
   S.bestDepth = Math.max(S.bestDepth || 0, S.depth);
   return n;
 }
-function addBuff(S, k, v, secs) { S.buffs = S.buffs.filter(b => b.until > S.t); S.buffs.push({ k, v, until: S.t + secs }); }
+// 同じ効果がもう出ているときは、重ねずに時間をのばす（フィーバーがむだにならない・まとめ引きで強くなりすぎない）
+function addBuff(S, k, v, secs) {
+  S.buffs = S.buffs.filter(b => b.until > S.t);
+  const same = S.buffs.find(b => b.k === k && b.v === v);
+  if (same) same.until += secs; else S.buffs.push({ k, v, until: S.t + secs });
+}
 
 // ---------------- 強化を買う ----------------
 function canBuy(S, k) { const u = UPS.find(x => x.k === k); return S.lv[k] < u.max && S.coins >= upCost(k, S.lv[k], S); }
@@ -244,6 +249,28 @@ function applyPrize(S, p, rng = Math.random) {
   if (p.k === 'fever') { addBuff(S, 'fever', 1, p.v); return p.v; }
   if (p.k === 'luck') { addBuff(S, 'luck', p.v, 180); return p.v; }
   return 0;
+}
+// 宝箱を全部まとめて開ける。フィーバーと運アップは重ねずに、時間を足してひとつにする
+function spinAll(S, rng = Math.random) {
+  const R = { n: 0, coins: 0, pearls: 0, feverS: 0, luckS: 0, jack: 0, charm: 0, none: 0, cnt: WHEEL.map(() => 0) };
+  let jackLuckS = 0;
+  // 大当たりのフィーバーは先に数えて、コインはフィーバー中の値段で計算する
+  const idxs = [];
+  while (S.chestN > 0) { S.chestN--; const i = spinWheel(rng); idxs.push(i); R.cnt[i]++; R.n++; }
+  for (const i of idxs) { const p = WHEEL[i]; if (p.k === 'jackpot') R.feverS += 60; if (p.k === 'fever') R.feverS += p.v; }
+  if (R.feverS) addBuff(S, 'fever', 1, R.feverS);
+  for (const i of idxs) {
+    const p = WHEEL[i];
+    if (p.k === 'coin' || p.k === 'jackpot') { const v = Math.round(p.v * avgValue(S)); S.coins += v; S.stats.total += v; R.coins += v; }
+    if (p.k === 'pearl') { S.pearls += p.v; R.pearls += p.v; }
+    if (p.k === 'luck') R.luckS += 180;
+    if (p.k === 'none') R.none++;
+    if (p.k === 'jackpot') { R.jack++; jackLuckS += 300; S.pearls += 30; R.pearls += 30; if (rng() < .25) { S.charm++; R.charm++; } S.stats.jackpot = (S.stats.jackpot || 0) + 1; }
+  }
+  if (R.luckS) addBuff(S, 'luck', 10, R.luckS);
+  if (jackLuckS) addBuff(S, 'luck', 15, jackLuckS);
+  S.best = Math.max(S.best, S.coins);
+  return R;
 }
 
 // ---------------- 真珠ガチャ ----------------
@@ -331,6 +358,6 @@ function offline(S, secs, rng = Math.random) {
 }
 
 const API = { NFISH, ULT_CHANCE, DREAM, pondMult, depthNeed, BOSSES, bossOf, bossWin, goldChance, goldCount, nextPond, travel, GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
-  makeRun, canBuy, buy, WHEEL, spinWheel, applyPrize, GACHA, GACHA_COST, gacha, OMIKUJI, drawOmikuji, omikujiNow, canMove, movePond, offline, fever, addBuff, today, CAST, REEL, WINDOW };
+  makeRun, canBuy, buy, WHEEL, spinWheel, spinAll, applyPrize, GACHA, GACHA_COST, gacha, OMIKUJI, drawOmikuji, omikujiNow, canMove, movePond, offline, fever, addBuff, today, CAST, REEL, WINDOW };
 if (typeof module !== 'undefined') module.exports = API; else root.Fish = API;
 })(this);
