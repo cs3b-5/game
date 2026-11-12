@@ -77,8 +77,9 @@ body.neon .btn { box-shadow: 0 0 10px rgba(58,240,255,.35); }
 #bar { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 4; display: flex; gap: 8px; justify-content: center; padding: 8px 0; }
 /* 時間の表 */
 .tl { overflow-x: auto; }
-.tl table { border-collapse: collapse; width: 100%; font-size: .74rem; }
-.tl td, .tl th { word-break: keep-all; }
+.tl table { border-collapse: collapse; width: 100%; font-size: .72rem; table-layout: fixed; }
+.tl td, .tl th { word-break: break-all; }
+.tl th:first-child, .tl td.nm { width: 26%; }
 .tl th, .tl td { border: 1px solid var(--line); padding: 5px 4px; text-align: center; vertical-align: middle; }
 .tl th { background: var(--bg2); font-weight: 700; }
 .tl td.nm { text-align: left; white-space: nowrap; }
@@ -115,6 +116,32 @@ body.neon .btn { box-shadow: 0 0 10px rgba(58,240,255,.35); }
 input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px; border: 2px solid var(--line); background: var(--card); color: var(--ink); }
 .help { font-size: .88rem; line-height: 1.75; }
 .help h4 { margin: 10px 0 2px; color: var(--acc); }
+/* みんなで遊ぶ */
+.mpwrap { max-width: 760px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 12px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
+.mphead { display: flex; gap: 8px; align-items: center; position: sticky; top: 0; z-index: 5; background: var(--bg2); margin: -12px -12px 0; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; border-bottom: 1px solid var(--line); }
+.mphead .t { flex: 1; min-width: 0; } .mphead .t b { display: block; font-family: var(--head); } .mphead .t small { color: var(--mute); font-size: .75rem; }
+.mphead .left { font-weight: 900; color: var(--acc2); white-space: nowrap; }
+.who-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pp { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 3px 10px; font-size: .78rem; white-space: nowrap; }
+.pp b { color: var(--acc); margin-left: 3px; } .pp.me { border-color: var(--acc); } .pp.off { opacity: .4; }
+.row2 { display: flex; gap: 8px; } .row2 .btn { flex: 1; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-top: 8px; }
+.rolecard { display: flex; gap: 12px; align-items: center; border-width: 2px; }
+.rolecard .em { font-size: 3rem; }
+.rolecard.culprit { border-color: var(--acc2); background: linear-gradient(135deg, rgba(255,90,106,.14), var(--card)); }
+.rolecard.detective { border-color: var(--acc); }
+.rolecard .role { margin: 4px 0; }
+.secret { border-style: dashed; }
+.cards { display: grid; gap: 6px; margin-top: 8px; max-height: 50vh; overflow-y: auto; }
+.chat .log { max-height: 34vh; min-height: 120px; overflow-y: auto; display: grid; gap: 5px; align-content: start; font-size: .86rem; }
+.chat .m { background: var(--bg2); border-radius: 10px; padding: 5px 9px; line-height: 1.5; }
+.chat .m span { display: block; font-size: .7rem; color: var(--mute); }
+.chat .m.mine { border: 1px solid var(--acc); }
+.chat .sys { font-size: .78rem; color: var(--acc2); text-align: center; padding: 2px 4px; }
+.quick { display: flex; gap: 5px; overflow-x: auto; margin: 8px 0 6px; } .quick .btn { flex: none; padding: 5px 9px; font-size: .76rem; border-width: 1px; }
+.say-row { display: flex; gap: 6px; } .say-row input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 9px 10px; border-radius: 10px; border: 2px solid var(--line); background: var(--card); color: var(--ink); }
+.result.win { border: 2px solid var(--ok); } .result.lose { border: 2px solid var(--bad); }
+.votes { display: grid; gap: 4px; margin: 8px 0; font-size: .86rem; } .votes div { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; } .votes b { color: var(--acc); } .votes small { color: var(--mute); }
 </style>
 </head>
 <body>
@@ -124,6 +151,9 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
   <div class="logo"><span class="mag">🔍</span><h1>ナゾトキ探偵 ∞</h1><p>毎回ちがう事件。犯人はひとりだけ。</p></div>
   <div class="themes"><span>🏰 洋館</span><span>🏫 学園</span><span>🌳 どうぶつ村</span><span>🌃 ネオン街</span></div>
   <button class="btn main" id="bCont" hidden>▶ つづきから</button>
+  <button class="btn main red" id="bMulti">👥 みんなで遊ぶ（犯人はだれだ？）</button>
+  <div class="hint" style="text-align:center;margin-top:-6px">オンラインで最大8人。だれか1人がこっそり犯人。CPUも入れられる</div>
+  <div style="text-align:center;font-weight:700;color:var(--mute)">― ひとりで遊ぶ ―</div>
   <div class="diffs">
     <button class="diff" data-d="easy"><b>かんたん</b><small>容疑者4人<br>場所4・時間3</small></button>
     <button class="diff" data-d="normal"><b>ふつう</b><small>容疑者5人<br>場所5・時間3</small></button>
@@ -155,10 +185,30 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     <button data-tab="accuse"><span class="e">☝️</span>指名</button>
   </nav>
 </div>
+<!-- みんなで遊ぶ -->
+<div id="mp" hidden>
+  <div id="mpTop" class="mpwrap">
+    <button class="btn" id="mpBack" style="justify-self:start">← もどる</button>
+    <div class="logo"><span class="mag">👥</span><h1 style="font-size:1.8rem">犯人はだれだ？</h1><p>プレイヤーの中に、犯人がひとり。</p></div>
+    <div class="panel"><div class="hint">名前</div><input id="mpName" class="num" style="width:100%" maxlength="10" placeholder="なまえ"></div>
+    <div class="panel" style="display:grid;gap:8px">
+      <button class="btn main red" id="mpHost">部屋をつくる</button>
+      <div style="display:flex;gap:8px"><input id="mpCode" class="num" style="flex:1" inputmode="numeric" maxlength="4" placeholder="部屋番号（4けた）"><button class="btn main" id="mpJoin">入る</button></div>
+      <button class="btn" id="mpLocal">🤖 CPUと練習（通信なし）</button>
+      <div class="hint" id="mpMsg" style="text-align:center"></div>
+    </div>
+    <div class="panel hint"><b>あそびかた</b><br>
+      ① みんなが容疑者になる。役わりカードで、自分が<b>探偵</b>か<b>犯人</b>かがわかる（犯人は1人）。<br>
+      ② 証言は自動で本当のことになる。<b>犯人だけ</b>、事件の時間にどこにいたかウソをつく。<br>
+      ③ 「だれが いつ どこに」の表と、現場の証拠、<b>自分だけのヒント</b>をもとに話し合う。食いちがう証言は「つきつける」。<br>
+      ④ 投票で一番票を集めた人が捕まる。犯人なら探偵の勝ち、ちがえば犯人の逃げきり！</div>
+  </div>
+  <div id="mpRoom" class="mpwrap" hidden></div>
+</div>
 <div class="modal" id="modal" hidden><div class="box" id="mbox"></div></div>
 <div class="toast" id="toast" style="opacity:0"></div>
 
-<script src="gen.js?v=1"></script>
+<script src="gen.js?v=3"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -290,12 +340,13 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     // だれが・いつ・どこにいたか（集めた証言から）
     const cell = {}; const add = (who, t, p, src) => { const k = who + '_' + t; (cell[k] = cell[k] || []).push({ p, src }); };
     for (const x of cards) { const f = MYS.factsOf(x); f.facts.forEach(([w, t, p]) => add(w, t, p, x.id)); }
+    const bad = MYS.conflictCells(cards);
     let h = `<div class="tl panel" style="padding:8px"><table><tr><th>だれが いつ どこに？</th>${C.times.map((t, i) => `<th class="${i === C.crime.t ? 'crime' : ''}">${esc(t)}${i === C.crime.t ? '⚠' : ''}</th>`).join('')}</tr>`;
     C.suspects.forEach((s, i) => {
       h += `<tr><td class="nm">${s.emo} ${esc(s.nm.replace(/^.*の/, ''))}</td>`;
       C.times.forEach((_, t) => {
-        const L = cell[i + '_' + t] || [], ps = [...new Set(L.map(x => x.p))];
-        h += `<td class="${t === C.crime.t ? 'crime' : ''}">${ps.map(p => `<span class="pl ${ps.length > 1 ? 'bad' : ''}">${esc(C.places[p])}</span>`).join('') || '<span style="opacity:.3">？</span>'}</td>`;
+        const L = cell[i + '_' + t] || [], ps = [...new Set(L.map(x => x.p))], b = bad.has(i + '_' + t);
+        h += `<td class="${t === C.crime.t ? 'crime' : ''}">${ps.map(p => `<span class="pl ${b ? 'bad' : ''}">${esc(C.places[p])}</span>`).join('') || '<span style="opacity:.3">？</span>'}</td>`;
       });
       h += '</tr>';
     });
@@ -416,8 +467,11 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     win() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, .18, 'triangle', .08, i * .12)); },
   };
   window.NAZO = { get C() { return C; }, get G() { return G; }, start, point };
+  window.NAZO_HOME = () => { $('mp').hidden = true; home(); };
+  $('bMulti').onclick = () => { A(); $('home').hidden = true; $('case').hidden = true; $('mp').hidden = false; window.NAZO_MP.open(); };
   home();
 })();
 </script>
+<script src="mp.js?v=3"></script>
 </body>
 </html>

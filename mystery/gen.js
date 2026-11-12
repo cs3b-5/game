@@ -66,7 +66,7 @@
   function factsOf(st) {
     if (st.kind === 'clue') return { facts: [], only: null };
     const f = [[st.by, st.t, st.p]]; (st.who || []).forEach(w => f.push([w, st.t, st.p]));
-    const only = st.kind === 'alone' ? { t: st.t, p: st.p, set: [st.by] } : null;
+    const only = st.kind === 'alone' ? { t: st.t, p: st.p, set: [st.by] } : st.kind === 'with' ? { t: st.t, p: st.p, set: [st.by, ...st.who] } : null;
     return { facts: f, only };
   }
   // いくつかの証言がたがいに食いちがうか
@@ -83,6 +83,14 @@
     if (contradicts(others, [[x, C.crime.t, C.crime.p]])) return false;
     for (const cl of C.clues) if (C.suspects[x].attr[cl.k] !== cl.v) return false;
     return true;
+  }
+  // 表で赤くするマス（「だれ_時間」）：同じ人が2か所にいる／「ほかにだれもいない」のにいる
+  function conflictCells(sts) {
+    const bad = new Set(), at = {}, onlys = [];
+    for (const st of sts) { const { facts, only } = factsOf(st); facts.forEach(([w, t, p]) => { const k = w + '_' + t; (at[k] = at[k] || new Set()).add(p); }); if (only) onlys.push({ ...only, by: st.by }); }
+    for (const k in at) if (at[k].size > 1) bad.add(k);
+    for (const o of onlys) for (const k in at) { const [w, t] = k.split('_').map(Number); if (t === o.t && at[k].has(o.p) && !o.set.includes(w)) { bad.add(k); bad.add(o.by + '_' + t); } }
+    return bad;
   }
   const candidates = C => C.suspects.map((_, i) => i).filter(x => consistentIf(C, x));
 
@@ -177,6 +185,7 @@
     if (st.kind === 'self') return `${tm}は、${pl}にいました。`;
     if (st.kind === 'alone') return `${tm}は${pl}にいました。ほかには、だれもいませんでした。`;
     if (st.kind === 'seen') return `${tm}は${pl}にいました。${C.suspects[st.who[0]].nm}もいっしょでしたよ。`;
+    if (st.kind === 'with') return `${tm}は${pl}にいました。いっしょにいたのは${st.who.map(w => C.suspects[w].nm).join('と')}だけです。`;
     void T; return '';
   }
   // 2つのカードが食いちがうか（つきつける）
@@ -197,6 +206,57 @@
     return out;
   }
 
-  const API = { THEMES, DIFF, generate, candidates, consistentIf, contradicts, pairContradicts, textOf, explain, factsOf, rngOf };
+  // ================= みんなで遊ぶ（プレイヤーの中に犯人） =================
+  // n 人ぶんの事件。犯人以外の証言は本当の居場所から自動で作り、犯人は事件の時間だけウソの場所を選ぶ
+  function generateMP(seed, n, diff = 'normal') {
+    const D = DIFF[diff], r = rngOf(seed * 31 + n * 977 + 5), ri = k => Math.floor(r() * k), pick = a => a[ri(a.length)];
+    const T = THEMES[ri(THEMES.length)], m = Math.max(3, Math.min(D.m, n)), k = D.k;
+    const people = shuffle(T.people, r).slice(0, n), places = shuffle(T.places, r).slice(0, m), times = T.times.slice(0, k);
+    const attr = people.map(() => [0, 0, 0]);
+    for (let a = 0; a < 3; a++) { const vals = shuffle([0, 1, 2, 3], r).slice(0, n <= 4 ? 2 : 3); const col = people.map((_, i) => vals[i % vals.length]); shuffle(col, r).forEach((v, i) => attr[i][a] = v); }
+    const suspects = people.map(([nm, emo], i) => ({ id: i, nm, emo, attr: attr[i], line: pick(T.lines) }));
+    const c = ri(n), tc = 1 + ri(k - 1), Lc = ri(m);
+    const pos = Array.from({ length: n }, () => Array.from({ length: k }, () => ri(m)));
+    // 事件の時間：犯人は現場にひとり。ほかの場所にはなるべくだれかがいるように
+    pos[c][tc] = Lc;
+    const inn = shuffle([...Array(n).keys()].filter(i => i !== c), r), others = shuffle([...Array(m).keys()].filter(p => p !== Lc), r);
+    inn.forEach((i, j) => pos[i][tc] = j < others.length ? others[j] : others[ri(others.length)]);
+    // 探偵ひとりひとりに、こっそりヒント（犯人の別の特徴。本当のこと）
+    const hints = {};
+    inn.forEach(i => { const a = ri(3); hints[i] = { k: a, v: attr[c][a], text: `犯人の${T.attrs[a].nm}は「${T.attrs[a].v[attr[c][a]]}」だった気がする` }; });
+    return { seed, mp: true, diff, theme: T.id, suspects, places, times, crime: { p: Lc, t: tc, text: pick(T.crimes) }, culprit: c, truth: pos, clue: null, hints, flavor: places.map(() => pick(T.flavor)) };
+  }
+  // 証言を作る（犯人の事件の時間は lieQ にひとりでいた、とウソをつく）
+  function statementsMP(C, lieQ) {
+    const out = [], n = C.suspects.length;
+    for (let i = 0; i < n; i++) for (let t = 0; t < C.times.length; t++) {
+      if (i === C.culprit && t === C.crime.t) { out.push({ id: 's' + out.length, by: i, kind: 'alone', t, p: lieQ, lie: true }); continue; }
+      const p = C.truth[i][t], mates = [...Array(n).keys()].filter(j => j !== i && C.truth[j][t] === p && !(j === C.culprit && t === C.crime.t));
+      out.push(mates.length ? { id: 's' + out.length, by: i, kind: 'with', who: mates, t, p } : { id: 's' + out.length, by: i, kind: 'alone', t, p });
+    }
+    return out;
+  }
+  // 現場の証拠（みんなに見える）は、犯人のウソが決まってから選ぶ。
+  // ウソで食いちがった相手も当てはまる特徴にして、証拠だけでは決まらないようにする（話し合いが大事）
+  function clueMP(C, lieQ) {
+    const T = THEMES.find(t => t.id === C.theme), c = C.culprit, tc = C.crime.t;
+    const rivals = C.suspects.map((_, i) => i).filter(i => i !== c && C.truth[i][tc] === lieQ);
+    const cnt = a => C.suspects.filter(s => s.attr[a] === C.suspects[c].attr[a]).length;
+    let opts = [0, 1, 2].filter(a => rivals.length && rivals.every(i => C.suspects[i].attr[a] === C.suspects[c].attr[a]));
+    if (!opts.length) { const best = Math.max(cnt(0), cnt(1), cnt(2)); opts = [0, 1, 2].filter(a => cnt(a) === best); }
+    const a = opts[(C.seed + lieQ) % opts.length], v = C.suspects[c].attr[a];
+    return { k: a, v, text: T.attrs[a].clue(T.attrs[a].v[v]) };
+  }
+  // 公開されている証言・証拠（＋自分だけのヒント）から、犯人でありうる人
+  function candidatesMP(C, sts, hint) {
+    return C.suspects.map((_, i) => i).filter(x => {
+      if (contradicts(sts.filter(s => s.by !== x), [[x, C.crime.t, C.crime.p]])) return false;
+      if (C.suspects[x].attr[C.clue.k] !== C.clue.v) return false;
+      if (hint && C.suspects[x].attr[hint.k] !== hint.v) return false;
+      return true;
+    });
+  }
+
+  const API = { conflictCells, generateMP, statementsMP, candidatesMP, clueMP, THEMES, DIFF, generate, candidates, consistentIf, contradicts, pairContradicts, textOf, explain, factsOf, rngOf };
   if (typeof module !== 'undefined') module.exports = API; else root.MYS = API;
 })(this);
