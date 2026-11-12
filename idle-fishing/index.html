@@ -192,7 +192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 </div>
 <div id="modal" class="modal" hidden></div>
 
-<script src="core.js?v=20261112d"></script>
+<script src="core.js?v=20261112e"></script>
 <script>
 (function () {
 'use strict';
@@ -794,9 +794,17 @@ const RENDER = {
       fs.forEach(f => { const z = S.zukan[f.id], gd = S.gold[f.id]; h += `<button data-f="${f.id}" class="${z ? '' : 'no'}${gd ? ' gold' : ''}" style="--rc:${z ? F.RAR[f.r].c : '#2a3a50'}">${gd ? '<span class="cr">👑</span>' : ''}<img alt="" src="${fishIcon(f, !!z)}"><span>${z ? esc(f.nm) : '？？？'}</span></button>`; });
       h += '</div>';
     });
+    // 池のぬし
+    if (S.cleared || Object.keys(S.trophy).length) {
+      const nB = Object.keys(S.trophy).length;
+      h += `<div class="zk-head"><span>🐉 池のぬし</span><small>${nB} / ${F.BOSSES.length}</small></div><div class="zk">`;
+      F.BOSSES.forEach((B, i) => { const won = S.trophy[i], bf = bossFish(i); h += `<button data-b="${i}" class="${won ? 'gold' : 'no'}" style="--rc:${won ? '#b07aff' : '#2a3a50'}">${won ? '<span class="cr">🏆</span>' : ''}<img alt="" src="${fishIcon(bf, !!won)}"><span>${won ? esc(B.nm.replace(/^.*「|」$/g, '')) : '？？？'}</span></button>`; });
+      h += '</div>';
+    }
     h += `<p class="note">運が高いほど、レアな魚が出やすくなります。<br>出やすさ（今の運 ${F.luck(S)}）：${(() => { const w = F.weights(S), s = w.reduce((a, b) => a + b, 0); return F.RORDER.filter(r => r !== 'ULT').map((r, i) => `${F.RAR[r].nm} ${(w[i] / s * 100).toFixed(w[i] / s < .01 ? 2 : 1)}%`).join('・'); })()}<br><span style="color:#ff6a6a">究極：1釣りごとに 1/${fmt(1 / F.ULT_CHANCE)}（運や強化では上がらない。その池でしか出ない）</span></p>`;
     sh.innerHTML = h;
     sh.querySelectorAll('[data-f]').forEach(b => b.onclick = () => fishModal(F.FISH.find(f => f.id === +b.dataset.f)));
+    sh.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bossInfo(+b.dataset.b));
     refresh = null;
   },
   gacha(sh) {
@@ -911,8 +919,16 @@ function fishModal(f) {
 }
 // ---- ぬしとの勝負 ----
 $('#bossBtn').onclick = () => { audio(); bossModal(); };
+// ぬしの絵（図鑑と勝負で同じもの）
+function bossFish(i) { const B = F.BOSSES[i]; return { id: 'boss' + i, shape: B.shape, c1: B.c1, c2: B.c2, pat: 'shine', r: 'GOD', nm: B.nm }; }
+function bossInfo(i) {
+  const B = F.BOSSES[i], n = (S.bossN || {})[i] || (S.trophy[i] ? 1 : 0), P = F.PONDS[i];
+  if (!S.trophy[i]) { showModal(`<h3>？？？</h3><p>まだ釣り上げていない「${esc(P.nm)}」のぬし。<br>その池で釣っていると、ときどき現れる。</p><button class="big ghost" data-close>とじる</button>`); return; }
+  showModal(`<span class="rar" style="background:#b07aff">ぬし</span> <span class="rar" style="background:#ffd040;color:#3a2200">🏆</span><canvas class="fishbig"></canvas><h3>${esc(B.nm)}</h3>
+    <p>${esc(P.nm)}のぬし<br>釣り上げた回数 ${n}回<br><span style="color:#8affa0">ごほうび：ずっと運+2</span></p><button class="big ghost" data-close>とじる</button>`, card => { card.style.setProperty('--rc', '#b07aff'); bigFishCanvas(card, bossFish(i)); }, 'glow');
+}
 function bossModal() {
-  const B = F.bossOf(S), fish = { shape: B.shape, c1: B.c1, c2: B.c2, pat: 'shine', r: 'GOD', nm: B.nm };
+  const B = F.bossOf(S), fish = bossFish(F.BOSSES.indexOf(B));
   S.bossReady = false;
   let hit = 0, miss = 0, pos = 0, dir = 1, zone = .35, over = false, t0 = performance.now();
   const lives = 3;
@@ -933,7 +949,7 @@ function bossModal() {
     const end = win => {
       over = true; delete modal.dataset.lock; S.bossT = 200 + Math.random() * 160;
       const btn = card.querySelector('#bReel'), give = card.querySelector('#bGive');
-      if (win) { const r = F.bossWin(S); SND.prize(); sparkle(W / 2, H / 2, 90, '#d0a0ff'); card.querySelector('#bres').innerHTML = `<span style="color:#ffd040">釣り上げた！ +${fmt(r.v)}コイン・真珠+${r.pearls}${r.first ? '<br>🏆 はじめての討伐！ ずっと運+2' : ''}</span>`; }
+      if (win) { const r = F.bossWin(S); markDot('zukan'); SND.prize(); sparkle(W / 2, H / 2, 90, '#d0a0ff'); card.querySelector('#bres').innerHTML = `<span style="color:#ffd040">釣り上げた！ +${fmt(r.v)}コイン・真珠+${r.pearls}${r.first ? '<br>🏆 はじめての討伐！ ずっと運+2' : ''}</span>`; }
       else { SND.sad(); card.querySelector('#bres').innerHTML = '<span style="color:#ff8a8a">糸が切れた…またこんど</span>'; }
       btn.hidden = true; give.textContent = 'とじる'; give.className = 'big gold'; give.setAttribute('data-close', ''); save(); hud();
     };

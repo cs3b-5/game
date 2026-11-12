@@ -210,6 +210,7 @@ function buy(S, k) { if (!canBuy(S, k)) return false; S.coins -= upCost(k, S.lv[
 function bossOf(S) { return BOSSES[Math.min(S.pond, BOSSES.length - 1)]; }
 function bossWin(S) {
   const first = !S.trophy[S.pond]; S.trophy[S.pond] = 1; S.bossWin = (S.bossWin || 0) + 1;
+  S.bossN = S.bossN || {}; S.bossN[S.pond] = (S.bossN[S.pond] || 0) + 1;
   const pearls = first ? 50 : 15, v = Math.round(bossOf(S).base * 30 * avgValue(S));
   S.pearls += pearls; S.coins += v; S.stats.total += v; S.best = Math.max(S.best, S.coins); dreamProgress(S, v);
   return { first, pearls, v };
