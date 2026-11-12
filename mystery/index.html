@@ -14,14 +14,15 @@ body.animal { --bg: #fdf4e0; --bg2: #fffaf0; --card: #fffaf0; --ink: #5a3a2a; --
 body.neon { --bg: #070818; --bg2: #0e1028; --card: #121534; --ink: #e8f4ff; --mute: #7a8ab8; --acc: #3af0ff; --acc2: #ff3ad0; --line: rgba(58,240,255,.25); --font: "Zen Maru Gothic", sans-serif; --head: "DotGothic16", monospace; --pat: linear-gradient(rgba(58,240,255,.05) 1px, transparent 1px) 0 0 / 100% 22px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); transition: background-color .4s; }
+body { background: transparent; }
 /* 壁紙（画像があれば使う。なければ色と模様だけ） */
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--wall), var(--pat), var(--bg); background-size: cover, auto, auto; background-position: center; }
-body { --wall: linear-gradient(rgba(10,6,10,.55), rgba(10,6,10,.82)), url(images/bg_home_tall.webp) center / cover; --pat: radial-gradient(ellipse at 50% 0%, rgba(216,168,74,.16), transparent 60%); }
-@media (min-aspect-ratio: 1/1) { body { --wall: linear-gradient(rgba(10,6,10,.55), rgba(10,6,10,.82)), url(images/bg_home_wide.webp) center / cover; } }
-body.mansion { --wall: linear-gradient(rgba(20,10,12,.78), rgba(20,10,12,.9)), url(images/bg_mansion.webp) center / cover; }
-body.school { --wall: linear-gradient(rgba(244,241,230,.86), rgba(244,241,230,.94)), url(images/bg_school.webp) center / cover; }
-body.animal { --wall: linear-gradient(rgba(253,244,224,.84), rgba(253,244,224,.93)), url(images/bg_animal.webp) center / cover; }
-body.neon { --wall: linear-gradient(rgba(7,8,24,.78), rgba(7,8,24,.9)), url(images/bg_neon.webp) center / cover; }
+body { --wall: linear-gradient(rgba(10,6,10,.3), rgba(10,6,10,.72)), url(images/bg_home_tall.webp) center / cover; --pat: radial-gradient(ellipse at 50% 0%, rgba(216,168,74,.16), transparent 60%); }
+@media (min-aspect-ratio: 1/1) { body { --wall: linear-gradient(rgba(10,6,10,.3), rgba(10,6,10,.72)), url(images/bg_home_wide.webp) center / cover; } }
+body.mansion { --wall: linear-gradient(rgba(20,10,12,.62), rgba(20,10,12,.86)), url(images/bg_mansion.webp) center / cover; }
+body.school { --wall: linear-gradient(rgba(244,241,230,.78), rgba(244,241,230,.92)), url(images/bg_school.webp) center / cover; }
+body.animal { --wall: linear-gradient(rgba(253,244,224,.76), rgba(253,244,224,.92)), url(images/bg_animal.webp) center / cover; }
+body.neon { --wall: linear-gradient(rgba(7,8,24,.62), rgba(7,8,24,.86)), url(images/bg_neon.webp) center / cover; }
 /* 立ち絵（なければ絵文字） */
 .por { display: inline-grid; place-items: center; overflow: hidden; vertical-align: middle; }
 .por img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 8%; display: block; }
@@ -230,7 +231,7 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
 <div class="toast" id="toast" style="opacity:0"></div>
 
 <script src="../account.js"></script>
-<script src="gen.js?v=4"></script>
+<script src="gen.js?v=5"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
