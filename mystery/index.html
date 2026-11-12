@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ナゾトキ探偵 ∞</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Kosugi+Maru&family=Zen+Maru+Gothic:wght@500;700;900&family=DotGothic16&display=swap">
+<style>
+:root { --bg: #14121c; --bg2: #1e1b2a; --card: #262236; --ink: #f2eefc; --mute: #a39cbc; --acc: #ffcf5a; --acc2: #ff6a8a; --line: rgba(255,255,255,.12); --ok: #5ae07a; --bad: #ff5a6a; --font: "Zen Maru Gothic", sans-serif; --head: "Zen Maru Gothic", sans-serif; --pat: none; color-scheme: dark; }
+/* 世界観ごとの見た目 */
+body.mansion { --bg: #1a0f12; --bg2: #2a181c; --card: #33201f; --ink: #f4e8d8; --mute: #b89c88; --acc: #e0b050; --acc2: #c83a3a; --line: rgba(224,176,80,.25); --font: "Shippori Mincho", serif; --head: "Shippori Mincho", serif; --pat: repeating-linear-gradient(45deg, rgba(224,176,80,.04) 0 10px, transparent 10px 20px); }
+body.school { --bg: #f4f1e6; --bg2: #ffffff; --card: #ffffff; --ink: #2a3040; --mute: #7a8090; --acc: #3a7ad8; --acc2: #e84a5a; --line: rgba(42,48,64,.14); --font: "Kosugi Maru", sans-serif; --head: "Kosugi Maru", sans-serif; --pat: repeating-linear-gradient(0deg, rgba(58,122,216,.10) 0 1px, transparent 1px 28px); color-scheme: light; }
+body.animal { --bg: #fdf4e0; --bg2: #fffaf0; --card: #fffaf0; --ink: #5a3a2a; --mute: #9a7a62; --acc: #f08a3a; --acc2: #e85a7a; --line: rgba(90,58,42,.16); --font: "Zen Maru Gothic", sans-serif; --head: "Zen Maru Gothic", sans-serif; --pat: radial-gradient(circle at 20px 20px, rgba(120,190,90,.13) 6px, transparent 7px) 0 0 / 40px 40px; color-scheme: light; }
+body.neon { --bg: #070818; --bg2: #0e1028; --card: #121534; --ink: #e8f4ff; --mute: #7a8ab8; --acc: #3af0ff; --acc2: #ff3ad0; --line: rgba(58,240,255,.25); --font: "Zen Maru Gothic", sans-serif; --head: "DotGothic16", monospace; --pat: linear-gradient(rgba(58,240,255,.05) 1px, transparent 1px) 0 0 / 100% 22px; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); background-image: var(--pat); color: var(--ink); font-family: var(--font); transition: background-color .4s; }
+[hidden] { display: none !important; }
+button { font-family: inherit; color: inherit; cursor: pointer; }
+.btn { border: 2px solid var(--acc); background: transparent; color: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: .95rem; font-weight: 700; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+.btn.main { background: var(--acc); color: var(--bg); border-color: var(--acc); }
+body.school .btn.main, body.animal .btn.main { color: #fff; }
+.btn.red { border-color: var(--acc2); }
+.btn.red.main { background: var(--acc2); color: #fff; }
+.btn:disabled { opacity: .4; pointer-events: none; }
+.btn:active { transform: translateY(1px); }
+body.neon .btn { box-shadow: 0 0 10px rgba(58,240,255,.35); }
+/* ホーム */
+#home { max-width: 640px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top)) 16px 40px; display: grid; gap: 14px; }
+.logo { text-align: center; padding: 18px 0 4px; }
+.logo .mag { font-size: 3.4rem; display: inline-block; animation: sway 3s ease-in-out infinite; }
+@keyframes sway { 50% { transform: rotate(-12deg) translateY(-4px); } }
+.logo h1 { margin: 6px 0 0; font-family: "Shippori Mincho", serif; font-size: clamp(2rem, 9vw, 2.8rem); letter-spacing: .08em; }
+.logo p { margin: 4px 0 0; color: var(--mute); font-size: .9rem; }
+.diffs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.diff { border: 2px solid var(--line); background: var(--card); border-radius: 14px; padding: 12px 6px; display: grid; gap: 4px; justify-items: center; text-align: center; }
+.diff b { font-size: 1.05rem; }
+.diff small { color: var(--mute); font-size: .72rem; line-height: 1.4; }
+.diff:hover { border-color: var(--acc); }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; text-align: center; font-size: .78rem; color: var(--mute); }
+.stats b { display: block; font-size: 1.2rem; color: var(--ink); }
+.themes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; font-size: .78rem; color: var(--mute); }
+.themes span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+/* 事件 */
+#case { max-width: 760px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+#top { position: sticky; top: 0; z-index: 5; background: var(--bg2); border-bottom: 1px solid var(--line); padding: calc(8px + env(safe-area-inset-top)) 12px 8px; display: flex; gap: 8px; align-items: center; }
+#top .t { flex: 1; min-width: 0; }
+#top .t b { display: block; font-family: var(--head); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#top .t small { color: var(--mute); font-size: .72rem; }
+#hearts { font-size: 1.05rem; letter-spacing: 1px; white-space: nowrap; }
+.ic { border: 1px solid var(--line); background: var(--card); width: 38px; height: 38px; border-radius: 10px; font-size: 1.05rem; flex: none; }
+#banner { margin: 12px; border-radius: 16px; padding: 14px 16px; background: var(--card); border: 2px solid var(--acc); display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+#banner .big { font-size: 2.6rem; }
+#banner h2 { margin: 0; font-family: var(--head); font-size: 1.1rem; line-height: 1.4; }
+#banner p { margin: 4px 0 0; font-size: .85rem; color: var(--mute); }
+#banner p b { color: var(--acc2); }
+#view { padding: 0 12px; display: grid; gap: 10px; }
+.hint { font-size: .82rem; color: var(--mute); line-height: 1.6; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tile { border: 2px solid var(--line); background: var(--card); border-radius: 14px; padding: 12px 10px; display: grid; gap: 4px; justify-items: center; text-align: center; position: relative; }
+.tile .em { font-size: 2.3rem; line-height: 1.1; }
+.tile .nm { font-weight: 700; font-size: .92rem; }
+.tile small { color: var(--mute); font-size: .72rem; }
+.tile.done::after { content: "✓"; position: absolute; right: 8px; top: 6px; color: var(--ok); font-weight: 900; }
+.tile.scene { border-color: var(--acc2); }
+.tile.scene .nm::before { content: "⚠ "; color: var(--acc2); }
+/* カード */
+.card { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 9px 11px 9px 9px; display: grid; grid-template-columns: 36px 1fr; gap: 8px; align-items: start; text-align: left; width: 100%; font-size: .9rem; line-height: 1.55; position: relative; }
+.card .av { font-size: 1.6rem; text-align: center; line-height: 1.2; }
+.card .who { font-size: .74rem; color: var(--mute); }
+.card .tm { display: inline-block; font-size: .68rem; border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-right: 4px; color: var(--mute); }
+.card.sel { border: 2px solid var(--acc); box-shadow: 0 0 0 3px rgba(255,207,90,.2); }
+.card.clue { border-style: dashed; border-color: var(--acc2); }
+.card.contra { background: linear-gradient(90deg, rgba(255,90,106,.14), transparent); }
+.card .ck { position: absolute; right: 8px; top: 8px; width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--line); }
+.card.sel .ck { background: var(--acc); border-color: var(--acc); }
+#bar { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 4; display: flex; gap: 8px; justify-content: center; padding: 8px 0; }
+/* 時間の表 */
+.tl { overflow-x: auto; }
+.tl table { border-collapse: collapse; width: 100%; font-size: .74rem; }
+.tl td, .tl th { word-break: keep-all; }
+.tl th, .tl td { border: 1px solid var(--line); padding: 5px 4px; text-align: center; vertical-align: middle; }
+.tl th { background: var(--bg2); font-weight: 700; }
+.tl td.nm { text-align: left; white-space: nowrap; }
+.tl th.crime { color: var(--acc2); }
+.tl td.crime { background: rgba(255,90,106,.07); }
+.tl .pl { display: block; }
+.tl .bad { color: var(--bad); font-weight: 900; }
+/* 下のタブ */
+#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--bg2); border-top: 1px solid var(--line); display: flex; justify-content: center; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+#tabs button { flex: 1; max-width: 160px; border: 0; background: none; padding: 6px 2px; border-radius: 10px; display: grid; justify-items: center; gap: 1px; font-size: .74rem; font-weight: 700; color: var(--mute); }
+#tabs button .e { font-size: 1.35rem; }
+#tabs button.on { color: var(--ink); background: var(--card); }
+#tabs .dot { position: relative; }
+#tabs .dot::after { content: ""; position: absolute; top: 4px; right: 22%; width: 8px; height: 8px; border-radius: 50%; background: var(--acc2); }
+/* 小窓 */
+.modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 14px; }
+.box { width: min(460px, 100%); max-height: 100%; overflow-y: auto; background: var(--bg2); border: 2px solid var(--acc); border-radius: 18px; padding: 18px 16px; display: grid; gap: 10px; }
+.box h3 { margin: 0; font-family: var(--head); font-size: 1.2rem; text-align: center; }
+.box .face { font-size: 3.6rem; text-align: center; line-height: 1.1; }
+.box .face.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-8px) rotate(-6deg); } 40%, 80% { transform: translateX(8px) rotate(6deg); } }
+.box .look { text-align: center; font-size: .8rem; color: var(--mute); }
+.say { background: var(--card); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 9px 12px; font-size: .92rem; line-height: 1.6; animation: pop .3s both; }
+.say.lead { font-style: italic; color: var(--mute); }
+@keyframes pop { from { opacity: 0; transform: translateY(6px); } }
+.box .row { display: flex; gap: 8px; }
+.box .row .btn { flex: 1; }
+.big-msg { font-family: var(--head); font-size: 2rem; text-align: center; color: var(--acc2); letter-spacing: .1em; animation: zoom .5s both; }
+@keyframes zoom { from { transform: scale(2.2); opacity: 0; } }
+.exp { font-size: .9rem; line-height: 1.75; }
+.exp p { margin: 0 0 6px; }
+.stars { text-align: center; font-size: 2rem; color: var(--acc); letter-spacing: 4px; }
+.toast { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 30; background: var(--ink); color: var(--bg); padding: 7px 14px; border-radius: 10px; font-size: .88rem; font-weight: 700; pointer-events: none; transition: opacity .3s; max-width: calc(100% - 30px); text-align: center; }
+input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px; border: 2px solid var(--line); background: var(--card); color: var(--ink); }
+.help { font-size: .88rem; line-height: 1.75; }
+.help h4 { margin: 10px 0 2px; color: var(--acc); }
+</style>
+</head>
+<body>
+<!-- ホーム -->
+<main id="home">
+  <a href="../index.html" style="color:var(--mute);text-decoration:none;font-size:.85rem">← ゲーム一覧へ戻る</a>
+  <div class="logo"><span class="mag">🔍</span><h1>ナゾトキ探偵 ∞</h1><p>毎回ちがう事件。犯人はひとりだけ。</p></div>
+  <div class="themes"><span>🏰 洋館</span><span>🏫 学園</span><span>🌳 どうぶつ村</span><span>🌃 ネオン街</span></div>
+  <button class="btn main" id="bCont" hidden>▶ つづきから</button>
+  <div class="diffs">
+    <button class="diff" data-d="easy"><b>かんたん</b><small>容疑者4人<br>場所4・時間3</small></button>
+    <button class="diff" data-d="normal"><b>ふつう</b><small>容疑者5人<br>場所5・時間3</small></button>
+    <button class="diff" data-d="hard"><b>むずかしい</b><small>容疑者6人<br>場所6・時間4</small></button>
+  </div>
+  <div class="panel stats" id="stats"></div>
+  <div class="panel" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
+    <span style="font-size:.85rem;color:var(--mute)">事件番号で遊ぶ</span>
+    <input class="num" id="numIn" inputmode="numeric" placeholder="例 1234">
+    <select id="numD" class="num" style="width:auto"><option value="easy">かんたん</option><option value="normal" selected>ふつう</option><option value="hard">むずかしい</option></select>
+    <button class="btn" id="bNum">さがす</button>
+  </div>
+  <button class="btn" id="bHow">？ あそびかた</button>
+</main>
+
+<!-- 事件 -->
+<div id="case" hidden>
+  <div id="top">
+    <button class="ic" id="bHome" aria-label="ホームへ">⌂</button>
+    <div class="t"><b id="cTitle"></b><small id="cSub"></small></div>
+    <span id="hearts"></span>
+  </div>
+  <div id="banner"><div class="big" id="bEm"></div><div><h2 id="bCrime"></h2><p id="bWhen"></p></div></div>
+  <div id="view"></div>
+  <nav id="tabs">
+    <button data-tab="look"><span class="e">🔍</span>調べる</button>
+    <button data-tab="talk"><span class="e">🗣️</span>聞きこみ</button>
+    <button data-tab="note"><span class="e">📒</span>手帳</button>
+    <button data-tab="accuse"><span class="e">☝️</span>指名</button>
+  </nav>
+</div>
+<div class="modal" id="modal" hidden><div class="box" id="mbox"></div></div>
+<div class="toast" id="toast" style="opacity:0"></div>
+
+<script src="gen.js?v=1"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ICON = { mansion: '🏰', school: '🏫', animal: '🌳', neon: '🌃' };
+  const CONF = {
+    mansion: ['……ええ、わたくしがやりましたわ。', 'さすがは名探偵。もう言い逃れはできませんな。'],
+    school: ['……ごめんなさい、ぼくがやりました。', 'うう、バレちゃった……。'],
+    animal: ['えーん、ごめんなさい、ぼくがやったの……。', 'しっぽを出しちゃったね……。'],
+    neon: ['……チッ、完璧なアリバイのはずだったのに。', 'ログを消し忘れたか。オレの負けだ。'],
+  };
+
+  // ================= セーブ =================
+  const LS = 'nazotoki-v1';
+  const blank = () => ({ cur: null, stat: { easy: 0, normal: 0, hard: 0 }, stars: 0, streak: 0, best: 0, howSeen: 0 });
+  let SV = (() => { try { return Object.assign(blank(), JSON.parse(localStorage.getItem(LS)) || {}); } catch (e) { return blank(); } })();
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify(SV)); } catch (e) {} };
+
+  // ================= 事件 =================
+  let C = null, G = null, tab = 'look', sel = [];
+  function start(seed, diff, resume) {
+    C = MYS.generate(seed, diff);
+    if (!C) { toast('その番号の事件は作れなかった…'); return; }
+    G = resume || { seed, diff, got: {}, clue: {}, seen: {}, talked: {}, hearts: 3, contra: [], phase: 'play', wrong: [], tries: 0 };
+    SV.cur = G; save();
+    document.body.className = C.theme;
+    $('home').hidden = true; $('case').hidden = false;
+    const T = MYS.THEMES.find(t => t.id === C.theme);
+    $('cTitle').textContent = `${T.nm}　事件番号 #${seed}`;
+    $('cSub').textContent = `${MYS.DIFF[diff].nm}・容疑者${C.suspects.length}人・${T.sub}`;
+    $('bEm').textContent = ICON[C.theme];
+    $('bCrime').textContent = C.crime.text + '！';
+    $('bWhen').innerHTML = `事件が起きたのは <b>${esc(C.times[C.crime.t])}</b>、<b>${esc(C.places[C.crime.p])}</b>。犯人はその時間、ひとりで${esc(C.places[C.crime.p])}にいたはず。`;
+    hearts(); show(G.phase === 'kimete' ? 'note' : 'look');
+    if (!resume) { if (!SV.howSeen) { SV.howSeen = 1; save(); howTo(); } else toast('まずは現場と聞きこみから！'); }
+  }
+  const hearts = () => { $('hearts').textContent = '❤'.repeat(G.hearts) + '♡'.repeat(3 - G.hearts); };
+  const store = () => { SV.cur = G; save(); };
+
+  // ================= 画面 =================
+  document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.tab));
+  function show(t) {
+    tab = t; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    const v = $('view'); v.innerHTML = '';
+    ({ look, talk, note, accuse })[t](v);
+    dots();
+  }
+  function dots() {
+    const nt = document.querySelector('#tabs [data-tab="note"]');
+    nt.classList.toggle('dot', G.phase === 'kimete' && tab !== 'note');
+  }
+  // ---- 調べる ----
+  function look(v) {
+    v.insertAdjacentHTML('beforeend', `<div class="hint">場所をタップして調べよう。<b>事件現場</b>には証拠が残っているかも。</div>`);
+    const g = document.createElement('div'); g.className = 'grid';
+    C.places.forEach((p, i) => {
+      const b = document.createElement('button'); b.className = 'tile' + (i === C.crime.p ? ' scene' : '') + (G.seen[i] ? ' done' : '');
+      b.innerHTML = `<span class="em">${placeEmoji(p)}</span><span class="nm">${esc(p)}</span><small>${i === C.crime.p ? '事件現場' : G.seen[i] ? '調べた' : ''}</small>`;
+      b.onclick = () => lookAt(i); g.appendChild(b);
+    });
+    v.appendChild(g);
+  }
+  function lookAt(i) {
+    G.seen[i] = 1;
+    const here = C.clues.filter((q, k) => cluePlace(k) === i);
+    here.forEach(q => G.clue[q.id] = 1); store();
+    modal(`<div class="face">${placeEmoji(C.places[i])}</div><h3>${esc(C.places[i])}${i === C.crime.p ? '（事件現場）' : ''}</h3>
+      <div class="say lead">${esc(C.flavor[i])}</div>
+      ${here.length ? here.map(q => `<div class="card clue"><div class="av">🔎</div><div><div class="who">証拠を見つけた！</div>${esc(q.text)}</div></div>`).join('') : '<div class="hint" style="text-align:center">特に気になるものはない。</div>'}
+      <button class="btn main" data-close>もどる</button>`);
+    if (here.length) sfx.find(); else sfx.click();
+    show('look');
+  }
+  // 1つ目の証拠は現場、2つ目は別の場所
+  const cluePlace = k => k === 0 ? C.crime.p : (C.crime.p + 1 + (C.seed % (C.places.length - 1))) % C.places.length;
+  function placeEmoji(p) {
+    const M = { 書斎: '📚', 食堂: '🍽️', 温室: '🌿', 図書室: '📖', 大広間: '🕯️', 台所: '🍳', ワイン蔵: '🍷', 客間: '🛋️', 教室: '🏫', 音楽室: '🎹', 理科室: '🧪', 体育館: '🏀', 屋上: '🌤️', 購買: '🥪', 美術室: '🖼️', パン屋: '🥐', 花畑: '🌷', 池のほとり: '🪷', 図書館: '📚', 広場: '⛲', はちみつ蔵: '🍯', 郵便局: '📮', きのこの森: '🍄', ネオンバー: '🍸', 屋上ヘリポート: '🚁', 地下カジノ: '🎰', ラボ: '🔬', 裏路地: '🌧️', 電脳カフェ: '💻', 駐車場: '🚗', ホテルの廊下: '🏨' };
+    return M[p] || '📍';
+  }
+  // ---- 聞きこみ ----
+  function talk(v) {
+    v.insertAdjacentHTML('beforeend', `<div class="hint">容疑者をタップして話を聞こう。<b>犯人だけがウソをつく</b>。ほかの人の話と食いちがうところをさがそう。</div>`);
+    const g = document.createElement('div'); g.className = 'grid';
+    const T = theme();
+    C.suspects.forEach((s, i) => {
+      const b = document.createElement('button'); b.className = 'tile' + (G.talked[i] ? ' done' : '');
+      b.innerHTML = `<span class="em">${s.emo}</span><span class="nm">${esc(s.nm)}</span><small>${T.attrs.map((a, k) => `${a.nm}:${a.v[s.attr[k]]}`).join(' ')}</small>`;
+      b.onclick = () => talkTo(i); g.appendChild(b);
+    });
+    v.appendChild(g);
+  }
+  function talkTo(i) {
+    const s = C.suspects[i], T = theme(), mine = C.statements.filter(x => x.by === i);
+    G.talked[i] = 1; mine.forEach(x => G.got[x.id] = 1); store();
+    modal(`<div class="face">${s.emo}</div><h3>${esc(s.nm)}</h3><div class="look">${T.attrs.map((a, k) => `${a.nm}：${a.v[s.attr[k]]}`).join('　')}</div>
+      <div class="say lead">「${esc(s.line)}」</div>
+      ${mine.map((x, k) => `<div class="say" style="animation-delay:${.15 + k * .25}s">「${esc(MYS.textOf(C, x))}」</div>`).join('')}
+      <div class="hint" style="text-align:center">証言を手帳にメモした</div>
+      <button class="btn main" data-close>もどる</button>`);
+    sfx.talk(); show('talk');
+  }
+  // ---- 手帳 ----
+  function note(v) {
+    const cards = C.statements.filter(x => G.got[x.id]), clues = C.clues.filter(q => G.clue[q.id]);
+    if (G.phase === 'kimete') v.insertAdjacentHTML('beforeend', `<div class="panel" style="border-color:var(--acc2)"><b style="color:var(--acc2)">決め手を示せ！</b><div class="hint">犯人のウソがわかる、<b>食いちがう2枚の証言</b>を選んで「これが決め手だ！」</div></div>`);
+    else v.insertAdjacentHTML('beforeend', `<div class="hint">2枚の証言をえらんで<b>「つきつける」</b>と、食いちがっているか確かめられる。食いちがっていたら、どちらかが犯人！</div>`);
+    // 時間の表
+    v.insertAdjacentHTML('beforeend', timeline(cards));
+    if (!cards.length && !clues.length) { v.insertAdjacentHTML('beforeend', '<div class="hint">まだメモがない。聞きこみと現場の調査をしよう。</div>'); return; }
+    if (G.contra.length) v.insertAdjacentHTML('beforeend', `<div class="panel"><b>見つけた食いちがい</b>${G.contra.map(([a, b]) => `<div class="hint">・${esc(nm(a))} ⚡ ${esc(nm(b))}</div>`).join('')}</div>`);
+    if (clues.length) { v.insertAdjacentHTML('beforeend', '<b>証拠</b>'); clues.forEach(q => v.insertAdjacentHTML('beforeend', `<div class="card clue"><div class="av">🔎</div><div><div class="who">犯人が残した証拠</div>${esc(q.text)}</div></div>`)); }
+    v.insertAdjacentHTML('beforeend', '<b>証言</b>');
+    const inC = new Set(G.contra.flat());
+    cards.forEach(x => {
+      const s = C.suspects[x.by], b = document.createElement('button');
+      b.className = 'card' + (sel.includes(x.id) ? ' sel' : '') + (inC.has(x.id) ? ' contra' : '');
+      b.innerHTML = `<div class="av">${s.emo}</div><div><div class="who">${esc(s.nm)}</div><span class="tm">${esc(C.times[x.t])}</span>${esc(MYS.textOf(C, x))}</div><span class="ck"></span>`;
+      b.onclick = () => { const k = sel.indexOf(x.id); if (k >= 0) sel.splice(k, 1); else { sel.push(x.id); if (sel.length > 2) sel.shift(); } sfx.click(); show('note'); };
+      v.appendChild(b);
+    });
+    const bar = document.createElement('div'); bar.id = 'bar';
+    bar.innerHTML = `<button class="btn" id="bClr" ${sel.length ? '' : 'disabled'}>えらび直す</button><button class="btn main ${G.phase === 'kimete' ? 'red' : ''}" id="bPush" ${sel.length === 2 ? '' : 'disabled'}>${G.phase === 'kimete' ? 'これが決め手だ！' : '⚡ つきつける'}（${sel.length}/2）</button>`;
+    v.appendChild(bar);
+    $('bClr').onclick = () => { sel = []; show('note'); };
+    $('bPush').onclick = push;
+  }
+  const nm = id => { const x = C.statements.find(s => s.id === id); return `${C.suspects[x.by].nm}「${MYS.textOf(C, x)}」`; };
+  function timeline(cards) {
+    // だれが・いつ・どこにいたか（集めた証言から）
+    const cell = {}; const add = (who, t, p, src) => { const k = who + '_' + t; (cell[k] = cell[k] || []).push({ p, src }); };
+    for (const x of cards) { const f = MYS.factsOf(x); f.facts.forEach(([w, t, p]) => add(w, t, p, x.id)); }
+    let h = `<div class="tl panel" style="padding:8px"><table><tr><th>だれが いつ どこに？</th>${C.times.map((t, i) => `<th class="${i === C.crime.t ? 'crime' : ''}">${esc(t)}${i === C.crime.t ? '⚠' : ''}</th>`).join('')}</tr>`;
+    C.suspects.forEach((s, i) => {
+      h += `<tr><td class="nm">${s.emo} ${esc(s.nm.replace(/^.*の/, ''))}</td>`;
+      C.times.forEach((_, t) => {
+        const L = cell[i + '_' + t] || [], ps = [...new Set(L.map(x => x.p))];
+        h += `<td class="${t === C.crime.t ? 'crime' : ''}">${ps.map(p => `<span class="pl ${ps.length > 1 ? 'bad' : ''}">${esc(C.places[p])}</span>`).join('') || '<span style="opacity:.3">？</span>'}</td>`;
+      });
+      h += '</tr>';
+    });
+    return h + `</table><div class="hint" style="margin-top:4px">赤い文字＝証言が食いちがっているところ。⚠が事件の時間（現場：${esc(C.places[C.crime.p])}）</div></div>`;
+  }
+  function push() {
+    if (sel.length !== 2) return;
+    const a = C.statements.find(s => s.id === sel[0]), b = C.statements.find(s => s.id === sel[1]);
+    const bad = MYS.pairContradicts(a, b);
+    if (G.phase === 'kimete') {
+      if (bad) { sfx.win(); solved(); }
+      else { G.tries++; store(); sfx.ng(); modal(`<div class="face shake">${C.suspects[C.culprit].emo}</div><h3>それでは決め手にならない！</h3><div class="say">この2枚は食いちがっていない。${G.tries >= 2 ? '<br><small>ヒント：犯人の証言のうち、「' + esc(C.times[C.crime.t]) + '」のものに注目！</small>' : ''}</div><button class="btn main" data-close>もう一度</button>`); }
+      return;
+    }
+    if (bad) {
+      const key = [a.id, b.id].sort();
+      if (!G.contra.some(p => p.join() === key.join())) G.contra.push(key);
+      store(); sfx.hit();
+      modal(`<div class="big-msg">異議あり！</div><h3>証言が食いちがっている！</h3>
+        <div class="card"><div class="av">${C.suspects[a.by].emo}</div><div><div class="who">${esc(C.suspects[a.by].nm)}</div>${esc(MYS.textOf(C, a))}</div></div>
+        <div class="card"><div class="av">${C.suspects[b.by].emo}</div><div><div class="who">${esc(C.suspects[b.by].nm)}</div>${esc(MYS.textOf(C, b))}</div></div>
+        <div class="say">${a.by === b.by ? 'おなじ人の話なのに、つじつまが合わない……？' : `<b>${esc(C.suspects[a.by].nm)}</b>か<b>${esc(C.suspects[b.by].nm)}</b>、どちらかがウソをついている！`}</div>
+        <button class="btn main" data-close>なるほど</button>`);
+    } else { sfx.ng(); toast('この2枚は、食いちがっていないようだ'); }
+    sel = []; show('note');
+  }
+  // ---- 指名 ----
+  function accuse(v) {
+    if (G.phase === 'kimete') { v.insertAdjacentHTML('beforeend', `<div class="panel">犯人は <b>${esc(C.suspects[C.culprit].nm)}</b> と指名した。<br>📒手帳で<b>決め手</b>（食いちがう2枚）を示そう！</div>`); return; }
+    v.insertAdjacentHTML('beforeend', `<div class="hint">犯人だと思う人をタップ。まちがえると ❤ が減る（のこり ${G.hearts}）。</div>`);
+    const g = document.createElement('div'); g.className = 'grid';
+    C.suspects.forEach((s, i) => {
+      const b = document.createElement('button'); const no = G.wrong.includes(i);
+      b.className = 'tile'; b.disabled = no; b.style.opacity = no ? .35 : 1;
+      b.innerHTML = `<span class="em">${s.emo}</span><span class="nm">${esc(s.nm)}</span><small>${no ? 'ちがった' : ''}</small>`;
+      b.onclick = () => modal(`<div class="face">${s.emo}</div><h3>${esc(s.nm)}が犯人だ！</h3><div class="hint" style="text-align:center">ほんとうに指名する？</div><div class="row"><button class="btn" data-close>やめる</button><button class="btn red main" id="mOk">指名する</button></div>`, box => box.querySelector('#mOk').onclick = () => { closeModal(); point(i); });
+      g.appendChild(b);
+    });
+    v.appendChild(g);
+  }
+  function point(i) {
+    const s = C.suspects[i];
+    if (i === C.culprit) {
+      G.phase = 'kimete'; sel = []; store(); sfx.hit();
+      modal(`<div class="face shake">${s.emo}</div><div class="big-msg">指名！</div><div class="say">「な、なにを言うんですか。証拠はあるんですか？」</div><div class="hint" style="text-align:center">📒手帳から、食いちがう2枚の証言を<b>決め手</b>として示そう！</div><button class="btn main" data-close id="mGo">手帳をひらく</button>`, box => box.querySelector('#mGo').onclick = () => { closeModal(); show('note'); });
+      show('accuse');
+    } else {
+      G.hearts--; G.wrong.push(i); store(); hearts(); sfx.ng();
+      if (G.hearts <= 0) return fail();
+      modal(`<div class="face shake">${s.emo}</div><h3>「ちがいます！」</h3><div class="say">${esc(s.nm)}の話は、ほかの証言とつじつまが合っている……。<br>のこり ❤×${G.hearts}</div><button class="btn main" data-close>もう一度考える</button>`);
+      show('accuse');
+    }
+  }
+  function solved() {
+    const stars = G.hearts, c = C.suspects[C.culprit];
+    SV.stat[G.diff] = (SV.stat[G.diff] || 0) + 1; SV.stars += stars; SV.streak++; SV.best = Math.max(SV.best, SV.streak); SV.cur = null; save(); G.phase = 'done';
+    modal(`<div class="face shake">${c.emo}</div><div class="big-msg">事件解決！</div><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+      <div class="say">「${esc(CONF[C.theme][C.seed % 2])}」</div>
+      <div class="exp panel">${MYS.explain(C).map(t => `<p>${t}</p>`).join('')}</div>
+      <div class="hint" style="text-align:center">連続解決 ${SV.streak}件</div>
+      <div class="row"><button class="btn" id="mHome">ホーム</button><button class="btn main" id="mNext">つぎの事件</button></div>`, box => {
+      box.querySelector('#mHome').onclick = () => { closeModal(); home(); };
+      box.querySelector('#mNext').onclick = () => { closeModal(); start(newSeed(), G.diff); };
+    });
+  }
+  function fail() {
+    const c = C.suspects[C.culprit];
+    SV.streak = 0; SV.cur = null; save(); G.phase = 'done';
+    modal(`<div class="big-msg" style="color:var(--mute)">迷宮入り…</div><div class="face">${c.emo}</div><h3>真犯人は ${esc(c.nm)} だった</h3>
+      <div class="exp panel">${MYS.explain(C).map(t => `<p>${t}</p>`).join('')}</div>
+      <div class="row"><button class="btn" id="mHome">ホーム</button><button class="btn main" id="mNext">つぎの事件</button></div>`, box => {
+      box.querySelector('#mHome').onclick = () => { closeModal(); home(); };
+      box.querySelector('#mNext').onclick = () => { closeModal(); start(newSeed(), G.diff); };
+    });
+  }
+  const theme = () => MYS.THEMES.find(t => t.id === C.theme);
+  const newSeed = () => 1 + Math.floor(Math.random() * 99999);
+
+  // ================= ホーム =================
+  function home() {
+    document.body.className = '';
+    $('case').hidden = true; $('home').hidden = false;
+    $('bCont').hidden = !SV.cur;
+    if (SV.cur) $('bCont').textContent = `▶ つづきから（事件番号 #${SV.cur.seed}）`;
+    $('stats').innerHTML = `<div><b>${SV.stat.easy + SV.stat.normal + SV.stat.hard}</b>解決した事件</div><div><b>${SV.stars}</b>あつめた★</div><div><b>${SV.best}</b>最高連続</div>`;
+  }
+  document.querySelectorAll('.diff').forEach(b => b.onclick = () => { A(); if (SV.cur && !confirm('とちゅうの事件があります。新しい事件をはじめる？')) return; start(newSeed(), b.dataset.d); });
+  $('bCont').onclick = () => { A(); const g = SV.cur; start(g.seed, g.diff, g); };
+  $('bNum').onclick = () => { const n = parseInt($('numIn').value, 10); if (!(n > 0)) return toast('数字を入れてね'); A(); start(n, $('numD').value); };
+  $('bHome').onclick = () => { home(); };
+  $('bHow').onclick = () => howTo();
+  function howTo() {
+    modal(`<h3>🔍 あそびかた</h3><div class="help">
+      <h4>ルールはひとつ</h4><b>犯人だけがウソをつく</b>。ほかの人の証言と、現場の証拠は、ぜんぶ本当。
+      <h4>1. 調べる・聞きこみ</h4>場所を調べると<b>証拠</b>、容疑者に話を聞くと<b>証言</b>が手帳にたまる。容疑者の見た目（髪・靴など）も大事なヒント。
+      <h4>2. 手帳でつきつける</h4>「だれが いつ どこに」の表で、<b>赤くなった</b>ところは証言が食いちがっている。2枚えらんで「つきつける」で確かめよう。食いちがう2人のどちらかが犯人！
+      <h4>3. しぼりこむ</h4>現場の証拠と見た目が合うのはどっち？　もう一方が犯人だとしたら、ほかの証言どうしもおかしくならない？
+      <h4>4. 指名して、決め手を示す</h4>犯人を指名したら、手帳から<b>食いちがう2枚</b>を決め手として示せば解決。指名をまちがえると❤が減る（3回で迷宮入り）。
+      <h4>事件番号</h4>事件はぜんぶ自動で作られる。番号を友だちに教えれば、同じ事件で勝負できる。
+    </div><button class="btn main" data-close>OK</button>`);
+  }
+
+  // ================= 小物 =================
+  function modal(html, onopen) { $('mbox').innerHTML = html; $('modal').hidden = false; $('mbox').scrollTop = 0; $('mbox').querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal); if (onopen) onopen($('mbox')); }
+  function closeModal() { $('modal').hidden = true; }
+  $('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+  let tt = null;
+  function toast(s) { const el = $('toast'); el.textContent = s; el.style.opacity = 1; clearTimeout(tt); tt = setTimeout(() => el.style.opacity = 0, 2200); }
+  let ac = null;
+  function A() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === 'suspended') ac.resume(); return ac; }
+  function tone(f, d, type = 'sine', v = .08, t = 0) { const a = ac; if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.setValueAtTime(f, a.currentTime + t); g.gain.setValueAtTime(v, a.currentTime + t); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + t + d); o.connect(g).connect(a.destination); o.start(a.currentTime + t); o.stop(a.currentTime + t + d + .02); }
+  const sfx = {
+    click() { tone(880, .05, 'triangle', .04); },
+    talk() { [523, 587, 523].forEach((f, i) => tone(f, .07, 'square', .025, i * .07)); },
+    find() { [660, 880, 1320].forEach((f, i) => tone(f, .12, 'triangle', .07, i * .08)); },
+    hit() { tone(180, .25, 'sawtooth', .07); [784, 1046].forEach((f, i) => tone(f, .2, 'square', .05, .12 + i * .1)); },
+    ng() { tone(220, .25, 'square', .05); tone(160, .3, 'square', .04, .12); },
+    win() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, .18, 'triangle', .08, i * .12)); },
+  };
+  window.NAZO = { get C() { return C; }, get G() { return G; }, start, point };
+  home();
+})();
+</script>
+</body>
+</html>
