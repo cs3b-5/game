@@ -39,9 +39,31 @@ const PONDS = [
     fish: [['ほしくずウオ', 'N', 'fish', '#c8d0ff', '#ffffff', 'glow'], ['つきのウオ', 'N', 'round', '#fff0c0', '#d0c090', ''], ['すいせいサバ', 'R', 'fish', '#8ac8ff', '#ffffff', 'stripes'],
       ['ぎんがエイ', 'R', 'flat', '#4a3aa0', '#ff8ad0', 'glow'], ['オーロラクジラ', 'SR', 'whale', '#3ad0b0', '#b06aff', 'rainbow'], ['せいうんクラゲ', 'SR', 'jelly', '#ff8ad0', '#8ad0ff', 'glow'],
       ['ほしのリュウ', 'UR', 'dragon', '#ffe060', '#ffffff', 'glow'], ['たいようの金魚', 'LR', 'fish', '#ff6a2a', '#ffd040', 'shine'], ['はじまりの魚', 'GOD', 'fish', '#ffffff', '#ffd0f0', 'rainbow'] ] },
+  // ゴールのあとに行ける、終わりのない池。ここではすべての池の魚が出る。深くもぐるほど値段が上がる
+  { id: 'dream', nm: '夢の池', mult: 2e5, need: 3e9, dream: true, sky: ['#ffd6f0', '#c8b0ff'], water: ['#a07aff', '#3a1a7a'], shore: '#8a6ac8', fish: [] },
 ];
-const FISH = [];
+const FISH = [], DREAM = 5;
 PONDS.forEach((p, pi) => p.fish.forEach((f, i) => FISH.push({ id: pi * 9 + i, pond: pi, nm: f[0], r: f[1], shape: f[2], c1: f[3], c2: f[4], pat: f[5] })));
+
+// 池の値段の倍率（夢の池は深さ1ごとに×1.6）
+const pondMult = (S, p) => PONDS[p].mult * (PONDS[p].dream ? Math.pow(1.6, S.depth || 0) : 1);
+// 夢の池：つぎの深さまでに稼ぐコイン
+const depthNeed = d => 4e10 * Math.pow(2.1, d);
+
+// ---------------- エンドコンテンツ：ぬし ----------------
+// ゴールのあと、各池にときどき「ぬし」が現れる。タイミングよくリールを巻いて釣り上げる
+const BOSSES = [
+  { nm: '小川のぬし「大ナマズ王」', base: 6, need: 5, speed: 1.0, zone: .3, shape: 'catfish', c1: '#3a3428', c2: '#d8b040' },
+  { nm: '湖のぬし「千年イトウ」', base: 7, need: 6, speed: 1.25, zone: .26, shape: 'fish', c1: '#7a3a2a', c2: '#ffd040' },
+  { nm: '海のぬし「嵐のカジキ」', base: 8, need: 7, speed: 1.5, zone: .22, shape: 'marlin', c1: '#1a3a7a', c2: '#ffd040' },
+  { nm: '深海のぬし「黒いダイオウイカ」', base: 9, need: 8, speed: 1.8, zone: .19, shape: 'squid', c1: '#2a1a2a', c2: '#ff4fa0' },
+  { nm: '星空のぬし「天の川クジラ」', base: 10, need: 9, speed: 2.1, zone: .16, shape: 'whale', c1: '#1a1a5a', c2: '#ffe060' },
+  { nm: '夢のぬし「まどろみの龍」', base: 11, need: 10, speed: 2.4, zone: .14, shape: 'dragon', c1: '#b07aff', c2: '#ffd0f0' },
+];
+// 金色の魚：ゴールのあとだけ出る。はじめて釣った種類ごとに、ずっと値段+3%
+const GOLD_CHANCE = 1 / 500;
+function goldChance(S) { return S.cleared ? GOLD_CHANCE * (1 + luck(S) * .01) : 0; }
+const goldCount = S => Object.keys(S.gold || {}).length;
 
 // ---------------- 強化 ----------------
 const UPS = [
@@ -51,13 +73,14 @@ const UPS = [
   { k: 'net', nm: '大きな網', desc: '魚の値段 ×1.25', base: 25, g: 1.7, max: 60 },
   { k: 'master', nm: '名人の技', desc: 'ほったらかしでも釣り上げる率 +5%', base: 150, g: 2.4, max: 8 },
 ];
-// 値段は池の倍率に合わせて上がる（池を移っても同じくらいの手ごたえ）
-const upCost = (k, lv, pond = 0) => { const u = UPS.find(x => x.k === k); return Math.ceil(u.base * Math.pow(u.g, lv) * PONDS[pond].mult); };
+// 値段は「いちばん先の池」の倍率に合わせて上がる（前の池にもどって安く買う、はできない）
+const upCost = (k, lv, S) => { const u = UPS.find(x => x.k === k); return Math.ceil(u.base * Math.pow(u.g, lv) * (S ? pondMult(S, S.maxPond ?? S.pond) : 1)); };
 
 // ---------------- 状態 ----------------
 function newState() {
   return {
-    v: 1, coins: 0, pearls: 0, pond: 0, best: 0,
+    v: 1, coins: 0, pearls: 0, pond: 0, maxPond: 0, best: 0,
+    depth: 0, dreamCoins: 0, gold: {}, trophy: {}, bossWin: 0, bossT: 120,
     lv: { fisher: 0, rod: 0, bait: 0, net: 0, master: 0 },
     charm: 0,            // 永久の運（池を移ると増える・ガチャ）
     hat: 0,              // 永久の値段アップ（ガチャ）
@@ -77,7 +100,7 @@ function fever(S) { return S.buffs.some(b => b.k === 'fever' && b.until > S.t); 
 function omikujiNow(S) { return S.omikuji.day === today() ? S.omikuji.res : null; }
 function luck(S) {
   const om = omikujiNow(S);
-  return Math.max(0, S.lv.bait + S.charm + buffSum(S, 'luck') + (om ? OMIKUJI.find(o => o.k === om).luck : 0));
+  return Math.max(0, S.lv.bait + S.charm + Object.keys(S.trophy || {}).length * 2 + buffSum(S, 'luck') + (om ? OMIKUJI.find(o => o.k === om).luck : 0));
 }
 function weights(S) {
   const L = luck(S);
@@ -91,14 +114,15 @@ function rollRarity(S, rng) {
 }
 function rollFish(S, rng) {
   const r = rollRarity(S, rng);
-  const pool = FISH.filter(f => f.pond === S.pond && f.r === r);
+  const pool = FISH.filter(f => (PONDS[S.pond].dream || f.pond === S.pond) && f.r === r);
   const f = pool[Math.floor(rng() * pool.length)];
   const size = .7 + rng() * .6 + (rng() < .03 ? .6 : 0);   // まれに大物
-  return { f, size };
+  const gold = !PONDS[S.pond].dream && rng() < goldChance(S);   // 金色はそれぞれの池でだけ出る
+  return { f, size, gold };
 }
 function valueMult(S) {
   const om = omikujiNow(S);
-  return PONDS[S.pond].mult * Math.pow(1.25, S.lv.net) * (1 + S.hat * .1) * (fever(S) ? 2 : 1) * (1 + buffSum(S, 'value')) * (om ? OMIKUJI.find(o => o.k === om).value : 1);
+  return pondMult(S, S.pond) * (1 + goldCount(S) * .03) * Math.pow(1.25, S.lv.net) * (1 + S.hat * .1) * (fever(S) ? 2 : 1) * (1 + buffSum(S, 'value')) * (om ? OMIKUJI.find(o => o.k === om).value : 1);
 }
 function fishValue(S, f, size) { return Math.max(1, Math.round(RAR[f.r].v * size * valueMult(S))); }
 const CAST = 1.1, REEL = .7, WINDOW = 1.4;
@@ -134,8 +158,8 @@ function makeRun(S, rng = Math.random) {
         if (f.nice || rng() < autoRate(S)) { f.ph = 'reel'; f.t = 0; f.dur = REEL; }
         else { run.events.push({ k: 'escape', i }); f.ph = 'cast'; f.t = 0; f.dur = CAST; }
       } else if (f.ph === 'reel') {
-        const { f: fish, size } = f.catch;
-        const ev = landFish(S, fish, size, f.nice, rng); ev.i = i;
+        const { f: fish, size, gold } = f.catch;
+        const ev = landFish(S, fish, size, f.nice, rng, gold); ev.i = i;
         run.events.push(ev);
         f.ph = 'cast'; f.t = 0; f.dur = CAST;
       }
@@ -143,9 +167,11 @@ function makeRun(S, rng = Math.random) {
   };
   return run;
 }
-function landFish(S, fish, size, nice, rng) {
+function landFish(S, fish, size, nice, rng, gold) {
   let v = fishValue(S, fish, size);
   if (nice) { v = Math.round(v * 1.5); S.stats.nice++; }
+  let goldNew = false;
+  if (gold) { v *= 10; S.gold = S.gold || {}; goldNew = !S.gold[fish.id]; S.gold[fish.id] = (S.gold[fish.id] || 0) + 1; }
   S.coins += v; S.stats.total += v; S.stats.catches++;
   S.best = Math.max(S.best, S.coins);
   const z = S.zukan[fish.id] || (S.zukan[fish.id] = { n: 0, big: 0 });
@@ -154,13 +180,31 @@ function landFish(S, fish, size, nice, rng) {
   const pearls = RAR[fish.r].p; S.pearls += pearls;
   const chest = rng() < .012;
   if (chest) S.stats.chests++;
-  return { k: 'catch', fish, size, v, nice, isNew, pearls, chest };
+  const deeper = dreamProgress(S, v);
+  return { k: 'catch', fish, size, v, nice, isNew, pearls, chest, gold, goldNew, deeper };
+}
+// 夢の池で稼ぐと深くもぐれる（コインはそのまま）
+function dreamProgress(S, v) {
+  if (!PONDS[S.pond].dream) return 0;
+  S.dreamCoins += v; let n = 0;
+  while (S.dreamCoins >= depthNeed(S.depth)) { S.dreamCoins -= depthNeed(S.depth); S.depth++; n++; }
+  S.bestDepth = Math.max(S.bestDepth || 0, S.depth);
+  return n;
 }
 function addBuff(S, k, v, secs) { S.buffs = S.buffs.filter(b => b.until > S.t); S.buffs.push({ k, v, until: S.t + secs }); }
 
 // ---------------- 強化を買う ----------------
-function canBuy(S, k) { const u = UPS.find(x => x.k === k); return S.lv[k] < u.max && S.coins >= upCost(k, S.lv[k], S.pond); }
-function buy(S, k) { if (!canBuy(S, k)) return false; S.coins -= upCost(k, S.lv[k], S.pond); S.lv[k]++; return true; }
+function canBuy(S, k) { const u = UPS.find(x => x.k === k); return S.lv[k] < u.max && S.coins >= upCost(k, S.lv[k], S); }
+function buy(S, k) { if (!canBuy(S, k)) return false; S.coins -= upCost(k, S.lv[k], S); S.lv[k]++; return true; }
+
+// ---------------- ぬし ----------------
+function bossOf(S) { return BOSSES[Math.min(S.pond, BOSSES.length - 1)]; }
+function bossWin(S) {
+  const first = !S.trophy[S.pond]; S.trophy[S.pond] = 1; S.bossWin = (S.bossWin || 0) + 1;
+  const pearls = first ? 50 : 15, v = Math.round(bossOf(S).base * 30 * avgValue(S));
+  S.pearls += pearls; S.coins += v; S.stats.total += v; S.best = Math.max(S.best, S.coins); dreamProgress(S, v);
+  return { first, pearls, v };
+}
 
 // ---------------- 宝箱のルーレット ----------------
 // w: ルーレットの広さ。coin は「今の1匹ぶんの平均」の何倍か
@@ -227,12 +271,19 @@ function drawOmikuji(S, rng) {
 
 // ---------------- 池を移る ----------------
 const GOAL = 1.5e9;   // 星空の池でここまで貯めたらクリア
-function canMove(S) { return S.pond < PONDS.length - 1 && S.coins >= PONDS[S.pond + 1].need; }
+// 新しい池へ進む（いちばん先の池から、つぎの池へ。コインと強化はリセット）
+function nextPond(S) { const m = S.maxPond ?? S.pond; return m < PONDS.length - 1 ? m + 1 : -1; }
+function canMove(S) { const n = nextPond(S); return n > 0 && S.coins >= PONDS[n].need && (!PONDS[n].dream || S.cleared); }
 function movePond(S) {
   if (!canMove(S)) return false;
-  S.pond++; S.coins = 0; S.lv = { fisher: 0, rod: 0, bait: 0, net: 0, master: 0 };
+  S.maxPond = nextPond(S); S.pond = S.maxPond; S.coins = 0; S.lv = { fisher: 0, rod: 0, bait: 0, net: 0, master: 0 };
   S.charm += 1; S.stats.moves++;
   return true;
+}
+// 行ったことのある池へもどる（コイン・強化はそのまま。魚の値段はその池の倍率になる）
+function travel(S, p) {
+  if (p < 0 || p > (S.maxPond ?? S.pond) || p === S.pond) return false;
+  S.pond = p; return true;
 }
 
 // ---------------- 留守中の釣果 ----------------
@@ -256,10 +307,11 @@ function offline(S, secs, rng = Math.random) {
   coins = Math.round(coins * scale); pearls = Math.round(pearls * scale);
   S.coins += coins; S.pearls += pearls; S.stats.total += coins; S.stats.catches += n;
   S.best = Math.max(S.best, S.coins);
-  return { secs, n, coins, pearls, best, got };
+  const deeper = dreamProgress(S, coins);
+  return { secs, n, coins, pearls, best, got, deeper };
 }
 
-const API = { GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
+const API = { DREAM, pondMult, depthNeed, BOSSES, bossOf, bossWin, goldChance, goldCount, nextPond, travel, GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
   makeRun, canBuy, buy, WHEEL, spinWheel, applyPrize, GACHA, GACHA_COST, gacha, OMIKUJI, drawOmikuji, omikujiNow, canMove, movePond, offline, fever, addBuff, today, CAST, REEL, WINDOW };
 if (typeof module !== 'undefined') module.exports = API; else root.Fish = API;
 })(this);

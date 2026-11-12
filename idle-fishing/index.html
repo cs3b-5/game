@@ -97,6 +97,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pondrow .d { font-size: .76rem; font-weight: 700; margin-top: 2px; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 .pondrow .tag { position: absolute; right: 10px; top: 10px; font-size: .7rem; font-weight: 900; background: rgba(0,0,0,.5); padding: 3px 8px; border-radius: 999px; }
 .pondrow.lock { filter: grayscale(.8) brightness(.55); }
+.pondrow .go { margin-top: 8px; border: 0; border-radius: 10px; padding: 7px 14px; font-weight: 900; font-size: .85rem; background: rgba(255,255,255,.9); color: #1a2a3a; cursor: pointer; }
+.pondrow .ex { font-size: .72rem; font-weight: 700; margin-top: 4px; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.zk button.gold { background: linear-gradient(160deg, #4a3a10, var(--panel2) 60%); box-shadow: inset 0 0 0 2px #ffd040; }
+.zk button .cr { position: absolute; margin: -2px 0 0 52px; font-size: .9rem; }
+.zk button { position: relative; }
+#bossBtn { position: absolute; left: 10px; bottom: 40px; z-index: 3; border: 0; border-radius: 14px; padding: 8px 12px; background: linear-gradient(#b07aff, #6a3ad0); color: #fff; font-weight: 900; font-size: .9rem; box-shadow: 0 4px 0 #3a1a8a, 0 8px 18px rgba(0,0,0,.4); animation: bounce .8s infinite; }
+.reel { position: relative; height: 34px; border-radius: 17px; background: #1a2638; overflow: hidden; margin: 6px 0; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
+.reel .zone { position: absolute; top: 0; bottom: 0; background: linear-gradient(#5ae07a, #2aa04a); }
+.reel .cur { position: absolute; top: -2px; bottom: -2px; width: 6px; margin-left: -3px; background: #fff; border-radius: 3px; box-shadow: 0 0 8px #fff; }
+.pips { display: flex; gap: 4px; justify-content: center; font-size: 1.1rem; }
 
 .omi { text-align: center; padding: 6px 0; }
 .omi .box { width: 110px; height: 150px; margin: 6px auto; border-radius: 12px; background: linear-gradient(#e83a3a, #a01a1a); display: grid; place-items: center; box-shadow: inset 0 0 0 5px #ffd040, 0 6px 16px rgba(0,0,0,.4); font-weight: 900; font-size: 1.15rem; writing-mode: vertical-rl; color: #fff; letter-spacing: .3em; }
@@ -160,6 +170,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div id="bar"></div>
     <div id="prog"><b></b><span></span></div>
     <button id="chestBtn" hidden>🎁 宝箱 ×<span>1</span></button>
+    <button id="bossBtn" hidden>🐉 ぬしが現れた！</button>
     <div id="hint" hidden>ほうっておいても、ねこが釣ってくれます。<br>浮きに <b style="color:#ff6a6a">！</b> が出たらタップで<b style="color:var(--gold)">ナイスキャッチ ×1.5</b></div>
   </main>
   <aside id="panel">
@@ -202,6 +213,8 @@ function load() {
 function save() { S.last = Date.now(); try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) {} }
 load();
 S.chestN = S.chestN || 0;
+// 前のバージョンのセーブにも新しい項目を足す
+S.maxPond = Math.max(S.maxPond || 0, S.pond); S.gold = S.gold || {}; S.trophy = S.trophy || {}; if (S.bossT == null) S.bossT = 120;
 let mute = false; try { mute = localStorage.getItem(SAVE + '-mute') === '1'; } catch (e) {}
 
 // ---------------- 音 ----------------
@@ -498,9 +511,10 @@ function drawBackground(t) {
   // 空
   let g = ctx.createLinearGradient(0, 0, 0, skyH); g.addColorStop(0, P.sky[0]); g.addColorStop(1, P.sky[1]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, skyH + 2);
-  if (P.id === 'star' || P.id === 'deep') {
+  if (P.id === 'star' || P.id === 'deep' || P.dream) {
     const R = mulberry(77);
-    for (let i = 0; i < 60; i++) { const x = R() * W, y = R() * skyH, tw = .5 + .5 * Math.sin(t * 2 + i); ctx.fillStyle = P.id === 'star' ? `rgba(255,255,240,${.3 + tw * .7})` : `rgba(140,220,255,${.1 + tw * .3})`; ctx.fillRect(x, y, 1.6, 1.6); }
+    for (let i = 0; i < 60; i++) { const x = R() * W, y = R() * skyH, tw = .5 + .5 * Math.sin(t * 2 + i); ctx.fillStyle = P.id === 'star' ? `rgba(255,255,240,${.3 + tw * .7})` : P.dream ? `rgba(255,255,255,${.2 + tw * .6})` : `rgba(140,220,255,${.1 + tw * .3})`; ctx.fillRect(x, y, P.dream ? 2.4 : 1.6, P.dream ? 2.4 : 1.6); }
+    if (P.dream) { for (let i = 0; i < 4; i++) { const x = ((t * 10 + i * W / 3.5) % (W + 100)) - 50, y = skyH * (.25 + (i % 3) * .2); ctx.fillStyle = 'rgba(255,240,255,.75)'; ctx.beginPath(); ctx.ellipse(x, y, 26, 8, 0, 0, 7); ctx.ellipse(x + 14, y - 5, 16, 7, 0, 0, 7); ctx.fill(); } ctx.fillStyle = 'rgba(255,250,220,.9)'; ctx.beginPath(); ctx.arc(W * .8, skyH * .42, Math.min(20, skyH * .26), 0, 7); ctx.fill(); }
     if (P.id === 'star') { ctx.fillStyle = '#fff6d0'; ctx.beginPath(); ctx.arc(W * .8, skyH * .45, Math.min(22, skyH * .28), 0, 7); ctx.fill(); ctx.fillStyle = P.sky[0]; ctx.beginPath(); ctx.arc(W * .8 + 8, skyH * .4, Math.min(20, skyH * .26), 0, 7); ctx.fill(); }
   } else {
     ctx.fillStyle = 'rgba(255,240,180,.9)'; ctx.beginPath(); ctx.arc(W * .82, skyH * .4, Math.min(20, skyH * .25), 0, 7); ctx.fill();
@@ -613,8 +627,10 @@ function handle(ev) {
     }
     SND.catch(ev.fish.r); if (ev.nice) SND.nice();
     if (ev.chest) { S.chestN++; if (cat) popText(cat.x, cat.y - cat.s * 2.8, '宝箱！', '#ffd040', 1); SND.prize(); }
+    if (ev.gold && cat) { popText(cat.x, cat.y - cat.s * 3.2, '✨金色！ ×10', '#ffd040', 1); sparkle(cat.x, cat.y - cat.s * 1.2, 50, '#ffd040'); SND.prize(); }
+    if (ev.deeper) { popText(W / 2, H * .35, `夢の池 深さ ${S.depth}！`, '#ffd0f0', 1); sparkle(W / 2, H * .35, 40, '#d0a0ff'); SND.prize(); }
     const ri = F.RORDER.indexOf(ev.fish.r);
-    if (ri >= 3 || (ev.isNew && ri >= 2)) rarePopup(ev);
+    if (ri >= 3 || (ev.isNew && ri >= 2) || ev.goldNew) rarePopup(ev);
     else if (ev.isNew && cat) popText(cat.x + cat.s * .2, cat.y - cat.s * 2.6, 'NEW ' + ev.fish.nm, '#8affa0');
     if (ev.isNew) markDot('zukan');
   }
@@ -655,25 +671,23 @@ function hud() {
   if (act.value) chips.push(`<span class="buff value">値段×1.5 ${fmtT(act.value)}</span>`);
   const om = F.omikujiNow(S); if (om) chips.push(`<span class="buff omi">${om}</span>`);
   const html = chips.join(''); if ($('#bar').innerHTML !== html) $('#bar').innerHTML = html;
-  // 次の池まで
-  const pr = $('#prog');
-  if (S.pond < F.PONDS.length - 1) {
-    const need = F.PONDS[S.pond + 1].need, k = Math.min(1, S.coins / need);
-    pr.querySelector('b').style.width = (k * 100) + '%';
-    pr.querySelector('span').textContent = k >= 1 ? `「${F.PONDS[S.pond + 1].nm}」へ移れる！ 🗺️池から` : `次の池「${F.PONDS[S.pond + 1].nm}」まで ${Math.floor(k * 100)}%`;
-    pr.classList.toggle('ready', k >= 1);
-    if (k >= 1) markDot('pond');
-  } else {
-    const k = Math.min(1, S.coins / F.GOAL);
-    pr.querySelector('b').style.width = (k * 100) + '%';
-    pr.querySelector('span').textContent = S.cleared ? `ゴール達成！ 最高 ${fmt(S.best)}` : `ゴール ${fmt(F.GOAL)}コイン まで ${Math.floor(k * 100)}%`;
-    pr.classList.toggle('ready', k >= 1);
-  }
+  // 進み具合
+  const pr = $('#prog'), nx = F.nextPond(S), DR = F.DREAM;
+  let k = 0, txt = '', ready = false;
+  if (S.pond === DR) { k = S.dreamCoins / F.depthNeed(S.depth); txt = `夢の池 深さ ${S.depth}（最深 ${S.bestDepth || 0}）→ 次の深さまで ${Math.floor(k * 100)}%`; }
+  else if (!S.cleared && S.maxPond === DR - 1) { k = S.coins / F.GOAL; txt = `ゴール ${fmt(F.GOAL)}コイン まで ${Math.floor(Math.min(1, k) * 100)}%${S.pond !== DR - 1 ? '（星空の池で）' : ''}`; ready = k >= 1; }
+  else if (nx > 0 && (!F.PONDS[nx].dream || S.cleared)) { k = S.coins / F.PONDS[nx].need; ready = k >= 1; txt = ready ? `「${F.PONDS[nx].nm}」へ移れる！ 🗺️池から` : `次の池「${F.PONDS[nx].nm}」まで ${Math.floor(k * 100)}%`; if (ready) markDot('pond'); }
+  else { k = F.goldCount(S) / 45; txt = `金色の魚 ${F.goldCount(S)}/45・ぬし ${Object.keys(S.trophy).length}/${F.BOSSES.length}`; }
+  if (S.pond < S.maxPond) txt = `🏠 里帰り中・` + txt;
+  pr.querySelector('b').style.width = (Math.min(1, k) * 100) + '%';
+  pr.querySelector('span').textContent = txt;
+  pr.classList.toggle('ready', ready);
   const cb = $('#chestBtn'); cb.hidden = !S.chestN || !$('#modal').hidden; cb.querySelector('span').textContent = S.chestN;
   if (!F.omikujiNow(S)) markDot('omikuji');
   if (S.pearls >= F.GACHA_COST) markDot('gacha');
   if (F.UPS.some(u => F.canBuy(S, u.k))) markDot('up'); else clearDot('up');
-  if (S.pond === F.PONDS.length - 1 && S.coins >= F.GOAL && !S.cleared) { S.cleared = true; save(); clearModal(); }
+  if (S.pond === F.DREAM - 1 && S.coins >= F.GOAL && !S.cleared) { S.cleared = true; save(); clearModal(); }
+  const bb = $('#bossBtn'); bb.hidden = !S.bossReady || !$('#modal').hidden;
 }
 function markDot(t) { const b = document.querySelector(`#tabs [data-tab="${t}"]`); if (b && !b.querySelector('.dot') && curTab !== t) b.insertAdjacentHTML('beforeend', '<span class="dot"></span>'); }
 function clearDot(t) { const d = document.querySelector(`#tabs [data-tab="${t}"] .dot`); if (d) d.remove(); }
@@ -711,7 +725,7 @@ function upEffect(k) {
 const RENDER = {
   up(sh) {
     sh.innerHTML = head('⬆️ 強化') + F.UPS.map(u => `<div class="row" data-k="${u.k}"><div class="ic">${UPIC[u.k]}</div><div><div class="t">${u.nm}<small class="lv"></small></div><div class="d"></div></div><button class="buy" data-buy="${u.k}"></button></div>`).join('')
-      + `<p class="note">強化は池を移るとリセットされます（池の値段が上がるので、すぐ取りもどせます）。</p><div class="stats" id="stats"></div><button class="big ghost" id="resetBtn" style="margin-top:14px;font-size:.82rem">データを消して最初から</button>`;
+      + `<p class="note">強化は新しい池へ進むとリセットされます（池の値段が上がるので、すぐ取りもどせます）。前の池にもどっても強化はそのまま。強化の値段は、いちばん先の池に合わせて決まります。</p><div class="stats" id="stats"></div><button class="big ghost" id="resetBtn" style="margin-top:14px;font-size:.82rem">データを消して最初から</button>`;
     sh.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { if (F.buy(S, b.dataset.buy)) { SND.buy(); refresh(); hud(); save(); } });
     sh.querySelector('#resetBtn').onclick = () => confirmModal('データを消しますか？', '図鑑・真珠・お守りもすべて消えます。元にもどせません。', '消す', () => { try { localStorage.removeItem(SAVE); } catch (e) {} location.reload(); });
     refresh = () => {
@@ -722,21 +736,23 @@ const RENDER = {
         { const dd = row.querySelector('.d'), hh = max ? esc(u.desc) : `${esc(e.d)}${e.gain > 0 ? `<br><em>+${e.gain < 100 ? e.gain.toFixed(1) : fmt(e.gain)} / 秒</em>` : ''}`; if (dd.innerHTML !== hh) dd.innerHTML = hh; }
         const b = row.querySelector('.buy');
         if (max) { b.className = 'buy max'; b.disabled = true; if (b.dataset.h !== 'MAX') { b.dataset.h = 'MAX'; b.innerHTML = 'MAX'; } }
-        else { const c = F.upCost(u.k, lv, S.pond); b.className = 'buy'; b.disabled = S.coins < c; const h = `買う<small class="num" style="font-size:.9rem">${fmt(c)}</small>`; if (b.dataset.h !== h) { b.dataset.h = h; b.innerHTML = h; } }
+        else { const c = F.upCost(u.k, lv, S); b.className = 'buy'; b.disabled = S.coins < c; const h = `買う<small class="num" style="font-size:.9rem">${fmt(c)}</small>`; if (b.dataset.h !== h) { b.dataset.h = h; b.innerHTML = h; } }
       });
       const st = S.stats, zk = Object.keys(S.zukan).length;
-      sh.querySelector('#stats').innerHTML = [['釣った数', fmt(st.catches)], ['ナイス', fmt(st.nice)], ['図鑑', zk + '/45'], ['宝箱', st.chests], ['ガチャ', st.gacha], ['遊んだ時間', fmtT(st.playT)]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('');
+      sh.querySelector('#stats').innerHTML = [['釣った数', fmt(st.catches)], ['ナイス', fmt(st.nice)], ['図鑑', zk + '/45'], ['宝箱', st.chests], ['ガチャ', st.gacha], ['遊んだ時間', fmtT(st.playT)]].concat(S.cleared ? [['金色の魚', F.goldCount(S) + '/45'], ['ぬし', Object.keys(S.trophy).length + '/' + F.BOSSES.length], ['夢の池 最深', S.bestDepth || 0]] : []).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('');
     };
     refresh();
   },
   zukan(sh) {
     const total = Object.keys(S.zukan).length;
     let h = head(`📖 図鑑 <small style="color:var(--muted)">${total} / 45</small>`);
+    if (S.cleared) h += `<p class="note" style="color:#ffd040">👑 金色の魚 ${F.goldCount(S)} / 45（はじめて釣った種類ごとに、ずっと値段+3%。それぞれの池でだけ出る）</p>`;
     F.PONDS.forEach((P, pi) => {
-      const fs = F.FISH.filter(f => f.pond === pi), got = fs.filter(f => S.zukan[f.id]).length;
-      const reached = pi <= S.pond || got > 0;
-      h += `<div class="zk-head"><span>${reached ? esc(P.nm) : '？？？の池'}</span><small>${got} / 9</small></div><div class="zk">`;
-      fs.forEach(f => { const z = S.zukan[f.id]; h += `<button data-f="${f.id}" class="${z ? '' : 'no'}" style="--rc:${z ? F.RAR[f.r].c : '#2a3a50'}"><img alt="" src="${fishIcon(f, !!z)}"><span>${z ? esc(f.nm) : '？？？'}</span></button>`; });
+      if (!P.fish.length) return;
+      const fs = F.FISH.filter(f => f.pond === pi), got = fs.filter(f => S.zukan[f.id]).length, gg = fs.filter(f => S.gold[f.id]).length;
+      const reached = pi <= S.maxPond || got > 0;
+      h += `<div class="zk-head"><span>${reached ? esc(P.nm) : '？？？の池'}${S.trophy[pi] ? ' 🏆' : ''}</span><small>${got} / 9${S.cleared ? `・👑${gg}` : ''}</small></div><div class="zk">`;
+      fs.forEach(f => { const z = S.zukan[f.id], gd = S.gold[f.id]; h += `<button data-f="${f.id}" class="${z ? '' : 'no'}${gd ? ' gold' : ''}" style="--rc:${z ? F.RAR[f.r].c : '#2a3a50'}">${gd ? '<span class="cr">👑</span>' : ''}<img alt="" src="${fishIcon(f, !!z)}"><span>${z ? esc(f.nm) : '？？？'}</span></button>`; });
       h += '</div>';
     });
     h += `<p class="note">運が高いほど、レアな魚が出やすくなります。<br>出やすさ（今の運 ${F.luck(S)}）：${(() => { const w = F.weights(S), s = w.reduce((a, b) => a + b, 0); return F.RORDER.map((r, i) => `${F.RAR[r].nm} ${(w[i] / s * 100).toFixed(w[i] / s < .01 ? 2 : 1)}%`).join('・'); })()}</p>`;
@@ -784,20 +800,27 @@ const RENDER = {
   },
   pond(sh) {
     let h = head('🗺️ 池');
+    const nx = F.nextPond(S);
     F.PONDS.forEach((P, i) => {
-      const cur = i === S.pond, done = i < S.pond, next = i === S.pond + 1, lock = i > S.pond + 1;
+      if (P.dream && !S.cleared && S.maxPond < i) return;   // 夢の池はゴールのあとに出てくる
+      const cur = i === S.pond, been = i <= S.maxPond, next = i === nx, lock = !been && !next;
+      const fs = F.FISH.filter(f => f.pond === i), got = fs.filter(f => S.zukan[f.id]).length, gg = fs.filter(f => S.gold[f.id]).length;
+      const ex = P.dream ? `深さ ${S.depth}・最深 ${S.bestDepth || 0}・ぜんぶの池の魚が出る` : been ? `図鑑 ${got}/9${S.cleared ? `・👑金色 ${gg}/9・${S.trophy[i] ? '🏆ぬし討伐ずみ' : 'ぬし まだ'}` : ''}` : '';
       h += `<div class="pondrow ${lock ? 'lock' : ''}" style="background:linear-gradient(160deg, ${P.sky[0]} 0%, ${P.water[0]} 45%, ${P.water[1]} 100%)">
         <div class="t">${lock ? '？？？' : esc(P.nm)}</div>
-        <div class="d">魚の値段 ×${fmt(P.mult)}${i > 0 ? `・移るのに ${fmt(P.need)} コイン` : ''}</div>
-        <span class="tag">${cur ? 'いまここ' : done ? '通過' : next ? '次の池' : 'まだ'}</span>
+        <div class="d">魚の値段 ×${fmt(F.pondMult(S, i))}${i > 0 && !been ? `・進むのに ${fmt(P.need)} コイン` : ''}</div>
+        ${ex ? `<div class="ex">${ex}</div>` : ''}
+        <span class="tag">${cur ? 'いまここ' : been ? '行ったことがある' : next ? '次の池' : 'まだ'}</span>
+        ${been && !cur ? `<button class="go" data-go="${i}">ここで釣る（コイン・強化そのまま）</button>` : ''}
         ${next ? `<button class="big gold" id="moveBtn" style="margin-top:10px"></button>` : ''}
       </div>`;
     });
-    h += `<p class="note">池を移ると、コインと強化はリセット。そのかわり<b style="color:#8affa0">お守り（ずっと運+1）</b>がもらえて、魚がずっと高く売れます。図鑑・真珠・お守り・帽子は消えません。<br>最後の「星空の池」で ${fmt(F.GOAL)} コイン貯めるとゴール！</p>`;
+    h += `<p class="note">新しい池へ進むと、コインと強化はリセット。そのかわり<b style="color:#8affa0">お守り（ずっと運+1）</b>がもらえて、魚がずっと高く売れます。図鑑・真珠・お守り・帽子は消えません。<br>行ったことのある池には、いつでも<b>もどれます</b>（コインと強化はそのまま。魚の値段はその池のぶん）。<br>最後の「星空の池」で ${fmt(F.GOAL)} コイン貯めるとゴール！${S.cleared ? '<br><b style="color:#ffd0f0">ゴールのあと：夢の池（どこまでももぐれる）・金色の魚・池のぬし</b>' : ''}</p>`;
     sh.innerHTML = h;
+    sh.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const i = +b.dataset.go; if (F.travel(S, i)) { SND.buy(); save(); layoutScene(); RENDER.pond(sh); hud(); popText(W / 2, H * .45, `「${F.PONDS[i].nm}」にもどった`, '#fff', 1); } });
     const mb = sh.querySelector('#moveBtn');
-    if (mb) mb.onclick = () => { const P = F.PONDS[S.pond + 1]; confirmModal(`「${P.nm}」へ移りますか？`, 'コインと強化はリセットされます。お守り（運+1）がもらえます。', '移る', () => { if (F.movePond(S)) { SND.prize(); save(); layoutScene(); closeModal(); RENDER.pond(sh); hud(); clearDot('pond'); popText(W / 2, H * .45, `ようこそ「${P.nm}」へ！`, '#fff', 1); sparkle(W / 2, H * .45, 40, '#ffd040'); } }); };
-    refresh = () => { if (!mb) return; const need = F.PONDS[S.pond + 1].need; mb.disabled = !F.canMove(S); mb.textContent = F.canMove(S) ? 'この池へ移る' : `あと ${fmt(Math.max(0, need - S.coins))} コイン`; };
+    if (mb) mb.onclick = () => { const P = F.PONDS[nx]; confirmModal(`「${P.nm}」へ進みますか？`, 'コインと強化はリセットされます。お守り（運+1）がもらえます。', '進む', () => { if (F.movePond(S)) { SND.prize(); save(); layoutScene(); closeModal(); RENDER.pond(sh); hud(); clearDot('pond'); popText(W / 2, H * .45, `ようこそ「${P.nm}」へ！`, '#fff', 1); sparkle(W / 2, H * .45, 40, '#ffd040'); } }); };
+    refresh = () => { if (!mb) return; const need = F.PONDS[nx].need; mb.disabled = !F.canMove(S); mb.textContent = F.canMove(S) ? 'この池へ進む' : `あと ${fmt(Math.max(0, need - S.coins))} コイン`; };
     refresh();
   },
 };
@@ -829,23 +852,64 @@ function rarePopup(ev) {
   if (rareOpen > 2 || window.__fishQuiet) return;    // 連続で来たら出しすぎない
   rareOpen++;
   const f = ev.fish, R = F.RAR[f.r];
-  showModal(`<span class="rar" style="background:${R.c}">${R.nm}</span>${ev.isNew ? ' <span class="rar" style="background:#8affa0">NEW</span>' : ''}
+  showModal(`<span class="rar" style="background:${R.c}">${R.nm}</span>${ev.isNew ? ' <span class="rar" style="background:#8affa0">NEW</span>' : ''}${ev.gold ? ` <span class="rar" style="background:#ffd040;color:#3a2200">👑 金色${ev.goldNew ? '・はじめて！' : ''}</span>` : ''}
     <canvas class="fishbig"></canvas><h3>${esc(f.nm)}</h3>
-    <p>大きさ ${ev.size.toFixed(2)}倍${ev.size >= 1.3 ? '（大物！）' : ''}<br><b style="color:var(--gold)">+${fmt(ev.v)} コイン</b>${ev.pearls ? `　真珠 +${ev.pearls}` : ''}</p>
+    <p>大きさ ${ev.size.toFixed(2)}倍${ev.size >= 1.3 ? '（大物！）' : ''}<br><b style="color:var(--gold)">+${fmt(ev.v)} コイン</b>${ev.pearls ? `　真珠 +${ev.pearls}` : ''}${ev.goldNew ? `<br><span style="color:#ffd040">金のうろこ：ずっと値段 +3%（いま ${F.goldCount(S)}/45）</span>` : ''}</p>
     <button class="big" data-close>やったね！</button>`, card => {
       card.style.setProperty('--rc', R.c); bigFishCanvas(card, f);
       const auto = setTimeout(() => { if (card.isConnected) closeModal(); }, f.r === 'GOD' || f.r === 'LR' ? 6000 : 3500);
       card.addEventListener('click', () => clearTimeout(auto), { once: true });
       const obs = new MutationObserver(() => { if (!card.isConnected) { rareOpen--; obs.disconnect(); } }); obs.observe(modal, { childList: true });
     }, 'glow');
-  if (f.r === 'GOD' || f.r === 'LR') sparkle(W / 2, H / 2, 70, R.c);
+  if (f.r === 'GOD' || f.r === 'LR' || ev.gold) sparkle(W / 2, H / 2, 70, ev.gold ? '#ffd040' : R.c);
 }
 function fishModal(f) {
   const z = S.zukan[f.id], R = F.RAR[f.r];
-  if (!z) { showModal(`<h3>？？？</h3><p>まだ釣っていない魚。<br>${f.pond <= S.pond ? `「${esc(F.PONDS[f.pond].nm)}」にいるらしい。` : '先の池にいるらしい。'}</p><p class="note">レア度：${R.nm}</p><button class="big ghost" data-close>とじる</button>`); return; }
+  if (!z) { showModal(`<h3>？？？</h3><p>まだ釣っていない魚。<br>${f.pond <= S.maxPond ? `「${esc(F.PONDS[f.pond].nm)}」にいるらしい。🗺️池からもどれるよ。` : '先の池にいるらしい。'}</p><p class="note">レア度：${R.nm}</p><button class="big ghost" data-close>とじる</button>`); return; }
   showModal(`<span class="rar" style="background:${R.c}">${R.nm}</span><canvas class="fishbig"></canvas><h3>${esc(f.nm)}</h3>
-    <p>${esc(F.PONDS[f.pond].nm)}の魚<br>釣った数 ${fmt(z.n)}匹・最大 ${z.big.toFixed(2)}倍</p><button class="big ghost" data-close>とじる</button>`, card => { card.style.setProperty('--rc', R.c); bigFishCanvas(card, f); }, 'glow');
+    <p>${esc(F.PONDS[f.pond].nm)}の魚<br>釣った数 ${fmt(z.n)}匹・最大 ${z.big.toFixed(2)}倍${S.gold[f.id] ? `<br><span style="color:#ffd040">👑 金色 ${S.gold[f.id]}匹</span>` : S.cleared ? '<br><span style="color:var(--muted)">金色はまだ</span>' : ''}</p><button class="big ghost" data-close>とじる</button>`, card => { card.style.setProperty('--rc', R.c); bigFishCanvas(card, f); }, 'glow');
 }
+// ---- ぬしとの勝負 ----
+$('#bossBtn').onclick = () => { audio(); bossModal(); };
+function bossModal() {
+  const B = F.bossOf(S), fish = { shape: B.shape, c1: B.c1, c2: B.c2, pat: 'shine', r: 'GOD', nm: B.nm };
+  S.bossReady = false;
+  let hit = 0, miss = 0, pos = 0, dir = 1, zone = .35, over = false, t0 = performance.now();
+  const lives = 3;
+  showModal(`<h3>🐉 ${esc(B.nm)}</h3><canvas class="fishbig"></canvas>
+    <p class="note">白い線が<b style="color:#5ae07a">みどり</b>に入ったときに「巻く！」。${B.need}回成功で釣り上げ、${lives}回失敗で糸が切れる。（PCはスペースキー）</p>
+    <div class="pips" id="bpHit"></div><div class="reel"><div class="zone" id="bz"></div><div class="cur" id="bc"></div></div><div class="pips" id="bpMiss"></div>
+    <p id="bres" style="min-height:1.5em;font-weight:900"></p>
+    <div class="two"><button class="big ghost" id="bGive">にげる</button><button class="big gold" id="bReel">巻く！</button></div>`, card => {
+    modal.dataset.lock = 1;
+    card.style.setProperty('--rc', '#b07aff'); bigFishCanvas(card, fish);
+    const zEl = card.querySelector('#bz'), cEl = card.querySelector('#bc');
+    const pips = () => { card.querySelector('#bpHit').innerHTML = Array.from({ length: B.need }, (_, i) => i < hit ? '🐟' : '・').join(''); card.querySelector('#bpMiss').innerHTML = Array.from({ length: lives }, (_, i) => i < miss ? '💥' : '🧵').join(''); };
+    const place = () => { zone = .1 + Math.random() * (.8 - B.zone); zEl.style.left = zone * 100 + '%'; zEl.style.width = B.zone * 100 + '%'; };
+    place(); pips();
+    let last = performance.now();
+    const tick = now => { if (over || !card.isConnected) return; const dt = (now - last) / 1000; last = now; const sp = B.speed * (1 + hit * .06); pos += dir * sp * dt; if (pos > 1) { pos = 1; dir = -1; } if (pos < 0) { pos = 0; dir = 1; } cEl.style.left = pos * 100 + '%'; requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    const end = win => {
+      over = true; delete modal.dataset.lock; S.bossT = 200 + Math.random() * 160;
+      const btn = card.querySelector('#bReel'), give = card.querySelector('#bGive');
+      if (win) { const r = F.bossWin(S); SND.prize(); sparkle(W / 2, H / 2, 90, '#d0a0ff'); card.querySelector('#bres').innerHTML = `<span style="color:#ffd040">釣り上げた！ +${fmt(r.v)}コイン・真珠+${r.pearls}${r.first ? '<br>🏆 はじめての討伐！ ずっと運+2' : ''}</span>`; }
+      else { SND.sad(); card.querySelector('#bres').innerHTML = '<span style="color:#ff8a8a">糸が切れた…またこんど</span>'; }
+      btn.hidden = true; give.textContent = 'とじる'; give.className = 'big gold'; give.setAttribute('data-close', ''); save(); hud();
+    };
+    const reel = () => {
+      if (over) return;
+      if (pos >= zone && pos <= zone + B.zone) { hit++; SND.nice(); place(); if (hit >= B.need) { pips(); return end(true); } }
+      else { miss++; SND.sad(); if (miss >= lives) { pips(); return end(false); } }
+      pips();
+    };
+    card.querySelector('#bReel').onclick = reel;
+    card.querySelector('#bGive').onclick = () => { if (!over) { over = true; delete modal.dataset.lock; S.bossT = 200 + Math.random() * 160; save(); } closeModal(); };
+    const key = e => { if (!card.isConnected) return removeEventListener('keydown', key, true); if (e.code === 'Space') { e.preventDefault(); e.stopPropagation(); reel(); } };
+    addEventListener('keydown', key, true);
+  });
+}
+
 // ---- 宝箱のルーレット ----
 $('#chestBtn').onclick = () => { audio(); wheelModal(); };
 const WLABEL = ['💰×20', '真珠5', 'FEVER', '💰×80', '運+10', 'はずれ', '真珠25', '大当り'];
@@ -903,7 +967,7 @@ function offlineModal(r) {
 }
 function clearModal() {
   SND.prize(); sparkle(W / 2, H / 2, 90, '#ffd040');
-  showModal(`<h3>🎉 ゴール！</h3><p>星空の池で ${fmt(F.GOAL)} コイン貯めました！<br>遊んだ時間：${fmtT(S.stats.playT)}<br>図鑑：${Object.keys(S.zukan).length} / 45</p><p class="note">このまま釣りを続けて、図鑑を全部うめよう。</p><button class="big gold" data-close>まだまだ釣る</button>`);
+  showModal(`<h3>🎉 ゴール！</h3><p>星空の池で ${fmt(F.GOAL)} コイン貯めました！<br>遊んだ時間：${fmtT(S.stats.playT)}<br>図鑑：${Object.keys(S.zukan).length} / 45</p><p style="color:#ffd0f0"><b>ここからがエンドコンテンツ！</b></p><p class="note" style="text-align:left">🌙 <b>夢の池</b>：${fmt(F.PONDS[F.DREAM].need)}コインで行ける。ぜんぶの池の魚が出て、稼ぐほど深くもぐれる（どこまでも）。<br>👑 <b>金色の魚</b>：それぞれの池で、まれに釣れる。値段×10、はじめての種類ごとにずっと値段+3%。<br>🐉 <b>池のぬし</b>：ときどき現れる。タイミングよくリールを巻いて釣り上げると🏆（ずっと運+2）。<br>🗺️ 前の池にもどって、図鑑と金色をうめよう。</p><button class="big gold" data-close>まだまだ釣る</button>`);
 }
 
 // =============================================================
@@ -921,6 +985,7 @@ function loop(now) {
   run.sync();
   run.step(dt);
   while (run.events.length) handle(run.events.shift());
+  if (S.cleared && !S.bossReady && $('#modal').hidden) { S.bossT -= dt; if (S.bossT <= 0) { S.bossReady = true; SND.fever(); popText(W / 2, H * .3, `${F.bossOf(S).nm.split('「')[0]}が現れた！`, '#d0a0ff', 1); } }
   frame(S.t, dt);
   S.last = Date.now();
   if (now - lastHudT > 200) { lastHudT = now; hud(); if (refresh && curTab) refresh(); }
