@@ -447,8 +447,25 @@ const NET = (() => {
   }
   // ありえない記録は表示しない（共有データは書きかえられる可能性がある）
   const sane = r => r && typeof r.name === 'string' && Number.isFinite(r.score) && Number.isFinite(r.dist) && r.score >= 0 && r.dist >= 0 && r.dist <= 2e6 && r.score <= r.dist * 2 + (r.drops || 0) * 10 + 50;
+  const norm = s => (s || '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+  const hex = s => Array.from(new TextEncoder().encode(s), b => b.toString(16).padStart(2, '0')).join('');
   return {
     on,
+    // 名前を名簿にのせる（ゲーム一覧の「名前をつける」と同じ）。→ {ok, why}
+    async claim(raw) {
+      if (!(await on())) return { ok: false, why: 'つながっていません' };
+      const name = (raw || '').normalize('NFKC').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10);
+      if (!name) return { ok: false, why: '名前を入れてね' };
+      if (!/^[\p{L}\p{N}_\-・ー〜!?！？☆★♪.]+$/u.test(name.replace(/\s/g, ''))) return { ok: false, why: '使えない記号が入っています' };
+      const key = norm(name);
+      const L = await db.doc('locks/' + hex(key)).acquire({ holder: uid, ttlMs: 8000 });
+      if (!L.acquired) return { ok: false, why: 'いま同じ名前をだれかが登録中。少し待ってね' };
+      const q = await db.collection('accounts').where('key', '==', key).get();
+      if (q.docs.some(d => d.id !== uid)) return { ok: false, why: 'その名前はもう使われています' };
+      await db.doc('accounts/' + uid).set({ name, key, at: Date.now() });
+      try { localStorage.setItem('games-account', JSON.stringify({ name, key, shared: true })); } catch (e) {}
+      return { ok: true, name };
+    },
     async submit(run) { // → {ok, rank, best, why}
       if (!(await on())) return { ok: false, why: 'off' };
       const name = await myName(); if (!name) return { ok: false, why: 'noname' };
@@ -495,11 +512,26 @@ function showOver() {
   show('over');
   const el = $('oNet'); el.textContent = 'オンラインランキングに送っています…';
   NET.submit({ s: sc, d: Math.floor(G.dist), c: G.drops }).then(r => {
-    if (!r.ok) el.innerHTML = r.why === 'noname' ? 'ランキングにのせるには、ゲーム一覧の右上で<b>名前をつけてね</b>' : `オンラインランキングにつながらなかった（コード ${NET.why || '?'}）`;
+    if (!r.ok && r.why === 'noname') askName(el, { s: sc, d: Math.floor(G.dist), c: G.drops });
+    else if (!r.ok) el.innerHTML = `オンラインランキングにつながらなかった（コード ${NET.why || '?'}）`;
     else el.innerHTML = `オンライン <b>${r.rank}位</b>${r.newBest ? '（自己ベスト更新！）' : `（自己ベスト ${r.best.toLocaleString()}）`}`;
   }).catch(e => { el.textContent = `ランキングに送れなかった（${String(e && e.message || e).slice(0, 60)}）`; });
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
+// 名前を決めて、そのままランキングに送る（名前はゲーム一覧と共通）
+function askName(el, run) {
+  el.innerHTML = `ランキングにのせる名前を決めよう（ほかのゲームでも使われるよ）<form class="nameRow" id="nmForm"><input id="nmIn" maxlength="10" placeholder="なまえ" autocomplete="off"><button class="btn gold" type="submit">決定</button></form><div id="nmMsg" class="note"></div>`;
+  const f = $('nmForm'); let busy = false;
+  f.onsubmit = async e => {
+    e.preventDefault(); if (busy) return; busy = true; $('nmMsg').textContent = 'たしかめ中…';
+    try {
+      const c = await NET.claim($('nmIn').value);
+      if (!c.ok) { $('nmMsg').textContent = c.why; busy = false; return; }
+      const r = await NET.submit(run);
+      el.innerHTML = r.ok ? `「${esc(c.name)}」で登録したよ！ オンライン <b>${r.rank}位</b>` : 'ランキングに送れなかった';
+    } catch (err) { $('nmMsg').textContent = '登録できなかった（' + String(err && err.message || err).slice(0, 40) + '）'; busy = false; }
+  };
+}
 function togglePause() {
   if (!G || G.over) return;
   G.paused = !G.paused; show(G.paused ? 'paused' : null); if (!G.paused) stack = []; last = performance.now();
