@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ポーション探検記 攻略の書</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Antique&family=Shippori+Mincho:wght@500;700;800&display=swap">
+<style>
+:root { --ink: #3a2614; --ink2: #6a4c2c; --mute: #7a5e3e; --parch: #ead8ae; --line: rgba(58,38,20,.35); --red: #8a2a1a; color-scheme: light; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+body { margin: 0; background: #2a1c10; color: var(--ink); font-family: "Shippori Mincho", "Hiragino Mincho ProN", serif; line-height: 1.85; }
+.page { max-width: 820px; margin: 0 auto; min-height: 100vh; background: radial-gradient(circle at 50% 20%, #f2e4c0, #e4cf9f 70%, #d6bc86); box-shadow: 0 0 40px rgba(0,0,0,.5); padding: 0 0 40px; }
+header { padding: 34px 20px 18px; text-align: center; border-bottom: 3px double var(--ink2); }
+header h1 { margin: 0; font-family: "Zen Antique", serif; font-weight: 400; font-size: clamp(1.8rem, 6vw, 2.6rem); letter-spacing: .12em; color: #5a2a14; }
+header p { margin: 6px 0 0; color: var(--mute); font-size: .92rem; }
+header .open { display: inline-block; margin-top: 12px; padding: 7px 16px; border: 2px solid var(--ink2); border-radius: 6px; background: linear-gradient(180deg, #a8442c, #7a2a18); color: #f6e8c6; text-decoration: none; font-weight: 800; box-shadow: 0 3px 0 #4a1a0c; }
+nav { position: sticky; top: 0; z-index: 5; background: #e8d3a4; border-bottom: 1.5px solid var(--ink2); display: flex; gap: 2px; overflow-x: auto; padding: 6px 8px; }
+nav a { flex: 0 0 auto; color: var(--ink); text-decoration: none; font-weight: 800; font-size: .88rem; padding: 4px 10px; border-radius: 4px; white-space: nowrap; }
+nav a:hover, nav a:focus-visible { background: rgba(58,38,20,.12); outline: none; }
+main { padding: 0 20px; }
+section { padding-top: 26px; }
+h2 { font-family: "Zen Antique", serif; font-weight: 400; font-size: 1.55rem; letter-spacing: .08em; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+h2::after { content: ""; flex: 1; border-top: 1.5px solid var(--ink2); border-bottom: 1px solid var(--ink2); height: 3px; }
+h3 { font-size: 1.1rem; margin: 18px 0 4px; }
+p { margin: 6px 0; }
+.note { font-size: .86rem; color: var(--mute); }
+.box { border: 1.5px solid var(--ink2); border-radius: 6px; padding: 10px 14px; background: rgba(255,248,226,.45); margin: 10px 0; }
+.letter { font-style: normal; border-left: 3px solid var(--ink2); padding: 2px 0 2px 12px; margin: 6px 0; font-size: .92rem; }
+.emo { filter: sepia(.8) saturate(.75); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; margin: 8px 0; }
+th, td { border-bottom: 1px dashed var(--line); padding: 6px 6px; text-align: left; vertical-align: top; }
+th { border-bottom: 1.5px solid var(--ink2); font-weight: 800; white-space: nowrap; }
+td.e { font-size: 1.35rem; width: 2em; text-align: center; }
+.tbl { overflow-x: auto; }
+details.spoil { border: 1.5px dashed var(--red); border-radius: 6px; margin: 10px 0; background: rgba(138,42,26,.04); }
+details.spoil > summary { cursor: pointer; padding: 8px 12px; font-weight: 800; color: var(--red); list-style: none; }
+details.spoil > summary::-webkit-details-marker { display: none; }
+details.spoil > summary::before { content: "▶ "; }
+details.spoil[open] > summary::before { content: "▼ "; }
+details.spoil > div { padding: 0 12px 10px; }
+ol.route { padding-left: 1.4em; }
+ol.route li { margin: 8px 0; }
+.kbd { display: inline-block; border: 1.5px solid var(--ink2); border-bottom-width: 3px; border-radius: 4px; padding: 0 6px; font-size: .82rem; font-weight: 800; background: #f6ead0; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.zone { border: 1.5px solid var(--ink2); border-radius: 6px; padding: 10px 12px; background: rgba(255,248,226,.4); }
+.zone h3 { margin: 0 0 4px; font-family: "Zen Antique", serif; font-weight: 400; letter-spacing: .06em; }
+.zone ul { margin: 4px 0; padding-left: 1.2em; font-size: .88rem; }
+.tag { display: inline-block; font-size: .72rem; border: 1px solid var(--ink2); border-radius: 3px; padding: 0 4px; margin-left: 4px; font-weight: 800; }
+#mapWrap { position: relative; margin: 8px 0; }
+#bigmap { width: 100%; height: auto; display: block; border: 2px solid var(--ink2); border-radius: 4px; background: #e6d2a4; touch-action: pan-y; }
+.layers { display: flex; gap: 12px; flex-wrap: wrap; font-size: .86rem; font-weight: 700; }
+.layers label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: .8rem; color: var(--mute); }
+.legend i { display: inline-block; width: 14px; height: 10px; border: 1px solid var(--ink2); vertical-align: middle; margin-right: 3px; }
+#tip { position: absolute; pointer-events: none; background: rgba(42,28,16,.92); color: #f2e2bc; padding: 4px 9px; border-radius: 4px; font-size: .8rem; white-space: nowrap; transform: translate(-50%, -130%); opacity: 0; transition: opacity .15s; }
+footer { text-align: center; color: var(--mute); font-size: .82rem; padding: 26px 20px 0; }
+dl.qa dt { font-weight: 800; margin-top: 12px; }
+dl.qa dt::before { content: "問　"; color: var(--red); }
+dl.qa dd { margin: 2px 0 0 0; }
+dl.qa dd::before { content: "答　"; font-weight: 800; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>ポーション探検記<br>攻略の書</h1>
+    <p>見習い錬金術師のための手引き。<b style="color:#8a2a1a">ネタバレ</b>は赤い枠の中に隠してあるので、見たいところだけ開いてね。</p>
+    <a class="open" href="index.html">⚗️ ゲームを開く</a>
+  </header>
+  <nav aria-label="もくじ">
+    <a href="#start">はじめに</a><a href="#rule">遊び方</a><a href="#mats">素材</a><a href="#cre">いきもの</a><a href="#zone">地方と場所</a><a href="#route">攻略ルート</a><a href="#map">全体地図</a><a href="#qa">よくある質問</a>
+  </nav>
+  <main>
+    <section id="start">
+      <h2>はじめに</h2>
+      <p>ある朝、アトリエからエルマ師匠がいなくなった。残されたのは古い地図と、「北の果てに眠る<b>賢者の石</b>を探しに行く」という手紙だけ。</p>
+      <p>この土地の錬金術師は、<b>ポーションを飲んで旅をする</b>。釜に素材を入れて飲むと、体がふわりと地図の上を運ばれていく。どの素材がどこへ運ぶのか――それを自分で確かめながら、師匠の足どりを追いかけるゲーム。</p>
+      <div class="box"><b>この攻略の書の使い方</b><br>ルールや操作はそのまま読んでOK。素材の効果・地図・ルートは、自分で見つける楽しみを残すために<b>赤い枠</b>（ネタバレ）にしまってある。</div>
+    </section>
+
+    <section id="rule">
+      <h2>遊び方</h2>
+      <h3>⚗️ 釜で調合して飲む</h3>
+      <p>画面下の素材をタップすると釜に入る（5つまで）。入れたとたん、地図の上に<b>点線の道すじ</b>と、着地する場所に半透明の瓶が出る。「飲む」でその道すじを進む。</p>
+      <ul>
+        <li>素材は<b>入れた順番</b>に道がのびる。同じ素材でも順番を変えると、とちゅうの通り道が変わる。</li>
+        <li>森・水・岩・城壁に<b>ぶつかると、その手前で止まる</b>（止まった先は薄い赤の点線）。</li>
+        <li>着地できない場所には赤い✕が出て、飲めない。</li>
+        <li>飲んだあとは、通った道に<b>足あと</b>が残る（そのターンだけ）。</li>
+      </ul>
+      <h3>🎯 ぴったり降りる</h3>
+      <p>地図のものと<b>まったく同じマス</b>に降りると――</p>
+      <ul>
+        <li><b>いきもの</b>：つかまえる。持っている素材がもらえる。図鑑に記録される。</li>
+        <li><b>素材の群生地</b>（点線の丸）：素材が3つ採れる。2日たつとまた生える。</li>
+        <li><b>ふしぎな場所</b>（丸い紋章）：調べる。師匠の手紙が見つかることも。</li>
+      </ul>
+      <p>着地点にものがあると、釜の横に「<b>ぴったり！</b>」と出るので目安にしよう。マス目は見えないけど、地図は64×64マスでできている。</p>
+      <h3>🐇 動くいきもの</h3>
+      <p>うさぎ・カエル・ペンギン・妖精は、<b>薬を1回飲むたびに動く</b>。赤い矢印が「次に動く先」。順番は「あなたが着地 → つかまえる判定 → いきものが動く」なので、<b>いま矢印の根もとにいる場所</b>にぴったり降りればつかまえられる。</p>
+      <h3>⛺ 休む・🗺️ 野営地</h3>
+      <p>右上の⛺で、アトリエか<b>見つけた野営地</b>のどれかで一晩休める。日が進み、基本の素材（🍒💧🪨🪶）が<b>6つずつ</b>にもどり、群生地の素材もまた生える。遠くまで行ったら、まず野営地を見つけておくと楽。</p>
+      <h3>📝 メモ帳</h3>
+      <p>右上の📝は自分専用のメモ帳。素材ごとの欄に書いたことは、下の素材の札にも小さく出る。「はじめから」をやり直しても<b>メモは消えない</b>。</p>
+      <h3>操作</h3>
+      <div class="tbl"><table>
+        <tr><th>やりたいこと</th><th>スマホ</th><th>PC</th></tr>
+        <tr><td>地図を動かす</td><td>ドラッグ</td><td>ドラッグ</td></tr>
+        <tr><td>拡大・縮小</td><td>ピンチ</td><td>マウスホイール</td></tr>
+        <tr><td>自分の位置にもどる</td><td colspan="2">右上の ◎</td></tr>
+        <tr><td>地図のものを調べる</td><td>タップ</td><td>クリック</td></tr>
+        <tr><td>飲む</td><td>「飲む」</td><td><span class="kbd">Enter</span> / <span class="kbd">Space</span></td></tr>
+        <tr><td>素材を釜に入れる</td><td>素材をタップ</td><td><span class="kbd">1</span>〜<span class="kbd">9</span></td></tr>
+        <tr><td>釜から出す</td><td>釜の丸をタップ</td><td><span class="kbd">Backspace</span>（全部は <span class="kbd">Esc</span>）</td></tr>
+      </table></div>
+    </section>
+
+    <section id="mats">
+      <h2>素材</h2>
+      <p>素材の効果はゲームの中では文字で出ない。釜に入れて点線ののび方を見て覚えよう。</p>
+      <details class="spoil"><summary>素材の効果と手に入る場所を見る（ネタバレ）</summary><div>
+        <p class="note">1 = マス目1つ。北が上。</p>
+        <div class="tbl"><table id="matTable"></table></div>
+        <div class="box"><b>光と闇のしくみ</b><br>
+          🌟<b>ほたる草</b>が1つでも入ると「跳躍」になり、ほかの素材の<b>きょりがぜんぶ2倍</b>（2つで3倍）。とちゅうの森・水・岩・城壁を<b>跳び越えて</b>、着地点だけで判定する。<br>
+          🫐<b>影の実</b>が入ると、ほかの素材の<b>向きがぜんぶ反対</b>になる（2つ入れると元にもどる）。<br>
+          どちらも、それだけを飲んでも動かない。</div>
+      </div></details>
+    </section>
+
+    <section id="cre">
+      <h2>いきもの</h2>
+      <p>全部で <b id="creTotal"></b> 匹。つかまえると、その子が持っている素材がもらえる。</p>
+      <div class="tbl"><table id="creTable"></table></div>
+    </section>
+
+    <section id="zone">
+      <h2>地方と場所</h2>
+      <p>地図は5つの地方に分かれている。アトリエのまわり（はじまりの野）は<b>川</b>にぐるっと囲まれていて、歩いては出られない。</p>
+      <div class="cols" id="zones"></div>
+      <details class="spoil"><summary>師匠の手紙をぜんぶ読む（物語のネタバレ）</summary><div id="letters"></div></details>
+    </section>
+
+    <section id="route">
+      <h2>攻略ルート</h2>
+      <p>決まった順番はないけど、迷ったらこの順がおすすめ。</p>
+      <details class="spoil"><summary>おすすめルートを見る（ネタバレ）</summary><div>
+        <ol class="route">
+          <li><b>基本の4つを試す。</b>🍒💧🪨🪶をひとつずつ入れて、点線がどっちへ何マスのびるか確かめ、📝メモ帳に書く。<br><span class="note">答え：🍒北1・💧南1・🪨西1・🪶東1。</span></li>
+          <li><b>はじまりの野をまわる。</b>🌟ほたる草の群生地が3か所ある。いきもの（🐌🐞）を持っている子もいる。<b>古い井戸</b>と<b>石の環</b>で師匠の手紙を読む。</li>
+          <li><b>川を跳び越える。</b>川岸の手前で、たとえば 🍒🍒🌟（北へ4マス跳ぶ）。川は2マスくらいの幅なので、跳躍なら越えられる。</li>
+          <li><b>北の森・狩人の小屋（野営地）。</b>森は木で止まりやすいので、🌰🍯（ななめ）を使って木のすきまを抜ける。うさぎは矢印を見て、着地のマスを合わせる。</li>
+          <li><b>東の湖沼・湖の祠（野営地）／西の岩山・山の野営地。</b>🌊🔥🧱🌀は<b>3マス</b>進む強い素材。🐚はななめ寄り（南2・西1）。野営地を見つけておくと、休んだあと遠くから再開できる。</li>
+          <li><b>古の遺跡・崩れた門（野営地）。</b>門の奥の城壁は2マスの厚さ。歩いては入れない。</li>
+          <li><b>賢者の石へ。</b>門から<b>まっすぐ北へ10マス</b>の跳躍で、ちょうど賢者の石に降りられる。<br>例：🔥（北3）＋🍒＋🍒＋🌟 ＝ 北5×2 ＝ <b>北10</b>。<br><span class="note">🍒×4＋🌟（北8）で城壁の内側に入って、🍒🍒で北2、でもOK。</span></li>
+        </ol>
+      </div></details>
+    </section>
+
+    <section id="map">
+      <h2>全体地図</h2>
+      <p>ゲームでは霧で隠れている場所も含めた、地図の全体図。</p>
+      <details class="spoil" id="mapSpoil"><summary>全体地図を見る（ネタバレ）</summary><div>
+        <div class="layers">
+          <label><input type="checkbox" data-l="marks" checked> 場所</label>
+          <label><input type="checkbox" data-l="spots" checked> 群生地</label>
+          <label><input type="checkbox" data-l="cres" checked> いきもの（はじめの位置）</label>
+          <label><input type="checkbox" data-l="grid"> 8マスごとの線</label>
+        </div>
+        <div id="mapWrap"><canvas id="bigmap" width="1024" height="1024" aria-label="全体地図"></canvas><div id="tip"></div></div>
+        <div class="legend"><span><i style="background:#cdbf98"></i>水</span><span><i style="background:#b9a678"></i>森</span><span><i style="background:#a89a80"></i>岩山</span><span><i style="background:#9a8060"></i>城壁</span><span>⛺＝野営地</span></div>
+        <p class="note">地図のものにふれると名前が出る。動くいきものは、はじめの位置にいる。</p>
+      </div></details>
+    </section>
+
+    <section id="qa">
+      <h2>よくある質問</h2>
+      <dl class="qa">
+        <dt>素材がなくなった！</dt>
+        <dd>右上の⛺で休もう。基本の素材は毎朝6つずつにもどる。めずらしい素材は群生地（2日で生えなおす）といきものから。</dd>
+        <dt>「降りられない」と出て飲めない。</dt>
+        <dd>着地する場所が森・水・岩などの上。素材を減らしたり、ほかの素材を足したりして着地点をずらそう。</dd>
+        <dt>途中で止まってしまう。</dt>
+        <dd>入れる<b>順番</b>を変えると通り道が変わる。それでもダメなら、跳び越える素材を探そう。</dd>
+        <dt>動くいきものがつかまらない。</dt>
+        <dd>着地した瞬間に同じマスにいればOK。いきものが動くのは着地の<b>あと</b>。いまいる場所にぴったり降りよう。ぶつかると引き返す子が多いので、壁ぎわは向きに注意。</dd>
+        <dt>セーブは？</dt>
+        <dd>飲むたびに自動で保存される（ブラウザの中）。📜の記録から「はじめから」もできる。メモ帳は消えない。</dd>
+        <dt>賢者の石を見つけたら終わり？</dt>
+        <dd>エピローグのあとも旅はつづけられる。いきもの図鑑や、まだ行っていない場所をうめてみよう。</dd>
+      </dl>
+    </section>
+  </main>
+  <footer>ポーション探検記 攻略の書 ・ <a href="index.html" style="color:inherit">ゲームを開く</a> ・ <a href="../index.html" style="color:inherit">ゲーム一覧</a></footer>
+</div>
+<script src="world.js"></script>
+<script>
+(() => {
+  const P = window.PW, $ = id => document.getElementById(id);
+  const ZN = z => P.ZONES[z].nm;
+  // 素材の表
+  const eff = v => [v[0] ? '北' + v[0] : '', v[1] ? '南' + v[1] : '', v[2] ? '西' + v[2] : '', v[3] ? '東' + v[3] : '', v[4] ? '跳躍（きょり2倍・跳び越える）' : '', v[5] ? '向きを反転' : ''].filter(Boolean).join('・');
+  const whereMat = m => {
+    const out = [];
+    if (P.BASIC.includes(m)) out.push('はじめから持っている／休むと補充');
+    const sp = [...new Set(P.SPOTS.filter(s => s.m === m).map(s => ZN(s.zone)))];
+    if (sp.length) out.push('群生地：' + sp.join('、'));
+    const cr = [...new Set(P.CRES.filter(c => c.drop === m).map(c => P.CRE[c.type].e))];
+    if (cr.length) out.push('持っている子：' + cr.join(''));
+    return out.join('<br>');
+  };
+  $('matTable').innerHTML = '<tr><th></th><th>素材</th><th>効果</th><th>手に入る場所</th></tr>' + Object.keys(P.MAT).map(m => `<tr><td class="e">${P.MAT[m].e}</td><td><b>${P.MAT[m].nm}</b></td><td>${eff(P.MAT[m].v)}</td><td style="font-size:.82rem">${whereMat(m)}</td></tr>`).join('');
+  // いきものの表
+  $('creTotal').textContent = P.CRES.length;
+  $('creTable').innerHTML = '<tr><th></th><th>いきもの</th><th>動き</th><th>すむ地方</th><th>数</th></tr>' + Object.keys(P.CRE).map(t => {
+    const list = P.CRES.filter(c => c.type === t);
+    return `<tr><td class="e">${P.CRE[t].e}</td><td><b>${P.CRE[t].nm}</b>${P.CRE[t].mv ? '<span class="tag">動く</span>' : ''}</td><td style="font-size:.85rem">${P.CRE[t].d}</td><td style="font-size:.85rem">${[...new Set(list.map(c => ZN(c.zone)))].join('、')}</td><td>${list.length}</td></tr>`;
+  }).join('');
+  // 地方
+  const zdesc = { inner: 'アトリエのある野原。まわりを川が囲んでいる。旅のじゅんびをする場所。', north: '木がしげった森。まっすぐ進むとすぐ木にぶつかる。', east: '大きな湖と沼地。水たまりが多く、降りられる場所がせまい。', west: 'ごつごつした岩山。強い素材がとれる。', ruins: '北の果ての遺跡。厚い城壁の奥に何かがある。' };
+  $('zones').innerHTML = Object.keys(P.ZONES).map(z => {
+    const ms = P.MARKS.filter(m => P.zoneOf(m.x, m.y) === z);
+    const cs = [...new Set(P.CRES.filter(c => c.zone === z).map(c => P.CRE[c.type].e))].join('');
+    return `<div class="zone"><h3>${P.ZONES[z].nm}</h3><div style="font-size:.88rem">${zdesc[z]}</div><ul>${ms.map(m => `<li><span class="emo">${m.e}</span> ${m.nm}${m.camp ? '<span class="tag">⛺野営地</span>' : ''}${m.goal ? '<span class="tag">目的地</span>' : ''}</li>`).join('')}</ul><div style="font-size:.85rem">いきもの：<span class="emo">${cs}</span></div></div>`;
+  }).join('');
+  $('letters').innerHTML = P.MARKS.map(m => `<h3><span class="emo">${m.e}</span> ${m.hd ? m.hd + '：' : ''}${m.nm}</h3><div class="letter">${m.txt}</div>`).join('');
+
+  // 全体地図
+  const cv = $('bigmap'), g = cv.getContext('2d'), N = P.N, C = cv.width / N;
+  const EF = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', INK = '#3a2614';
+  const L = { marks: true, spots: true, cres: true, grid: false };
+  const hits = [];
+  function draw() {
+    hits.length = 0;
+    g.fillStyle = '#e6d2a4'; g.fillRect(0, 0, cv.width, cv.height);
+    const rnd = P.rngOf(5);
+    for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(140,90,40,${.02 + rnd() * .03})`; g.beginPath(); g.arc(rnd() * cv.width, rnd() * cv.height, 4 + rnd() * 30, 0, 7); g.fill(); }
+    // 地形
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const t = P.T[y][x], X = x * C, Y = y * C;
+      if (t === 1) { g.fillStyle = '#cdbf98'; g.fillRect(X, Y, C + .5, C + .5); g.strokeStyle = 'rgba(58,38,20,.45)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X + 3, Y + C / 2); g.quadraticCurveTo(X + C / 2, Y + C / 2 - 3, X + C - 3, Y + C / 2); g.stroke(); }
+      else if (t === 2) { g.fillStyle = '#d2bf8e'; g.fillRect(X, Y, C + .5, C + .5); g.strokeStyle = INK; g.lineWidth = 1; g.fillStyle = '#b9a678'; g.beginPath(); g.arc(X + C / 2, Y + C / 2 - 1, C * .34, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(X + C / 2, Y + C / 2 + C * .3); g.lineTo(X + C / 2, Y + C - 1); g.stroke(); }
+      else if (t === 3) { g.fillStyle = '#c8b68e'; g.fillRect(X, Y, C + .5, C + .5); g.fillStyle = '#a89a80'; g.strokeStyle = INK; g.lineWidth = 1; g.beginPath(); g.moveTo(X + 2, Y + C - 2); g.lineTo(X + C / 2, Y + 2); g.lineTo(X + C - 2, Y + C - 2); g.closePath(); g.fill(); g.stroke(); }
+      else if (t === 4) { g.fillStyle = '#9a8060'; g.fillRect(X, Y, C + .5, C + .5); g.strokeStyle = 'rgba(58,38,20,.8)'; g.lineWidth = .8; g.strokeRect(X + .5, Y + .5, C - 1, C / 2); g.strokeRect(X + .5, Y + C / 2, C - 1, C / 2 - .5); }
+    }
+    // 地方の名前
+    const lab = { inner: [32, 41], north: [33, 23], east: [55, 52], west: [9, 49], ruins: [32, 13.5] };
+    g.font = `${C * 1.3}px "Zen Antique", serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const z in lab) { const [x, y] = lab[z]; g.lineWidth = 5; g.strokeStyle = 'rgba(230,210,164,.85)'; g.strokeText(P.ZONES[z].nm, x * C, y * C); g.fillStyle = 'rgba(58,38,20,.85)'; g.fillText(P.ZONES[z].nm, x * C, y * C); }
+    if (L.grid) { g.strokeStyle = 'rgba(58,38,20,.25)'; g.lineWidth = 1; for (let i = 8; i < N; i += 8) { g.beginPath(); g.moveTo(i * C, 0); g.lineTo(i * C, cv.height); g.moveTo(0, i * C); g.lineTo(cv.width, i * C); g.stroke(); } }
+    const em = (e, x, y, s) => { g.font = `${s}px ${EF}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(e, x, y); };
+    if (L.spots) for (const s of P.SPOTS) { const X = (s.x + .5) * C, Y = (s.y + .5) * C; g.setLineDash([2, 2]); g.strokeStyle = INK; g.lineWidth = 1; g.fillStyle = 'rgba(255,248,226,.8)'; g.beginPath(); g.arc(X, Y, C * .62, 0, 7); g.fill(); g.stroke(); g.setLineDash([]); em(P.MAT[s.m].e, X, Y + 1, C * .85); hits.push({ x: X, y: Y, t: `${P.MAT[s.m].e}${P.MAT[s.m].nm}の群生地` }); }
+    if (L.cres) for (const c of P.CRES) { const X = (c.x + .5) * C, Y = (c.y + .5) * C; em(P.CRE[c.type].e, X, Y, C * .95); hits.push({ x: X, y: Y, t: `${P.CRE[c.type].e}${P.CRE[c.type].nm}（${P.MAT[c.drop].e}を持っている）` }); }
+    if (L.marks) for (const m of P.MARKS) {
+      const X = (m.x + .5) * C, Y = (m.y + .5) * C;
+      g.fillStyle = '#efdfb8'; g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, C * .95, 0, 7); g.fill(); g.stroke();
+      em(m.e, X, Y + 1, C * 1.1);
+      g.font = `800 ${C * .9}px "Shippori Mincho", serif`; g.textBaseline = 'top'; g.lineWidth = 4; g.strokeStyle = 'rgba(239,223,184,.95)'; const nm = m.nm + (m.camp ? '⛺' : ''); g.strokeText(nm, X, Y + C * 1.05); g.fillStyle = INK; g.fillText(nm, X, Y + C * 1.05);
+      hits.push({ x: X, y: Y, t: `${m.e}${m.nm}${m.camp ? '（野営地）' : ''}${m.goal ? '（目的地）' : ''}`, r: C });
+    }
+    g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(1.5, 1.5, cv.width - 3, cv.height - 3);
+  }
+  document.querySelectorAll('[data-l]').forEach(cb => cb.onchange = () => { L[cb.dataset.l] = cb.checked; draw(); });
+  const tip = $('tip');
+  const showTip = (cx, cy) => {
+    const r = cv.getBoundingClientRect(), k = cv.width / r.width, x = (cx - r.left) * k, y = (cy - r.top) * k;
+    let best = null, bd = 1e9; for (const h of hits) { const d = Math.hypot(h.x - x, h.y - y); if (d < (h.r || C * .7) && d < bd) { bd = d; best = h; } }
+    if (!best) { tip.style.opacity = 0; return; }
+    tip.textContent = best.t; tip.style.left = best.x / k + 'px'; tip.style.top = best.y / k + 'px'; tip.style.opacity = 1;
+  };
+  cv.addEventListener('pointermove', e => showTip(e.clientX, e.clientY));
+  cv.addEventListener('pointerdown', e => showTip(e.clientX, e.clientY));
+  cv.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  const ready = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('20px "Zen Antique"'), document.fonts.load('800 16px "Shippori Mincho"')]).catch(() => {}) : Promise.resolve();
+  ready.then(draw);
+  $('mapSpoil').addEventListener('toggle', draw);
+})();
+</script>
+</body>
+</html>
