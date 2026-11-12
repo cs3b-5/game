@@ -181,7 +181,7 @@
       if (ctl === 'modern') {
         h += sec('アシストコンボ');
         const A = C.assist, nm = { cmp: '↓中P', clp: '↓弱P', clk: '↓弱K', cmk: '↓中K', chp: '↓強P', lp: '弱P', lk: '弱K', mp: '中P', mk: '中K', hp: '強P', hk: '強K', SA: 'SA（ゲージ分のLv）' };
-        const cv = x => nm[x] || (C.moves[x] ? C.moves[x].nm.replace('（OD）', '') : x);
+        const cv = x => { if (nm[x]) return nm[x]; const t = (C.tc || []).find(t => t.to === x); if (t) return (C.tc.find(u => u.nm && (u.to === x || u.from === t.from)) || {}).nm || '追加攻撃'; const m = C.moves[x]; return m && m.nm ? m.nm.replace('（OD）', '') : '追加攻撃'; };
         for (const k of ['L', 'M', 'H']) { const jp = { L: '弱', M: '中', H: '強' }[k]; h += `<tr><td>AUTO ＋ ${jp}連打</td><td>${A[k].map(cv).join(' ▶ ')}</td></tr>`; }
       }
     }
