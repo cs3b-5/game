@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>うぱるぱスピリッツ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Dela+Gothic+One&display=swap">
+<style>
+:root { --pink: #ff5c8a; --pink2: #ffc2d4; --ink: #fff; --dark: #12102a; --gold: #ffd23a; --glass: rgba(14,12,36,.72); --line: rgba(255,255,255,.14); color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #12102a; color: var(--ink); font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif; -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; }
+canvas#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+/* ---------- 画面（タイトル・メニュー） ---------- */
+.scr { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); overflow: auto; }
+.scr.dim { background: radial-gradient(900px 600px at 50% 30%, rgba(40,20,80,.55), rgba(10,8,26,.9)); }
+.logo { text-align: center; line-height: .9; margin: 0; filter: drop-shadow(0 6px 0 #2a0f3a) drop-shadow(0 14px 24px rgba(0,0,0,.5)); }
+.logo .a { display: block; font-family: "Dela Gothic One", sans-serif; font-size: clamp(46px, 11vw, 112px); letter-spacing: .02em;
+  background: linear-gradient(180deg, #fff 8%, #ffd6e2 40%, #ff5c8a 70%, #c2185b); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 2px #4a1030; paint-order: stroke fill; }
+.logo .b { display: block; margin-top: 6px; font-family: "Dela Gothic One", sans-serif; font-size: clamp(30px, 6.6vw, 68px); letter-spacing: .12em;
+  background: linear-gradient(180deg, #fffbe0, #ffd23a 55%, #ff9a20); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 1.5px #5a2a00; }
+.logo .c { display: inline-block; margin-top: 10px; font: 900 .78rem "M PLUS Rounded 1c"; letter-spacing: .5em; padding: 4px 6px 4px 14px; border-radius: 999px; background: rgba(0,0,0,.35); color: #ffe6ee; }
+.col { display: grid; gap: 14px; justify-items: center; width: min(460px, 100%); }
+.menu { display: grid; gap: 10px; width: min(340px, 100%); }
+.btn { position: relative; padding: 14px 18px; border-radius: 16px; font-weight: 900; font-size: 1.08rem; text-align: center; color: #3a0a1e;
+  background: linear-gradient(180deg, #fff 0%, #ffd6e2 100%); box-shadow: 0 5px 0 #c2185b, 0 10px 24px rgba(0,0,0,.35); transition: transform .08s, box-shadow .08s; }
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #c2185b, 0 4px 12px rgba(0,0,0,.35); }
+.btn.gold { background: linear-gradient(180deg, #fff6c8, #ffd23a); box-shadow: 0 5px 0 #b07800, 0 10px 24px rgba(0,0,0,.35); color: #3a2400; }
+.btn.ghost { background: rgba(255,255,255,.08); color: #fff; box-shadow: none; border: 1px solid var(--line); }
+.btn small { display: block; font-size: .72rem; font-weight: 800; opacity: .7; }
+.card { width: 100%; background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 16px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+h2 { margin: 0; font-family: "Dela Gothic One", sans-serif; font-weight: 400; font-size: 1.5rem; letter-spacing: .06em; text-align: center; }
+.lbl { font-size: .78rem; font-weight: 900; opacity: .75; margin-bottom: 6px; }
+.teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.team { padding: 10px 8px; border-radius: 12px; background: rgba(255,255,255,.06); border: 2px solid transparent; text-align: left; display: flex; gap: 8px; align-items: center; min-width: 0; }
+.team .em { width: 34px; height: 34px; flex: none; border-radius: 10px; display: grid; place-items: center; font-family: "Dela Gothic One"; font-size: 1.1rem; }
+.team b { font-size: .8rem; line-height: 1.25; overflow: hidden; }
+.team.on { border-color: var(--gold); background: rgba(255,210,58,.12); }
+.seg { display: flex; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.seg button { flex: 1; padding: 9px 4px; background: rgba(255,255,255,.04); font-weight: 900; font-size: .88rem; }
+.seg button.on { background: var(--gold); color: #3a2400; }
+.row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; width: 100%; }
+input.code { font: 900 1.6rem "Dela Gothic One", sans-serif; letter-spacing: .3em; width: 160px; text-align: center; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.4); color: #fff; }
+input.name { font: 900 1rem "M PLUS Rounded 1c"; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.4); color: #fff; width: 100%; }
+.codeBig { font-family: "Dela Gothic One"; font-size: 3.6rem; letter-spacing: .2em; color: var(--gold); text-align: center; }
+.note { font-size: .8rem; opacity: .8; line-height: 1.7; text-align: center; margin: 0; }
+.help { text-align: left; font-size: .88rem; line-height: 1.75; }
+.help b { color: var(--gold); }
+
+/* ---------- 試合中の表示 ---------- */
+#hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+.sb { position: absolute; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); display: flex; gap: 8px; align-items: stretch;
+  background: linear-gradient(180deg, rgba(20,16,48,.92), rgba(10,8,26,.92)); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.sb .tm { display: grid; gap: 4px; }
+.sb .tr { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: .95rem; }
+.sb .tr i { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-style: normal; font-family: "Dela Gothic One"; font-size: .8rem; }
+.sb .tr .sc { min-width: 1.6em; text-align: right; font-family: "Dela Gothic One"; font-size: 1.15rem; color: var(--gold); }
+.sb .tr.bat::before { content: '▶'; font-size: .6rem; color: var(--gold); margin-left: -4px; }
+.sb .tr:not(.bat)::before { content: ''; width: .45em; }
+.sb .inn { display: grid; place-items: center; padding: 0 8px; border-left: 1px solid var(--line); font-family: "Dela Gothic One"; font-size: 1rem; line-height: 1.1; text-align: center; }
+.sb .bso { display: grid; gap: 3px; align-content: center; padding-left: 8px; border-left: 1px solid var(--line); font: 900 .7rem "M PLUS Rounded 1c"; }
+.sb .bso div { display: flex; gap: 4px; align-items: center; }
+.sb .bso span { width: 10px; height: 10px; border-radius: 50%; background: #2c2f4a; }
+.sb .bso .b.on { background: #3ad06a; } .sb .bso .s.on { background: #ffd23a; } .sb .bso .o.on { background: #ff4a4a; }
+.sb .dia { width: 46px; height: 46px; position: relative; align-self: center; margin-left: 4px; }
+.sb .dia span { position: absolute; width: 14px; height: 14px; transform: rotate(45deg); background: #2c2f4a; border: 1px solid rgba(255,255,255,.25); }
+.sb .dia span.on { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+.pcard { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: center; max-width: 46vw;
+  background: linear-gradient(180deg, rgba(20,16,48,.92), rgba(10,8,26,.92)); border: 1px solid var(--line); border-radius: 14px; padding: 6px 10px 6px 6px; }
+.pcard .face { width: 46px; height: 46px; border-radius: 12px; flex: none; overflow: hidden; display: grid; place-items: center; background: #2a2650; position: relative; }
+.pcard .face img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.pcard .nm { font-weight: 900; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard .st { font-size: .72rem; font-weight: 800; opacity: .9; display: flex; gap: 6px; flex-wrap: wrap; }
+.pcard .st b { font-family: "Dela Gothic One"; font-weight: 400; }
+.g-S { color: #ff5aa0; } .g-A { color: #ff7a3a; } .g-B { color: #ffb020; } .g-C { color: #ffe14a; } .g-D { color: #8fe060; } .g-E { color: #5ad0ff; } .g-F, .g-G { color: #a0a6c8; }
+#batCard { left: max(10px, env(safe-area-inset-left)); }
+#pitCard { right: max(10px, env(safe-area-inset-right)); }
+#speed { position: absolute; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); text-align: right; font-family: "Dela Gothic One"; font-size: 1.5rem; text-shadow: 0 3px 0 rgba(0,0,0,.5); opacity: 0; transition: opacity .2s; }
+#speed small { display: block; font: 900 .8rem "M PLUS Rounded 1c"; }
+#speed.on { opacity: 1; }
+#banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-family: "Dela Gothic One"; font-size: clamp(34px, 8vw, 84px); line-height: 1.05; letter-spacing: .04em; color: #fff;
+  -webkit-text-stroke: 3px #3a0a1e; paint-order: stroke fill; text-shadow: 0 6px 0 #c2185b, 0 18px 30px rgba(0,0,0,.5); transform: scale(.4); opacity: 0; transition: transform .25s cubic-bezier(.2,1.6,.4,1), opacity .2s; }
+#banner.on { transform: scale(1); opacity: 1; }
+#banner.big { color: #ffe14a; text-shadow: 0 6px 0 #b07800, 0 0 40px rgba(255,210,58,.8); }
+#banner small { display: block; font: 900 clamp(14px, 2.6vw, 22px) "M PLUS Rounded 1c"; -webkit-text-stroke: 0; text-shadow: 0 2px 6px rgba(0,0,0,.6); margin-top: 6px; }
+#tip { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 84px); transform: translateX(-50%); max-width: 94vw; overflow: hidden; text-overflow: ellipsis; font-weight: 900; font-size: .85rem; background: rgba(0,0,0,.45); padding: 6px 14px; border-radius: 999px; white-space: nowrap; }
+#oppWait { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); font-weight: 900; background: rgba(0,0,0,.5); padding: 8px 16px; border-radius: 999px; }
+
+/* 操作ボタン */
+#ctl { position: fixed; z-index: 12; inset: auto 0 0 0; pointer-events: none; }
+#swingBtn { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 70px); width: 108px; height: 108px; border-radius: 50%; pointer-events: auto;
+  background: radial-gradient(circle at 35% 30%, #fff, #ffd6e2 40%, #ff5c8a); color: #3a0a1e; font-family: "Dela Gothic One"; font-size: 1.2rem; box-shadow: 0 6px 0 #a0103e, 0 12px 24px rgba(0,0,0,.4); }
+#swingBtn:active, #swingBtn.down { transform: translateY(5px); box-shadow: 0 1px 0 #a0103e; }
+#pitchBar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 66px); display: flex; gap: 6px; pointer-events: auto; flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; width: min(560px, 96vw); scrollbar-width: none; }
+#pitchBar::-webkit-scrollbar { display: none; }
+#pitchBar button { flex: none; white-space: nowrap; }
+#pitchBar button { padding: 8px 12px; border-radius: 12px; background: rgba(14,12,36,.82); border: 2px solid var(--line); font-weight: 900; font-size: .85rem; }
+#pitchBar button b { color: var(--gold); margin-left: 4px; font-family: "Dela Gothic One"; font-weight: 400; }
+#pitchBar button.on { border-color: #5ad8ff; background: rgba(90,216,255,.2); }
+#pauseBtn { position: fixed; z-index: 13; right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); width: 40px; height: 40px; border-radius: 12px; background: rgba(14,12,36,.7); border: 1px solid var(--line); font-size: 1.1rem; }
+body.playing #speed { top: calc(max(12px, env(safe-area-inset-top)) + 46px); }
+@media (hover: hover) and (pointer: fine) { #swingBtn { width: 92px; height: 92px; font-size: 1rem; opacity: .85; } }
+@media (max-width: 560px) {
+  .sb { padding: 6px 8px; gap: 6px; max-width: calc(100vw - 70px); } .sb .tr { font-size: .78rem; } .sb .tr span:not(.sc) { max-width: 4.6em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .sb .dia { width: 38px; height: 38px; } .sb .dia span { width: 11px; height: 11px; }
+  .sb .inn { padding: 0 6px; font-size: .85rem; } #speed { font-size: 1.2rem; }
+  .pcard { max-width: 48vw; } .pcard .face { width: 38px; height: 38px; } .pcard .nm { font-size: .82rem; } .pcard .st { font-size: .64rem; gap: 4px; }
+  #swingBtn { width: 96px; height: 96px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 66px); }
+  #pitchBar { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 74px); justify-content: flex-start; }
+  #tip { top: calc(max(10px, env(safe-area-inset-top)) + 70px); font-size: .76rem; }
+  #pitchBar button { padding: 7px 9px; font-size: .78rem; }
+}
+.loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 50; background: #12102a; font-weight: 900; }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="球場"></canvas>
+<div class="loading" id="loading">球場をつくっています…</div>
+
+<!-- 試合中の表示 -->
+<div id="hud" hidden>
+  <div class="sb">
+    <div class="tm"><div class="tr" id="trA"><i id="emA"></i><span id="nmA"></span><span class="sc" id="scA">0</span></div><div class="tr" id="trH"><i id="emH"></i><span id="nmH"></span><span class="sc" id="scH">0</span></div></div>
+    <div class="inn" id="inn">1<br>表</div>
+    <div class="bso"><div>B<span class="b"></span><span class="b"></span><span class="b"></span></div><div>S<span class="s"></span><span class="s"></span></div><div>O<span class="o"></span><span class="o"></span></div></div>
+    <div class="dia"><span id="b2" style="left:16px;top:2px"></span><span id="b3" style="left:2px;top:16px"></span><span id="b1" style="left:30px;top:16px"></span></div>
+  </div>
+  <div id="speed"></div>
+  <div id="banner"></div>
+  <div id="tip"></div>
+  <div id="oppWait" hidden>相手を待っています…</div>
+  <div class="pcard" id="batCard"><div class="face" id="batFace"></div><div style="min-width:0"><div class="nm" id="batNm"></div><div class="st" id="batSt"></div></div></div>
+  <div class="pcard" id="pitCard"><div class="face" id="pitFace"></div><div style="min-width:0"><div class="nm" id="pitNm"></div><div class="st" id="pitSt"></div></div></div>
+</div>
+<div id="ctl" hidden>
+  <button id="swingBtn" type="button" hidden>SWING</button>
+  <div id="pitchBar" hidden></div>
+</div>
+<button id="pauseBtn" type="button" hidden aria-label="メニュー">⏸</button>
+
+<!-- タイトル -->
+<section class="scr" id="title" hidden>
+  <div class="col">
+    <h1 class="logo"><span class="a">うぱるぱ</span><span class="b">スピリッツ</span><span class="c">UPARUPA SPIRITS</span></h1>
+    <div class="menu">
+      <button class="btn gold" data-go="setup">CPUと試合<small>好きなチームで1試合</small></button>
+      <button class="btn" data-go="online">オンライン対戦<small>部屋番号で友だちと</small></button>
+      <button class="btn ghost" data-go="help">あそびかた</button>
+      <a class="btn ghost" href="../index.html" style="text-decoration:none">← ゲーム一覧へ</a>
+    </div>
+  </div>
+</section>
+
+<!-- 試合の準備 -->
+<section class="scr dim" id="setup" hidden>
+  <div class="col">
+    <h2>試合の準備</h2>
+    <div class="card"><div class="lbl">あなたのチーム</div><div class="teams" id="myTeams"></div></div>
+    <div class="card"><div class="lbl">相手のチーム</div><div class="teams" id="cpuTeams"></div></div>
+    <div class="card" style="display:grid;gap:10px">
+      <div><div class="lbl">イニング</div><div class="seg" id="innSeg"><button data-v="3" class="on">3回</button><button data-v="6">6回</button><button data-v="9">9回</button></div></div>
+      <div><div class="lbl">CPUの強さ</div><div class="seg" id="lvSeg"><button data-v="0">やさしい</button><button data-v="1" class="on">ふつう</button><button data-v="2">つよい</button></div></div>
+      <div><div class="lbl">先攻・後攻</div><div class="seg" id="sideSeg"><button data-v="home" class="on">後攻（守りから）</button><button data-v="away">先攻（打つから）</button></div></div>
+    </div>
+    <div class="row"><button class="btn ghost" data-back style="flex:1">もどる</button><button class="btn gold" id="playGo" style="flex:2">プレイボール！</button></div>
+  </div>
+</section>
+
+<!-- オンライン -->
+<section class="scr dim" id="online" hidden>
+  <div class="col">
+    <h2>オンライン対戦</h2>
+    <div class="card" style="display:grid;gap:12px">
+      <div><div class="lbl">名前</div><input class="name" id="olName" maxlength="10" placeholder="なまえ"></div>
+      <div><div class="lbl">あなたのチーム</div><div class="teams" id="olTeams"></div></div>
+      <div><div class="lbl">イニング（部屋を作る人が決める）</div><div class="seg" id="olInn"><button data-v="3" class="on">3回</button><button data-v="6">6回</button><button data-v="9">9回</button></div></div>
+      <button class="btn gold" id="hostBtn">部屋を作る</button>
+      <div id="hostBox" hidden><div class="lbl" style="text-align:center">この番号を相手に教えてね</div><div class="codeBig" id="roomCode">----</div></div>
+      <div class="row"><input class="code" id="joinCode" inputmode="numeric" maxlength="4" placeholder="0000"><button class="btn" id="joinBtn">入る</button></div>
+      <p class="note" id="netMsg" role="status"></p>
+    </div>
+    <p class="note">部屋を作った人が後攻（ホーム）になります。</p>
+    <div class="row"><button class="btn ghost" data-back>もどる</button></div>
+  </div>
+</section>
+
+<!-- あそびかた -->
+<section class="scr dim" id="help" hidden>
+  <div class="col">
+    <h2>あそびかた</h2>
+    <div class="card help">
+      <b>打つとき</b><br>
+      黄色い丸（ミートカーソル）をボールが来る場所に合わせて、ボールがホームに来た瞬間に<b>SWING</b>。<br>
+      スマホ：画面をなぞってカーソルを動かす／右下のボタンで振る<br>
+      PC：マウスでカーソル、クリックか<b>スペース</b>で振る（<b>WASD</b>・矢印でも動く）<br>
+      ・カーソルの<b>まん中</b>で当てるほど強い打球。ボールより<b>上</b>で当てるとゴロ、<b>下</b>で当てるとフライ。<br>
+      ・振るのが<b>早い</b>と引っぱり、<b>遅い</b>と流し打ち。<br><br>
+      <b>投げるとき</b><br>
+      下のボタンで球種をえらんで、ゾーンの<b>投げたい場所をタップ</b>。コントロールが低いとずれます。<br>
+      球種の数字は変化の大きさ。<br><br>
+      <b>能力</b>　S＞A＞B＞C＞D＞E＞F＞G<br>
+      ミート＝カーソルの大きさ／パワー＝打球の強さ／走力＝足の速さ
+    </div>
+    <div class="row"><button class="btn ghost" data-back>もどる</button></div>
+  </div>
+</section>
+
+<!-- ポーズ -->
+<section class="scr dim" id="pause" hidden>
+  <div class="col">
+    <h2>タイム</h2>
+    <div class="menu">
+      <button class="btn gold" id="resumeBtn">試合にもどる</button>
+      <button class="btn ghost" id="quitBtn">試合をやめる</button>
+    </div>
+  </div>
+</section>
+
+<!-- 結果 -->
+<section class="scr dim" id="result" hidden>
+  <div class="col">
+    <h2 id="resTitle">ゲームセット</h2>
+    <div class="card" id="resBox" style="text-align:center"></div>
+    <div class="menu"><button class="btn gold" id="againBtn">もう一試合</button><button class="btn ghost" id="toTitle">タイトルへ</button></div>
+  </div>
+</section>
+
+<script src="../account.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
