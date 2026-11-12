@@ -225,10 +225,19 @@ const WHEEL = [
   { k: 'luck', v: 10, nm: '運+10（3分）', w: 12, c: '#4ad66a' },
   { k: 'none', v: 0, nm: 'はずれ…', w: 14, c: '#5a5a7a' },
   { k: 'pearl', v: 25, nm: '真珠 ×25', w: 6, c: '#8ad0ff' },
-  { k: 'coin', v: 400, nm: '大当たり 400匹分', w: 2, c: '#ff4fa0' },
+  { k: 'jackpot', v: 1000, nm: '大当たり', w: 2, c: '#ff4fa0' },
 ];
 function spinWheel(rng) { const sum = WHEEL.reduce((s, x) => s + x.w, 0); let x = rng() * sum; for (let i = 0; i < WHEEL.length; i++) { x -= WHEEL[i].w; if (x <= 0) return i; } return 0; }
-function applyPrize(S, p) {
+// 大当たり：コイン1000匹分＋真珠30＋フィーバー60秒＋運+15（5分）＋ときどきお守り
+function applyPrize(S, p, rng = Math.random) {
+  if (p.k === 'jackpot') {
+    addBuff(S, 'luck', 15, 300); addBuff(S, 'fever', 1, 60);   // 先にブーストをかけてから、コインを計算（フィーバー中の値段で）
+    const v = Math.round(p.v * avgValue(S)); S.coins += v; S.stats.total += v; S.best = Math.max(S.best, S.coins);
+    S.pearls += 30;
+    const charm = rng() < .25; if (charm) S.charm++;
+    S.stats.jackpot = (S.stats.jackpot || 0) + 1;
+    return { v, pearls: 30, charm };
+  }
   if (p.k === 'coin') { const v = Math.round(p.v * avgValue(S)); S.coins += v; S.stats.total += v; return v; }
   if (p.k === 'pearl') { S.pearls += p.v; return p.v; }
   if (p.k === 'fever') { addBuff(S, 'fever', 1, p.v); return p.v; }

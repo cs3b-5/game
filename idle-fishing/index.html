@@ -192,7 +192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 </div>
 <div id="modal" class="modal" hidden></div>
 
-<script src="core.js?v=20261112c"></script>
+<script src="core.js?v=20261112d"></script>
 <script>
 (function () {
 'use strict';
@@ -987,9 +987,11 @@ function wheelModal() {
           const tk = Math.floor(-ang / .45); if (tk !== lastTick) { lastTick = tk; SND.tick(); }
           if (p < 1) return requestAnimationFrame(anim);
           const prize = F.WHEEL[idx], v = F.applyPrize(S, prize);
-          card.querySelector('#wres').innerHTML = prize.k === 'none' ? 'はずれ…' : prize.k === 'coin' ? `<b style="color:var(--gold)">+${fmt(v)} コイン！</b>` : `<b style="color:${prize.c}">${esc(prize.nm)}！</b>`;
+          card.querySelector('#wres').innerHTML = prize.k === 'jackpot' ? `<b style="color:#ff4fa0;font-size:1.3rem">🎉 大当たり！ 🎉</b><br><b style="color:var(--gold)">+${fmt(v.v)} コイン</b><br>真珠 +${v.pearls}・FEVER 60秒・運+15（5分）${v.charm ? '<br><b style="color:#8affa0">お守りのかけら（ずっと運+1）！</b>' : ''}`
+            : prize.k === 'none' ? 'はずれ…' : prize.k === 'coin' ? `<b style="color:var(--gold)">+${fmt(v)} コイン！</b>` : `<b style="color:${prize.c}">${esc(prize.nm)}！</b>`;
           if (prize.k === 'none') SND.sad(); else SND.prize();
-          if (prize.k === 'fever') feverBanner();
+          if (prize.k === 'fever' || prize.k === 'jackpot') feverBanner();
+          if (prize.k === 'jackpot') { sparkle(W / 2, H / 2, 160, '#ff4fa0'); sparkle(W / 2, H / 2, 120, '#ffd040'); setTimeout(() => SND.prize(), 250); setTimeout(() => SND.prize(), 500); }
           spinning = false; delete modal.dataset.lock; save(); hud();
           card.querySelector('[data-close]').disabled = false; card.querySelector('[data-close]').textContent = 'とじる';
           card.querySelector('#spin').disabled = !S.chestN; card.querySelector('#spin').textContent = S.chestN ? 'もう1回' : 'おしまい';
