@@ -18,7 +18,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
 /* ---- 上のバー ---- */
-#hud { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 6px; background: linear-gradient(#0b121c, #0e1622); border-bottom: 1px solid var(--line); z-index: 5; }
+#hud { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto auto; align-items: center; gap: 10px; padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 6px; background: linear-gradient(#0b121c, #0e1622); border-bottom: 1px solid var(--line); z-index: 5; }
 #hud a.home { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--panel2); color: var(--ink); text-decoration: none; font-weight: 900; font-size: 1.1rem; }
 .money { min-width: 0; line-height: 1; }
 .money .c { font-size: 1.9rem; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -27,7 +27,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chip i { font-style: normal; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: .72rem; }
 .chip.pearl i { background: radial-gradient(circle at 35% 35%, #fff, #b8d8ff 60%, #7aa0d0); }
 .chip.luck i { background: var(--green); color: #0b2a14; }
-#mute { width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--panel2); font-size: 1rem; }
+#mute, #opt { width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--panel2); font-size: 1rem; }
 
 /* ---- 池 ---- */
 #stage { position: relative; min-height: 0; overflow: hidden; }
@@ -106,6 +106,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .reel { position: relative; height: 34px; border-radius: 17px; background: #1a2638; overflow: hidden; margin: 6px 0; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
 .reel .zone { position: absolute; top: 0; bottom: 0; background: linear-gradient(#5ae07a, #2aa04a); }
 .reel .cur { position: absolute; top: -2px; bottom: -2px; width: 6px; margin-left: -3px; background: #fff; border-radius: 3px; box-shadow: 0 0 8px #fff; }
+.opts { display: grid; gap: 6px; text-align: left; margin: 8px 0; }
+.opts label { display: flex; gap: 10px; align-items: center; background: var(--panel2); border-radius: 10px; padding: 9px 12px; font-weight: 700; font-size: .9rem; cursor: pointer; }
+.opts label small { color: var(--muted); font-weight: 400; display: block; font-size: .74rem; }
+.opts input { width: 18px; height: 18px; accent-color: var(--gold); flex: none; }
 .pips { display: flex; gap: 4px; justify-content: center; font-size: 1.1rem; }
 
 .omi { text-align: center; padding: 6px 0; }
@@ -150,6 +154,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 @media (max-width: 380px) {
   #hud { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  #mute, #opt { width: 32px; height: 32px; }
   .money .c { font-size: 1.55rem; }
   .chip { padding: 3px 7px 3px 4px; font-size: .78rem; }
   .zk img { width: 72px; height: 48px; }
@@ -163,6 +168,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div class="money"><span class="c num" id="coins">0</span><span class="ps" id="ps">+0 / 秒</span></div>
     <div class="chip pearl" title="真珠"><i></i><span id="pearls">0</span></div>
     <div class="chip luck" title="運（レアな魚の出やすさ）"><i>運</i><span id="luck">0</span></div>
+    <button id="opt" aria-label="設定">⚙</button>
     <button id="mute" aria-label="音のオン・オフ">♪</button>
   </header>
   <main id="stage">
@@ -238,6 +244,34 @@ const SND = {
   sad: () => { tone(392, .2, 'triangle', .07); tone(330, .3, 'triangle', .07, .16); },
 };
 $('#mute').textContent = mute ? '🔇' : '♪';
+// ---------------- 設定：大きなポップアップを出すレア度 ----------------
+const POPS = [
+  { k: 'UR', nm: 'ウルトラ以上', d: 'いままでどおり' },
+  { k: 'LR', nm: 'レジェンド以上', d: 'ウルトラは小さい文字だけ' },
+  { k: 'GOD', nm: '幻以上', d: '' },
+  { k: 'ULT', nm: '究極だけ', d: '' },
+  { k: 'none', nm: '出さない', d: 'ぜんぶ小さい文字だけ' },
+];
+let OPT = { pop: 'UR', popNew: true };
+try { Object.assign(OPT, JSON.parse(localStorage.getItem(SAVE + '-opt')) || {}); } catch (e) {}
+const saveOpt = () => { try { localStorage.setItem(SAVE + '-opt', JSON.stringify(OPT)); } catch (e) {} };
+// この魚で大きなポップアップを出すか
+function wantPopup(ev) {
+  const ri = F.RORDER.indexOf(ev.fish.r), min = OPT.pop === 'none' ? 99 : F.RORDER.indexOf(OPT.pop);
+  if (ri >= min) return true;
+  if (OPT.popNew && (ev.goldNew || (ev.isNew && ri >= 2))) return true;
+  return false;
+}
+$('#opt').onclick = () => {
+  audio();
+  showModal(`<h3>⚙ 設定</h3><p class="note">レアな魚が釣れたときの、大きなポップアップ</p>
+    <div class="opts">${POPS.map(p => `<label><input type="radio" name="pop" value="${p.k}" ${OPT.pop === p.k ? 'checked' : ''}><span>${p.nm}${p.d ? `<small>${p.d}</small>` : ''}</span></label>`).join('')}</div>
+    <div class="opts"><label><input type="checkbox" id="popNew" ${OPT.popNew ? 'checked' : ''}><span>はじめて釣った魚・はじめての金色は出す<small>図鑑に新しく入ったときだけ、上の設定に関係なく出す</small></span></label></div>
+    <button class="big gold" data-close>OK</button>`, card => {
+    card.querySelectorAll('input[name=pop]').forEach(r => r.onchange = () => { OPT.pop = r.value; saveOpt(); });
+    card.querySelector('#popNew').onchange = e => { OPT.popNew = e.target.checked; saveOpt(); };
+  });
+};
 $('#mute').onclick = () => { mute = !mute; $('#mute').textContent = mute ? '🔇' : '♪'; try { localStorage.setItem(SAVE + '-mute', mute ? '1' : '0'); } catch (e) {} audio(); };
 addEventListener('pointerdown', audio, { capture: true });
 
@@ -630,7 +664,8 @@ function handle(ev) {
     if (ev.gold && cat) { popText(cat.x, cat.y - cat.s * 3.2, '✨金色！ ×10', '#ffd040', 1); sparkle(cat.x, cat.y - cat.s * 1.2, 50, '#ffd040'); SND.prize(); }
     if (ev.deeper) { popText(W / 2, H * .35, `夢の池 深さ ${S.depth}！`, '#ffd0f0', 1); sparkle(W / 2, H * .35, 40, '#d0a0ff'); SND.prize(); }
     const ri = F.RORDER.indexOf(ev.fish.r);
-    if (ri >= 3 || (ev.isNew && ri >= 2) || ev.goldNew) rarePopup(ev);
+    if (wantPopup(ev)) rarePopup(ev);
+    else if (ri >= 3 && cat) popText(cat.x + cat.s * .2, cat.y - cat.s * 2.6, `${F.RAR[ev.fish.r].nm}！ ${ev.fish.nm}`, F.RAR[ev.fish.r].c, 1);
     else if (ev.isNew && cat) popText(cat.x + cat.s * .2, cat.y - cat.s * 2.6, 'NEW ' + ev.fish.nm, '#8affa0');
     if (ev.isNew) markDot('zukan');
   }
