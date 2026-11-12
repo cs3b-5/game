@@ -45,12 +45,15 @@
   const humanCount = () => H.players.filter(p => !p.cpu).length;
   function addPlayer(name, cpu, conn) {
     const pid = 'p' + Math.random().toString(36).slice(2, 8);
-    H.players.push({ pid, name: (name || 'ななし').slice(0, 10), cpu: !!cpu, on: true, score: 0 });
+    let nm = (name || 'ななし').slice(0, 10);
+    if (H.players.some(p => p.name === nm)) { let k = 2; while (H.players.some(p => p.name === nm.slice(0, 8) + k)) k++; nm = nm.slice(0, 8) + k; }
+    H.players.push({ pid, name: nm, cpu: !!cpu, on: true, score: 0, seen: Date.now() });
     if (conn) H.conns[pid] = conn;
     return pid;
   }
   function addCpu() { if (H.players.length >= MAXP) return; const used = new Set(H.players.map(p => p.name)); addPlayer(CPU_NAMES.find(n => !used.has(n)) || 'CPU', true); }
   function startGame() {
+    if (H.players.some(p => !p.on)) { H.players = H.players.filter(p => p.on); reindex(); }
     while (H.players.length < MINP) addCpu();
     const n = H.players.length, seed = 1 + Math.floor(Math.random() * 99999);
     H.round++;
@@ -212,7 +215,8 @@
     v.g = {
       theme: C.theme, crime: C.crime, places: C.places, times: C.times, flavor: C.flavor,
       suspects: C.suspects.map(s => ({ nm: s.nm, emo: s.emo, attr: s.attr, line: s.line, img: s.img })),
-      my: { role: isC ? 'culprit' : 'detective', truth: C.truth[me], hint: isC ? null : C.hints[me].text },
+      // 結果の画面のあいだに入った人は、つぎの事件まで見ているだけ
+      my: me >= C.suspects.length ? { role: 'watch', truth: null, hint: null } : { role: isC ? 'culprit' : 'detective', truth: C.truth[me], hint: isC ? null : C.hints[me].text },
       testified: H.players.map((_, i) => !!G.testified[i]), ready: H.players.map((_, i) => !!(G.ready || {})[i]),
       chat: G.chat.slice(-80), voted: H.players.map((_, i) => G.votes[i] !== undefined), myVote: G.votes[me],
     };
@@ -245,40 +249,64 @@
         c.on('data', d => {
           if (d.t === 'hello') {
             if (c._pi != null) return;   // 2回目の「こんにちは」は無視
-            if (H.phase !== 'lobby' && !H.players.some(p => p.name === d.name && !p.on)) { c.send({ t: 'full', why: 'ゲームが始まっています' }); return; }
+            if (H.phase !== 'lobby' && H.phase !== 'result' && !H.players.some(p => p.name === d.name && !p.on)) { c.send({ t: 'full', why: 'ゲームが始まっています。結果の画面になったら入れるよ' }); return; }
             const back = H.players.findIndex(p => !p.cpu && !p.on && p.name === d.name);
-            if (back >= 0) { H.conns[H.players[back].pid] = c; H.players[back].on = true; c._pi = back; sys(`${d.name}がもどってきた`); }
+            if (back >= 0) { H.conns[H.players[back].pid] = c; H.players[back].on = true; H.players[back].seen = Date.now(); c._pi = back; sys(`${d.name}がもどってきた`); }
             else { if (H.players.length >= MAXP) { const k = H.players.map(p => p.cpu).lastIndexOf(true); if (k > 0) H.players.splice(k, 1); else { c.send({ t: 'full', why: '満員です' }); return; } } const pid = addPlayer(d.name, false, c); c._pi = H.players.findIndex(p => p.pid === pid); }
             broadcast(); return;
           }
-          if (c._pi != null) act(c._pi, d);
+          if (c._pi == null || c._dead) return;
+          const pl = H.players[c._pi]; if (pl) pl.seen = Date.now();
+          if (d.t === 'ping') return;
+          act(c._pi, d);
         });
-        c.on('close', () => { if (c._pi == null) return; const p = H.players[c._pi]; if (p) { p.on = false; sys(`${p.name}の通信が切れた`); if (H.phase === 'lobby') H.players.splice(c._pi, 1), reindex(); broadcast(); } });
+        const gone = () => { if (c._pi == null || c._dead) return; dropped(c._pi, 'close'); };
+        c.on('close', gone);
+        try { c.peerConnection.addEventListener('iceconnectionstatechange', () => { const st = c.peerConnection.iceConnectionState; if (st === 'failed' || st === 'closed') gone(); }); } catch (e) {}
       }));
       peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
       broadcast(); show('room');
     } catch (e) { msg('部屋を作れなかった（' + (e.type || e.message) + '）'); }
   }
+  function dropped(pi, why) {
+    const p = H && H.players[pi]; if (!p || p.cpu || !p.on || pi === 0) return;
+    p.on = false; const c = H.conns[p.pid]; if (c) { c._dead = 1; try { c.close(); } catch (e) {} }
+    sys(`${p.name}の通信が切れた`);
+    if (H.phase === 'lobby') { H.players.splice(pi, 1); reindex(); }
+    else if (H.G) {   // 待っている相手が切れたら、すぐ次へ
+      const G = H.G, all = f => H.players.every((pp, i) => f(i) || !pp.on);
+      if (H.phase === 'role' && all(i => q(G.ready, i))) phase('testify');
+      else if (H.phase === 'testify' && all(i => G.testified[i])) { if (G.lieQ == null) G.lieQ = randomQ(); phase('talk'); }
+      else if (H.phase === 'vote' && all(i => G.votes[i] !== undefined)) finish();
+    }
+    broadcast(); void why;
+  }
+  const q = (o, i) => !!(o || {})[i];
+  setInterval(() => { if (!H || H.local) return; const now = Date.now(); H.players.forEach((p, i) => { if (!p.cpu && p.on && i > 0 && now - (p.seen || now) > 8000) dropped(i, 'timeout'); }); }, 1000);
   function reindex() { for (const pid in H.conns) { const c = H.conns[pid]; c._pi = H.players.findIndex(p => p.pid === pid); if (c._pi < 0) delete H.conns[pid]; } }
   async function join() {
     const code = ($('mpCode').value || '').replace(/\D/g, ''); if (code.length !== 4) return msg('4けたの部屋番号を入れてね');
     const name = ($('mpName').value || '').trim() || 'ゲスト'; SV.name = name; saveSV();
     msg('つないでいます…');
+    // 前に入れなかったときの接続が残っていたら、片づけてからつなぎ直す
+    clearInterval(pingT); try { if (hostConn) hostConn.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {} peer = null; hostConn = null; view = null;
     try {
       await loadPeerJS(); peer = await openPeer(null);
       const c = peer.connect(PREFIX + code, { reliable: true });
       const t = setTimeout(() => { if (!view) msg('部屋が見つからない（番号を確かめてね）'); }, 10000);
       peer.on('error', e => { if (e.type === 'peer-unavailable') { clearTimeout(t); msg('部屋が見つからない（番号を確かめてね）'); } });
-      c.on('open', () => { clearTimeout(t); if (hostConn) return; hostConn = c; c.send({ t: 'hello', name }); });
-      c.on('data', d => { if (d.t === 'view') { view = d.v; if ($('mpTop').hidden === false) show('room'); render(); } if (d.t === 'full') msg('入れなかった：' + d.why); });
-      c.on('close', () => { msg('ホストとの通信が切れた'); view = null; show('top'); });
+      c.on('open', () => { clearTimeout(t); if (hostConn) return; hostConn = c; c.send({ t: 'hello', name }); clearInterval(pingT); pingT = setInterval(() => { try { if (hostConn && hostConn.open) hostConn.send({ t: 'ping' }); } catch (e) {} }, 2000); });
+      c.on('data', d => { if (d.t === 'view') { view = d.v; if ($('mpTop').hidden === false) show('room'); render(); } if (d.t === 'full') { c._full = 1; msg('入れなかった：' + d.why); setTimeout(() => { clearInterval(pingT); try { c.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {} peer = null; hostConn = null; }, 300); } });
+      c.on('close', () => { if (c._full || hostConn !== c) return; msg('ホストとの通信が切れた'); view = null; show('top'); });
     } catch (e) { msg('つなげなかった（' + (e.type || e.message) + '）'); }
   }
+  let pingT = 0;
+  window.addEventListener('pagehide', () => { try { if (hostConn) hostConn.close(); if (peer) peer.destroy(); } catch (e) {} });
   function send(a) { if (H) act(0, a); else if (hostConn) hostConn.send(a); }
   function leave() {
     if (H) { clearTimeout(H.timer); H = null; }
     try { if (hostConn) hostConn.close(); } catch (e) {} try { if (peer) peer.destroy(); } catch (e) {}
-    peer = null; hostConn = null; view = null; show('top');
+    clearInterval(pingT); peer = null; hostConn = null; view = null; show('top');
   }
 
   // ================= 画面 =================
@@ -298,7 +326,7 @@
     const T = g && MYS.THEMES.find(t => t.id === g.theme);
     let h = `<div class="mphead"><button class="ic" id="mpLeave" aria-label="部屋を出る">✕</button><div class="t"><b>${v.local ? 'CPUと練習' : `部屋 ${esc(v.code)}`}</b><small>${phaseName(v.phase)}${v.round ? `・第${v.round}の事件` : ''}</small></div><span id="mpLeft" class="left">${v.left ? `のこり ${v.left}秒` : ''}</span></div>`;
     // 参加者
-    h += `<div class="who-row">${v.players.map((p, i) => `<span class="pp ${i === me ? 'me' : ''} ${p.on ? '' : 'off'}">${g ? g.suspects[i].emo : p.cpu ? '🤖' : '🙂'} ${esc(p.name)}${p.cpu ? '' : ''} <b>${p.score}</b>${g && v.phase === 'testify' ? (g.testified[i] ? ' ✓' : ' …') : ''}${g && v.phase === 'vote' ? (g.voted[i] ? ' ✓' : ' …') : ''}</span>`).join('')}</div>`;
+    h += `<div class="who-row">${v.players.map((p, i) => `<span class="pp ${i === me ? 'me' : ''} ${p.on ? '' : 'off'}">${g && g.suspects[i] ? g.suspects[i].emo : p.cpu ? '🤖' : '🙂'} ${esc(p.name)}${p.cpu ? '' : ''} <b>${p.score}</b>${g && v.phase === 'testify' ? (g.testified[i] ? ' ✓' : ' …') : ''}${g && v.phase === 'vote' ? (g.voted[i] ? ' ✓' : ' …') : ''}</span>`).join('')}</div>`;
     if (v.phase === 'lobby') {
       h += `<div class="panel"><b>あそびかた</b><div class="hint">みんなは事件の容疑者。<b>だれか1人がこっそり犯人</b>（CPUのこともある）。<br>犯人以外の証言は自動で本当のことになる。犯人だけが、事件の時間にどこにいたかウソをつく。<br>証言の食いちがい・現場の証拠・自分だけのヒントを話し合って、投票で犯人を当てよう。犯人は逃げきれば勝ち！</div></div>`;
       h += `<div class="panel">参加 ${v.players.length}人（${MINP}〜${MAXP}人。足りないぶんはCPU）${v.local ? '' : `<div class="hint">友だちに部屋番号 <b style="font-size:1.3rem;color:var(--acc)">${esc(v.code)}</b> を教えてね</div>`}</div>`;
@@ -341,7 +369,7 @@
         <div class="hint">得点：犯人を当てた探偵 +2（逃げられても当てていれば +1）、逃げきった犯人 +3</div></div>`;
       h += chatBox(g, v);
       if (isHost) h += `<div class="row2"><button class="btn" id="mpLobby">部屋にもどる</button><button class="btn main red" id="mpNext">▶ つぎの事件</button></div>`;
-      else h += `<div class="panel hint">ホストがつぎの事件を始めるのを待っています…</div>`;
+      else h += `<div class="panel hint">${g.my.role === 'watch' ? '途中から入ったので、つぎの事件から参加するよ。' : ''}ホストがつぎの事件を始めるのを待っています…</div>`;
     }
     const st = $('mpChatLog') ? $('mpChatLog').scrollTop : 0, atBottom = $('mpChatLog') ? $('mpChatLog').scrollHeight - st - $('mpChatLog').clientHeight < 40 : true;
     const draft = $('mpChatIn') ? $('mpChatIn').value : '', focus = document.activeElement && document.activeElement.id === 'mpChatIn';
@@ -372,8 +400,9 @@
     // ひとりだったと言っているのに、ほかの人もいたことになっている場所
     return h + `</table><div class="hint">赤＝証言が食いちがっている（同じ時間に2か所／「ほかにだれもいなかった」のに、いたと言う人がいる）。証言カードは「⚡つきつける」から見られる。</div></div>`;
   }
+  function chatWho(g, v, i) { const s = g.suspects[i], p = v.players[i], pn = p ? esc(p.name) : '？'; return s ? `${s.emo} ${esc(s.nm)}（${pn}）` : `👀 ${pn}`; }
   function chatBox(g, v) {
-    return `<div class="panel chat"><div id="mpChatLog" class="log">${g.chat.map(m => m.from < 0 ? `<div class="sys">${esc(m.text)}</div>` : `<div class="m ${m.from === v.me ? 'mine' : ''}"><span>${g.suspects[m.from].emo} ${esc(g.suspects[m.from].nm)}（${esc(v.players[m.from].name)}）</span>${esc(m.text)}</div>`).join('')}</div>
+    return `<div class="panel chat"><div id="mpChatLog" class="log">${g.chat.map(m => m.from < 0 ? `<div class="sys">${esc(m.text)}</div>` : `<div class="m ${m.from === v.me ? 'mine' : ''}"><span>${chatWho(g, v, m.from)}</span>${esc(m.text)}</div>`).join('')}</div>
       ${v.phase !== 'result' || true ? `<div class="quick">${['あやしい！', 'わたしは本当のことを言ってる', '証拠と合うのはだれ？', 'ヒントを教えて！'].map(q => `<button class="btn" data-quick="${esc(q)}">${esc(q)}</button>`).join('')}</div><div class="say-row"><input id="mpChatIn" maxlength="120" placeholder="ここに書いて話し合う" enterkeyhint="send"><button class="btn main" id="mpSend">送る</button></div>` : ''}</div>`;
   }
   function bind(v) {
