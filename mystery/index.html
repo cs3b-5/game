@@ -6,14 +6,33 @@
 <title>ナゾトキ探偵 ∞</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Kosugi+Maru&family=Zen+Maru+Gothic:wght@500;700;900&family=DotGothic16&display=swap">
 <style>
-:root { --bg: #14121c; --bg2: #1e1b2a; --card: #262236; --ink: #f2eefc; --mute: #a39cbc; --acc: #ffcf5a; --acc2: #ff6a8a; --line: rgba(255,255,255,.12); --ok: #5ae07a; --bad: #ff5a6a; --font: "Zen Maru Gothic", sans-serif; --head: "Zen Maru Gothic", sans-serif; --pat: none; color-scheme: dark; }
+:root { --bg: #120c12; --bg2: #1c1218; --card: rgba(40,26,30,.92); --ink: #f2e6d8; --mute: #b39e8c; --acc: #d8a84a; --acc2: #c8463a; --line: rgba(216,168,74,.28); --ok: #6ad08a; --bad: #ff5a6a; --font: "Shippori Mincho", serif; --head: "Shippori Mincho", serif; --pat: none; --wall: none; color-scheme: dark; }
 /* 世界観ごとの見た目 */
 body.mansion { --bg: #1a0f12; --bg2: #2a181c; --card: #33201f; --ink: #f4e8d8; --mute: #b89c88; --acc: #e0b050; --acc2: #c83a3a; --line: rgba(224,176,80,.25); --font: "Shippori Mincho", serif; --head: "Shippori Mincho", serif; --pat: repeating-linear-gradient(45deg, rgba(224,176,80,.04) 0 10px, transparent 10px 20px); }
 body.school { --bg: #f4f1e6; --bg2: #ffffff; --card: #ffffff; --ink: #2a3040; --mute: #7a8090; --acc: #3a7ad8; --acc2: #e84a5a; --line: rgba(42,48,64,.14); --font: "Kosugi Maru", sans-serif; --head: "Kosugi Maru", sans-serif; --pat: repeating-linear-gradient(0deg, rgba(58,122,216,.10) 0 1px, transparent 1px 28px); color-scheme: light; }
 body.animal { --bg: #fdf4e0; --bg2: #fffaf0; --card: #fffaf0; --ink: #5a3a2a; --mute: #9a7a62; --acc: #f08a3a; --acc2: #e85a7a; --line: rgba(90,58,42,.16); --font: "Zen Maru Gothic", sans-serif; --head: "Zen Maru Gothic", sans-serif; --pat: radial-gradient(circle at 20px 20px, rgba(120,190,90,.13) 6px, transparent 7px) 0 0 / 40px 40px; color-scheme: light; }
 body.neon { --bg: #070818; --bg2: #0e1028; --card: #121534; --ink: #e8f4ff; --mute: #7a8ab8; --acc: #3af0ff; --acc2: #ff3ad0; --line: rgba(58,240,255,.25); --font: "Zen Maru Gothic", sans-serif; --head: "DotGothic16", monospace; --pat: linear-gradient(rgba(58,240,255,.05) 1px, transparent 1px) 0 0 / 100% 22px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; min-height: 100%; background: var(--bg); background-image: var(--pat); color: var(--ink); font-family: var(--font); transition: background-color .4s; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); transition: background-color .4s; }
+/* 壁紙（画像があれば使う。なければ色と模様だけ） */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--wall), var(--pat), var(--bg); background-size: cover, auto, auto; background-position: center; }
+body { --wall: linear-gradient(rgba(10,6,10,.55), rgba(10,6,10,.82)), url(images/bg_home_tall.webp) center / cover; --pat: radial-gradient(ellipse at 50% 0%, rgba(216,168,74,.16), transparent 60%); }
+@media (min-aspect-ratio: 1/1) { body { --wall: linear-gradient(rgba(10,6,10,.55), rgba(10,6,10,.82)), url(images/bg_home_wide.webp) center / cover; } }
+body.mansion { --wall: linear-gradient(rgba(20,10,12,.78), rgba(20,10,12,.9)), url(images/bg_mansion.webp) center / cover; }
+body.school { --wall: linear-gradient(rgba(244,241,230,.86), rgba(244,241,230,.94)), url(images/bg_school.webp) center / cover; }
+body.animal { --wall: linear-gradient(rgba(253,244,224,.84), rgba(253,244,224,.93)), url(images/bg_animal.webp) center / cover; }
+body.neon { --wall: linear-gradient(rgba(7,8,24,.78), rgba(7,8,24,.9)), url(images/bg_neon.webp) center / cover; }
+/* 立ち絵（なければ絵文字） */
+.por { display: inline-grid; place-items: center; overflow: hidden; vertical-align: middle; }
+.por img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 8%; display: block; }
+.por i { font-style: normal; display: none; }
+.por.noimg i { display: inline; }
+.por.sm { width: 34px; height: 34px; border-radius: 50%; font-size: 1.5rem; }
+.por.md { width: 74px; height: 74px; border-radius: 50%; font-size: 2.4rem; border: 2px solid var(--line); }
+.por.lg { width: 170px; height: 248px; border-radius: 14px; font-size: 3.6rem; border: 2px solid var(--line); margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.por.lg img { object-position: 50% 0%; }
+.por.lg.noimg, .por.md.noimg, .por.sm.noimg { border-color: transparent; box-shadow: none; height: auto; }
+.por.lg.noimg { width: auto; }
 [hidden] { display: none !important; }
 button { font-family: inherit; color: inherit; cursor: pointer; }
 .btn { border: 2px solid var(--acc); background: transparent; color: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: .95rem; font-weight: 700; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
@@ -29,7 +48,8 @@ body.neon .btn { box-shadow: 0 0 10px rgba(58,240,255,.35); }
 .logo { text-align: center; padding: 18px 0 4px; }
 .logo .mag { font-size: 3.4rem; display: inline-block; animation: sway 3s ease-in-out infinite; }
 @keyframes sway { 50% { transform: rotate(-12deg) translateY(-4px); } }
-.logo h1 { margin: 6px 0 0; font-family: "Shippori Mincho", serif; font-size: clamp(2rem, 9vw, 2.8rem); letter-spacing: .08em; }
+.logo h1 { margin: 6px 0 0; font-family: "Shippori Mincho", serif; font-size: clamp(2rem, 9vw, 2.8rem); letter-spacing: .08em; text-shadow: 0 0 18px rgba(216,168,74,.45), 0 2px 0 #000; }
+.logo .crest { width: min(240px, 60vw); aspect-ratio: 1; border-radius: 50%; display: block; margin: 0 auto 6px; object-fit: cover; box-shadow: 0 0 40px rgba(216,168,74,.35); }
 .logo p { margin: 4px 0 0; color: var(--mute); font-size: .9rem; }
 .diffs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .diff { border: 2px solid var(--line); background: var(--card); border-radius: 14px; padding: 12px 6px; display: grid; gap: 4px; justify-items: center; text-align: center; }
@@ -99,7 +119,7 @@ body.neon .btn { box-shadow: 0 0 10px rgba(58,240,255,.35); }
 .box { width: min(460px, 100%); max-height: 100%; overflow-y: auto; background: var(--bg2); border: 2px solid var(--acc); border-radius: 18px; padding: 18px 16px; display: grid; gap: 10px; }
 .box h3 { margin: 0; font-family: var(--head); font-size: 1.2rem; text-align: center; }
 .box .face { font-size: 3.6rem; text-align: center; line-height: 1.1; }
-.box .face.shake { animation: shake .4s; }
+.box .face.shake, .box .shake { animation: shake .4s; }
 @keyframes shake { 20%, 60% { transform: translateX(-8px) rotate(-6deg); } 40%, 80% { transform: translateX(8px) rotate(6deg); } }
 .box .look { text-align: center; font-size: .8rem; color: var(--mute); }
 .say { background: var(--card); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 9px 12px; font-size: .92rem; line-height: 1.6; animation: pop .3s both; }
@@ -126,7 +146,8 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
 .pp b { color: var(--acc); margin-left: 3px; } .pp.me { border-color: var(--acc); } .pp.off { opacity: .4; }
 .row2 { display: flex; gap: 8px; } .row2 .btn { flex: 1; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-top: 8px; }
-.rolecard { display: flex; gap: 12px; align-items: center; border-width: 2px; }
+.rolecard { display: flex; gap: 12px; align-items: center; border-width: 2px; flex-wrap: wrap; }
+.rolecard .por.lg { width: 120px; height: 175px; margin: 0; }
 .rolecard .em { font-size: 3rem; }
 .rolecard.culprit { border-color: var(--acc2); background: linear-gradient(135deg, rgba(255,90,106,.14), var(--card)); }
 .rolecard.detective { border-color: var(--acc); }
@@ -148,8 +169,8 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
 <!-- ホーム -->
 <main id="home">
   <a href="../index.html" style="color:var(--mute);text-decoration:none;font-size:.85rem">← ゲーム一覧へ戻る</a>
-  <div class="logo"><span class="mag">🔍</span><h1>ナゾトキ探偵 ∞</h1><p>毎回ちがう事件。犯人はひとりだけ。</p></div>
-  <div class="themes"><span>🏰 洋館</span><span>🏫 学園</span><span>🌳 どうぶつ村</span><span>🌃 ネオン街</span></div>
+  <div class="logo"><img class="crest" src="images/icon.webp" alt="" onerror="this.remove();document.getElementById('magF').hidden=false"><span class="mag" id="magF" hidden>🔍</span><h1>ナゾトキ探偵 ∞</h1><p>奇妙な洋館に招かれた探偵。扉の向こうで、事件が起きる。</p></div>
+  <div class="themes"><span>🏰 嵐の書斎</span><span>🏫 放課後の扉</span><span>🌳 絵本の扉</span><span>🌃 ネオンの扉</span></div>
   <button class="btn main" id="bCont" hidden>▶ つづきから</button>
   <button class="btn main red" id="bMulti">👥 みんなで遊ぶ（犯人はだれだ？）</button>
   <div class="hint" style="text-align:center;margin-top:-6px">オンラインで最大8人。だれか1人がこっそり犯人。CPUも入れられる</div>
@@ -208,12 +229,15 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
 <div class="modal" id="modal" hidden><div class="box" id="mbox"></div></div>
 <div class="toast" id="toast" style="opacity:0"></div>
 
-<script src="gen.js?v=3"></script>
+<script src="gen.js?v=4"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ICON = { mansion: '🏰', school: '🏫', animal: '🌳', neon: '🌃' };
+  // 立ち絵（画像がなければ絵文字）
+  const por = (s, size) => `<span class="por ${size}"><img src="${s.img}" alt="" onerror="this.parentNode.classList.add('noimg');this.remove()"><i>${s.emo}</i></span>`;
+  window.NAZO_POR = por;
   const CONF = {
     mansion: ['……ええ、わたくしがやりましたわ。', 'さすがは名探偵。もう言い逃れはできませんな。'],
     school: ['……ごめんなさい、ぼくがやりました。', 'うう、バレちゃった……。'],
@@ -295,7 +319,7 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     const T = theme();
     C.suspects.forEach((s, i) => {
       const b = document.createElement('button'); b.className = 'tile' + (G.talked[i] ? ' done' : '');
-      b.innerHTML = `<span class="em">${s.emo}</span><span class="nm">${esc(s.nm)}</span><small>${T.attrs.map((a, k) => `${a.nm}:${a.v[s.attr[k]]}`).join(' ')}</small>`;
+      b.innerHTML = `${por(s, 'md')}<span class="nm">${esc(s.nm)}</span><small>${T.attrs.map((a, k) => `${a.nm}:${a.v[s.attr[k]]}`).join(' ')}</small>`;
       b.onclick = () => talkTo(i); g.appendChild(b);
     });
     v.appendChild(g);
@@ -303,7 +327,7 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
   function talkTo(i) {
     const s = C.suspects[i], T = theme(), mine = C.statements.filter(x => x.by === i);
     G.talked[i] = 1; mine.forEach(x => G.got[x.id] = 1); store();
-    modal(`<div class="face">${s.emo}</div><h3>${esc(s.nm)}</h3><div class="look">${T.attrs.map((a, k) => `${a.nm}：${a.v[s.attr[k]]}`).join('　')}</div>
+    modal(`${por(s, 'lg')}<h3>${esc(s.nm)}</h3><div class="look">${T.attrs.map((a, k) => `${a.nm}：${a.v[s.attr[k]]}`).join('　')}</div>
       <div class="say lead">「${esc(s.line)}」</div>
       ${mine.map((x, k) => `<div class="say" style="animation-delay:${.15 + k * .25}s">「${esc(MYS.textOf(C, x))}」</div>`).join('')}
       <div class="hint" style="text-align:center">証言を手帳にメモした</div>
@@ -325,7 +349,7 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     cards.forEach(x => {
       const s = C.suspects[x.by], b = document.createElement('button');
       b.className = 'card' + (sel.includes(x.id) ? ' sel' : '') + (inC.has(x.id) ? ' contra' : '');
-      b.innerHTML = `<div class="av">${s.emo}</div><div><div class="who">${esc(s.nm)}</div><span class="tm">${esc(C.times[x.t])}</span>${esc(MYS.textOf(C, x))}</div><span class="ck"></span>`;
+      b.innerHTML = `<div class="av">${por(s, 'sm')}</div><div><div class="who">${esc(s.nm)}</div><span class="tm">${esc(C.times[x.t])}</span>${esc(MYS.textOf(C, x))}</div><span class="ck"></span>`;
       b.onclick = () => { const k = sel.indexOf(x.id); if (k >= 0) sel.splice(k, 1); else { sel.push(x.id); if (sel.length > 2) sel.shift(); } sfx.click(); show('note'); };
       v.appendChild(b);
     });
@@ -381,8 +405,8 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     C.suspects.forEach((s, i) => {
       const b = document.createElement('button'); const no = G.wrong.includes(i);
       b.className = 'tile'; b.disabled = no; b.style.opacity = no ? .35 : 1;
-      b.innerHTML = `<span class="em">${s.emo}</span><span class="nm">${esc(s.nm)}</span><small>${no ? 'ちがった' : ''}</small>`;
-      b.onclick = () => modal(`<div class="face">${s.emo}</div><h3>${esc(s.nm)}が犯人だ！</h3><div class="hint" style="text-align:center">ほんとうに指名する？</div><div class="row"><button class="btn" data-close>やめる</button><button class="btn red main" id="mOk">指名する</button></div>`, box => box.querySelector('#mOk').onclick = () => { closeModal(); point(i); });
+      b.innerHTML = `${por(s, 'md')}<span class="nm">${esc(s.nm)}</span><small>${no ? 'ちがった' : ''}</small>`;
+      b.onclick = () => modal(`${por(s, 'lg')}<h3>${esc(s.nm)}が犯人だ！</h3><div class="hint" style="text-align:center">ほんとうに指名する？</div><div class="row"><button class="btn" data-close>やめる</button><button class="btn red main" id="mOk">指名する</button></div>`, box => box.querySelector('#mOk').onclick = () => { closeModal(); point(i); });
       g.appendChild(b);
     });
     v.appendChild(g);
@@ -391,19 +415,19 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
     const s = C.suspects[i];
     if (i === C.culprit) {
       G.phase = 'kimete'; sel = []; store(); sfx.hit();
-      modal(`<div class="face shake">${s.emo}</div><div class="big-msg">指名！</div><div class="say">「な、なにを言うんですか。証拠はあるんですか？」</div><div class="hint" style="text-align:center">📒手帳から、食いちがう2枚の証言を<b>決め手</b>として示そう！</div><button class="btn main" data-close id="mGo">手帳をひらく</button>`, box => box.querySelector('#mGo').onclick = () => { closeModal(); show('note'); });
+      modal(`<div class="shake">${por(s, 'lg')}</div><div class="big-msg">指名！</div><div class="say">「な、なにを言うんですか。証拠はあるんですか？」</div><div class="hint" style="text-align:center">📒手帳から、食いちがう2枚の証言を<b>決め手</b>として示そう！</div><button class="btn main" data-close id="mGo">手帳をひらく</button>`, box => box.querySelector('#mGo').onclick = () => { closeModal(); show('note'); });
       show('accuse');
     } else {
       G.hearts--; G.wrong.push(i); store(); hearts(); sfx.ng();
       if (G.hearts <= 0) return fail();
-      modal(`<div class="face shake">${s.emo}</div><h3>「ちがいます！」</h3><div class="say">${esc(s.nm)}の話は、ほかの証言とつじつまが合っている……。<br>のこり ❤×${G.hearts}</div><button class="btn main" data-close>もう一度考える</button>`);
+      modal(`<div class="shake">${por(s, 'lg')}</div><h3>「ちがいます！」</h3><div class="say">${esc(s.nm)}の話は、ほかの証言とつじつまが合っている……。<br>のこり ❤×${G.hearts}</div><button class="btn main" data-close>もう一度考える</button>`);
       show('accuse');
     }
   }
   function solved() {
     const stars = G.hearts, c = C.suspects[C.culprit];
     SV.stat[G.diff] = (SV.stat[G.diff] || 0) + 1; SV.stars += stars; SV.streak++; SV.best = Math.max(SV.best, SV.streak); SV.cur = null; save(); G.phase = 'done';
-    modal(`<div class="face shake">${c.emo}</div><div class="big-msg">事件解決！</div><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+    modal(`<div class="shake">${por(c, 'lg')}</div><div class="big-msg">事件解決！</div><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
       <div class="say">「${esc(CONF[C.theme][C.seed % 2])}」</div>
       <div class="exp panel">${MYS.explain(C).map(t => `<p>${t}</p>`).join('')}</div>
       <div class="hint" style="text-align:center">連続解決 ${SV.streak}件</div>
@@ -415,7 +439,7 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
   function fail() {
     const c = C.suspects[C.culprit];
     SV.streak = 0; SV.cur = null; save(); G.phase = 'done';
-    modal(`<div class="big-msg" style="color:var(--mute)">迷宮入り…</div><div class="face">${c.emo}</div><h3>真犯人は ${esc(c.nm)} だった</h3>
+    modal(`<div class="big-msg" style="color:var(--mute)">迷宮入り…</div>${por(c, 'lg')}<h3>真犯人は ${esc(c.nm)} だった</h3>
       <div class="exp panel">${MYS.explain(C).map(t => `<p>${t}</p>`).join('')}</div>
       <div class="row"><button class="btn" id="mHome">ホーム</button><button class="btn main" id="mNext">つぎの事件</button></div>`, box => {
       box.querySelector('#mHome').onclick = () => { closeModal(); home(); };
@@ -472,6 +496,6 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
   home();
 })();
 </script>
-<script src="mp.js?v=3"></script>
+<script src="mp.js?v=4"></script>
 </body>
 </html>

@@ -211,7 +211,7 @@
     const C = G.C, me = pi, isC = me === C.culprit;
     v.g = {
       theme: C.theme, crime: C.crime, places: C.places, times: C.times, flavor: C.flavor,
-      suspects: C.suspects.map(s => ({ nm: s.nm, emo: s.emo, attr: s.attr, line: s.line })),
+      suspects: C.suspects.map(s => ({ nm: s.nm, emo: s.emo, attr: s.attr, line: s.line, img: s.img })),
       my: { role: isC ? 'culprit' : 'detective', truth: C.truth[me], hint: isC ? null : C.hints[me].text },
       testified: H.players.map((_, i) => !!G.testified[i]), ready: H.players.map((_, i) => !!(G.ready || {})[i]),
       chat: G.chat.slice(-80), voted: H.players.map((_, i) => G.votes[i] !== undefined), myVote: G.votes[me],
@@ -307,7 +307,7 @@
     }
     if (g && v.phase === 'role') {
       const s = g.suspects[me];
-      h += crimeBox(g) + `<div class="panel rolecard ${g.my.role}"><div class="em">${s.emo}</div><div><div class="hint">あなたの役</div><b style="font-size:1.2rem">${esc(s.nm)}</b><div class="role">${g.my.role === 'culprit' ? '🔪 あなたが<b>犯人</b>！ ウソのアリバイでみんなをだまそう' : '🔍 あなたは<b>探偵</b>（無実）。犯人を見つけよう'}</div><div class="hint">${T.attrs.map((a, k) => `${a.nm}：${a.v[s.attr[k]]}`).join('　')}</div></div></div>`;
+      h += crimeBox(g) + `<div class="panel rolecard ${g.my.role}">${window.NAZO_POR(s, 'lg')}<div><div class="hint">あなたの役</div><b style="font-size:1.2rem">${esc(s.nm)}</b><div class="role">${g.my.role === 'culprit' ? '🔪 あなたが<b>犯人</b>！ ウソのアリバイでみんなをだまそう' : '🔍 あなたは<b>探偵</b>（無実）。犯人を見つけよう'}</div><div class="hint">${T.attrs.map((a, k) => `${a.nm}：${a.v[s.attr[k]]}`).join('　')}</div></div></div>`;
       h += truthBox(g, me) + (g.my.hint ? `<div class="panel secret">🤫 あなただけのヒント：<b>${esc(g.my.hint)}</b><div class="hint">話し合いで言うかどうかは、あなたしだい（犯人もウソのヒントを言うかも！）</div></div>` : `<div class="panel secret">🤫 犯人には、ヒントはない。ほかの人のヒントにまぎれて、ウソのヒントを言ってもいい。</div>`);
       h += `<button class="btn main" id="mpOk" style="width:100%" ${g.ready[me] ? 'disabled' : ''}>${g.ready[me] ? 'みんなを待っています…' : 'わかった'}</button>`;
     }
@@ -330,11 +330,11 @@
       h += chatBox(g, v) + (isHost ? `<button class="btn" id="mpSkip" style="width:100%">投票へ進む（ホスト）</button>` : '');
     }
     if (g && v.phase === 'vote') {
-      h += `<div class="panel"><b>☝️ 犯人だと思う人に投票</b><div class="grid2">${g.suspects.map((s, i) => `<button class="btn ${g.myVote === i ? 'main red' : ''}" data-vote="${i}">${s.emo} ${esc(s.nm)}<small style="display:block;opacity:.7">${esc(v.players[i].name)}</small></button>`).join('')}</div><div class="hint">いちばん票が多い人が犯人として捕まる（同じ票数なら犯人の逃げきり）</div></div>` + chatBox(g, v) + (isHost ? `<button class="btn" id="mpSkip" style="width:100%">投票をしめきる（ホスト）</button>` : '');
+      h += `<div class="panel"><b>☝️ 犯人だと思う人に投票</b><div class="grid2">${g.suspects.map((s, i) => `<button class="btn ${g.myVote === i ? 'main red' : ''}" data-vote="${i}">${window.NAZO_POR(s, 'sm')} ${esc(s.nm)}<small style="display:block;opacity:.7">${esc(v.players[i].name)}</small></button>`).join('')}</div><div class="hint">いちばん票が多い人が犯人として捕まる（同じ票数なら犯人の逃げきり）</div></div>` + chatBox(g, v) + (isHost ? `<button class="btn" id="mpSkip" style="width:100%">投票をしめきる（ホスト）</button>` : '');
     }
     if (g && v.phase === 'result') {
       const r = g.result, c = g.suspects[r.culprit];
-      h += `<div class="panel result ${r.caught ? 'win' : 'lose'}"><div class="big-msg">${r.caught ? '犯人確保！' : '犯人は逃げきった…'}</div><div class="em" style="font-size:3rem;text-align:center">${c.emo}</div><div style="text-align:center">犯人は <b>${esc(c.nm)}</b>（${esc(v.players[r.culprit].name)}）だった！</div>
+      h += `<div class="panel result ${r.caught ? 'win' : 'lose'}"><div class="big-msg">${r.caught ? '犯人確保！' : '犯人は逃げきった…'}</div>${window.NAZO_POR(c, 'lg')}<div style="text-align:center">犯人は <b>${esc(c.nm)}</b>（${esc(v.players[r.culprit].name)}）だった！</div>
         <div class="hint" style="text-align:center">ウソのアリバイ：「${esc(g.times[g.crime.t])}は${esc(g.places[r.lieQ])}にひとりでいた」　本当は${esc(g.places[g.crime.p])}</div>
         <div class="votes">${g.suspects.map((s, i) => `<div>${s.emo} ${esc(s.nm)}（${esc(v.players[i].name)}）<b>${r.tally[i]}票</b>${g.votes[i] !== undefined && g.votes[i] >= 0 ? `<small>→ ${esc(g.suspects[g.votes[i]].nm)}</small>` : ''}</div>`).join('')}</div>
         <div class="hint">ヒント：${Object.entries(g.hints).map(([i, x]) => `${g.suspects[i].emo}${esc(x.text)}`).join(' ／ ')}</div>
@@ -358,7 +358,7 @@
   function textMP(g, st) { const C = { theme: g.theme, times: g.times, places: g.places, suspects: g.suspects }; return MYS.textOf(C, st); }
   function cardMP(g, st) {
     const s = g.suspects[st.by], inC = g.contras.some(x => x.a === st.id || x.b === st.id);
-    return `<button class="card ${sel.includes(st.id) ? 'sel' : ''} ${inC ? 'contra' : ''}" data-st="${st.id}"><div class="av">${s.emo}</div><div><div class="who">${esc(s.nm)}</div><span class="tm">${esc(g.times[st.t])}</span>${esc(textMP(g, st))}</div><span class="ck"></span></button>`;
+    return `<button class="card ${sel.includes(st.id) ? 'sel' : ''} ${inC ? 'contra' : ''}" data-st="${st.id}"><div class="av">${window.NAZO_POR(s, 'sm')}</div><div><div class="who">${esc(s.nm)}</div><span class="tm">${esc(g.times[st.t])}</span>${esc(textMP(g, st))}</div><span class="ck"></span></button>`;
   }
   function timelineMP(g) {
     const cell = {}; for (const st of g.statements) MYS.factsOf(st).facts.forEach(([w, t, p]) => { const k = w + '_' + t; (cell[k] = cell[k] || new Set()).add(p); });
