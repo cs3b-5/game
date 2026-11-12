@@ -430,7 +430,7 @@ const NET = (() => {
   let db = null, uid = null, ready = null; let why = '';
   const COL = 'uparun';
   async function init() {
-    for (let i = 0; i < 30 && !(window.claude && claude.use); i++) await new Promise(r => setTimeout(r, 100));
+    for (let i = 0; i < 100 && !(window.claude && claude.use); i++) await new Promise(r => setTimeout(r, 100));
     if (!window.claude || !claude.use) { why = 'A'; return false; } // claude.ai の外
     try {
       const [d, u] = await Promise.all([claude.use('db'), claude.use('user')]);
@@ -439,7 +439,8 @@ const NET = (() => {
       db = d; uid = id; return true;
     } catch (e) { why = 'E'; return false; }
   }
-  const on = () => (ready = ready || init());
+  // つながらなかったときは覚えておかず、次に呼ばれたらもう一度ためす（claude.ai の準備が遅いことがある）
+  const on = async () => { if (db) return true; if (!ready) ready = init().then(ok => { if (!ok) ready = null; return ok; }); return ready; };
   // 名前：GAMES の名簿にあればそれ、なければこの端末のアカウント名
   async function myName() {
     try { const a = await db.doc('accounts/' + uid).get(); if (a.exists) return a.data().name; } catch (e) {}
