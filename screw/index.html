@@ -44,7 +44,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans 
 #msg.on { opacity: 1; }
 .fly { position: fixed; z-index: 30; pointer-events: none; transition: transform .45s cubic-bezier(.3,.7,.3,1); }
 /* 画面 */
-.scr { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(40,24,60,.45); backdrop-filter: blur(4px); padding: 16px; }
+.scr { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; overflow: auto; background: rgba(40,24,60,.45); backdrop-filter: blur(4px); padding: 16px; }
 .card { width: min(360px, 100%); background: #fff; border-radius: 24px; padding: 24px 20px; display: grid; gap: 14px; justify-items: center; text-align: center; box-shadow: 0 20px 50px rgba(40,20,60,.35); }
 .card h1 { margin: 0; font: 400 3rem "Bebas Neue", sans-serif; letter-spacing: .04em; line-height: 1; }
 .card h2 { margin: 0; font-size: 1.5rem; }
@@ -106,6 +106,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans 
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="shapes.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -265,10 +266,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans 
     },
   };
   const NAMES = { tower: '塔', house: '家', car: '車', robot: 'ロボット', tree: '木', bridge: '橋', castle: 'お城', ship: '船', plane: '飛行機', rocket: 'ロケット', windmill: '風車', desk: '机といす', dog: 'いぬ', train: '汽車' };
+  for (const [id, nm, fn] of (window.SHAPE_LIST || [])) { TEMPLATES[id] = fn; NAMES[id] = nm; }   // shapes.js の追加の形
   const ORDER = Object.keys(NAMES);
   // レベルごとの形：となりのレベルと同じにならないように選ぶ。10面からは2つ並べることも
   const shapeMemo = {};
-  function shapeOf(level) { return shapeMemo[level] || (shapeMemo[level] = shapeOf0(level)); }
+  function shapeOf(level) { if (window.FORCE_SHAPE) return [].concat(window.FORCE_SHAPE); return shapeMemo[level] || (shapeMemo[level] = shapeOf0(level)); }
   function shapeOf0(level) {
     if (level <= 1) return ['tower'];
     const pick = lv => ORDER[Math.floor(rng(lv * 31337 + 5)() * ORDER.length)];
@@ -728,7 +730,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans 
   };
 
   // テスト用
-  window.SCREW = { get L() { return L; }, get state() { return state; }, S, buildLevel, checkSolvable, pull: g => pull(g), get screws() { return screws3; }, blockedBy, facing, screenOf: g => { const v = g.getWorldPosition(new THREE.Vector3()).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; } };
+  window.SCREW = { NAMES, TEMPLATES, get L() { return L; }, get state() { return state; }, S, buildLevel, checkSolvable, pull: g => pull(g), get screws() { return screws3; }, blockedBy, facing, screenOf: g => { const v = g.getWorldPosition(new THREE.Vector3()).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; } };
   if (S.level > 1) $('bStart').textContent = `LEVEL ${S.level} から`;
 })();
 </script>
