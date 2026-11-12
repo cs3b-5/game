@@ -100,7 +100,7 @@ button { font-family: inherit; color: inherit; }
 
   // ================= セーブ =================
   const LS = 'potion-quest-v3';
-  const fresh = () => ({ x: HOME.x, y: HOME.y, day: 1, turn: 0, inv: { berry: 6, drop: 6, pebble: 6, feather: 6 }, fog: '', caught: {}, cre: {}, spot: {}, found: { home: 1 }, zukan: {}, won: 0, liquid: '#8aa898', known: { berry: 1, drop: 1, pebble: 1, feather: 1 }, story: 0 });
+  const fresh = () => ({ x: HOME.x, y: HOME.y, day: 1, turn: 0, inv: { berry: 10, drop: 10, pebble: 10, feather: 10, glow: 2 }, fog: '', caught: {}, cre: {}, spot: {}, found: { home: 1 }, zukan: {}, won: 0, liquid: '#8aa898', known: { berry: 1, drop: 1, pebble: 1, feather: 1, glow: 1 }, story: 0 });
   let S = (() => { try { const o = JSON.parse(localStorage.getItem(LS)); return o ? Object.assign(fresh(), o) : null; } catch (e) { return null; } })();
   const isNew = !S; if (!S) S = fresh();
   const save = () => { S.fog = btoa(String.fromCharCode(...fog)); S.cre = Object.fromEntries(CRES.map(c => [c.id, [c.x, c.y, c.dx | 0, c.dy | 0, c.ix | 0]])); try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
@@ -110,7 +110,7 @@ button { font-family: inherit; color: inherit; }
   for (const c of CRES) { const s = S.cre[c.id]; if (s) { c.x = s[0]; c.y = s[1]; if (CRE[c.type].mv) { if (c.type === 'fairy') c.ix = s[4]; else { c.dx = s[2]; c.dy = s[3]; } } } }
   const alive = c => !S.caught[c.id];
   const spotReady = s => S.spot[s.id] == null || S.day >= S.spot[s.id] + 2;
-  function reveal(x, y, r = 8) {
+  function reveal(x, y, r = 10) {
     let ch = false;
     for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
       const X = x + i, Y = y + j; if (X < 0 || Y < 0 || X >= N || Y >= N) continue;
@@ -149,10 +149,22 @@ button { font-family: inherit; color: inherit; }
   }
   function thingsAt(x, y) {
     const out = [];
-    for (const c of CRES) if (alive(c) && c.x === x && c.y === y) out.push({ k: 'c', o: c, nm: CRE[c.type].e + CRE[c.type].nm });
-    for (const s of SPOTS) if (s.x === x && s.y === y && spotReady(s)) out.push({ k: 's', o: s, nm: MAT[s.m].e + MAT[s.m].nm + 'の群生地' });
-    for (const m of MARKS) if (m.x === x && m.y === y) out.push({ k: 'm', o: m, nm: m.e + m.nm });
+    const nb = (a, b) => Math.abs(a.x - x) <= 1 && Math.abs(a.y - y) <= 1;   // となり1マスまでならとどく
+    for (const c of CRES) if (alive(c) && nb(c)) out.push({ k: 'c', o: c, nm: CRE[c.type].e + CRE[c.type].nm });
+    for (const s of SPOTS) if (nb(s) && spotReady(s)) out.push({ k: 's', o: s, nm: MAT[s.m].e + MAT[s.m].nm + 'の群生地' });
+    for (const m of MARKS) if (nb(m) && !S.found[m.id]) out.push({ k: 'm', o: m, nm: m.e + m.nm });
     return out;
+  }
+  // つぎの目標（迷わないように）
+  function nextGoal() {
+    const f = id => S.found[id];
+    if (!f('well') && !f('circle')) return '目標：近くの「？」を調べてみよう';
+    if (!f('hunter') && !f('shrine') && !f('mtcamp')) return '目標：🌟を混ぜて川を跳び越えよう';
+    if (!f('hunter')) return '目標：北の森の狩人の小屋へ';
+    if (!f('gate') && !(f('shrine') || f('mtcamp'))) return '目標：東の湖か西の岩山の野営地へ';
+    if (!f('gate')) return '目標：北の果ての崩れた門へ';
+    if (!S.won) return '目標：城壁の奥の賢者の石へ（力を重ねて跳ぶ）';
+    return 'いきもの図鑑をうめよう';
   }
   function renderPanel() {
     const cnt = {}; slots.forEach(m => cnt[m] = (cnt[m] || 0) + 1);
@@ -164,7 +176,7 @@ button { font-family: inherit; color: inherit; }
       sl.appendChild(d);
     }
     const P = slots.length ? plan(slots, S) : null, th = P && P.ok ? thingsAt(P.end.x, P.end.y) : [];
-    $('read').innerHTML = !P ? '釜は空<small>素材を入れると道すじが見える</small>' : !P.ok ? '<span style="color:#8a2a1a">降りられない</span><small>入れる素材や順番を変えてみよう</small>' : th.length ? '<span style="color:#2a5a2a">ぴったり！</span><small>' + th.map(t => t.nm).join('・') + '</small>' : '着地できる<small>道すじは地図の点線</small>';
+    $('read').innerHTML = !P ? '釜は空<small>' + nextGoal() + '</small>' : !P.ok ? '<span style="color:#8a2a1a">降りられない</span><small>入れる素材や順番を変えてみよう</small>' : th.length ? '<span style="color:#2a5a2a">ぴったり！</span><small>' + th.map(t => t.nm).join('・') + '</small>' : '着地できる<small>道すじは地図の点線</small>';
     $('bDrink').disabled = !P || !P.ok || busy;
     const sh = $('shelf'); sh.innerHTML = '';
     for (const m in MAT) {
@@ -228,7 +240,7 @@ button { font-family: inherit; color: inherit; }
       if (t.k === 'c') { const c = t.o; S.caught[c.id] = 1; S.zukan[c.type] = (S.zukan[c.type] || 0) + 1; S.inv[c.drop] = (S.inv[c.drop] || 0) + 1; burst(c.x, c.y); msgs.push(`${CRE[c.type].e}${CRE[c.type].nm}をつかまえた！ ${MAT[c.drop].e}${MAT[c.drop].nm}をもらった`); sfx.catch(); }
       if (t.k === 's') { const s = t.o; S.spot[s.id] = S.day; S.inv[s.m] = (S.inv[s.m] || 0) + 3; burst(s.x, s.y); msgs.push(`${MAT[s.m].e}${MAT[s.m].nm}を3つ採った`); sfx.catch(); }
     }
-    const mk = MARKS.find(m => m.x === S.x && m.y === S.y);
+    const mk = MARKS.find(m => Math.abs(m.x - S.x) <= 1 && Math.abs(m.y - S.y) <= 1 && !S.found[m.id]);
     for (const c of CRES) { c.px = c.x; c.py = c.y; if (alive(c)) stepCre(c); }
     anim = { k: 'cre', t0: performance.now(), dur: 280 };
     for (const k in S.inv) if (!S.known[k]) { S.known[k] = 1; msgs.push(`新しい素材 ${MAT[k].e}${MAT[k].nm}！ 効果は試してみるまでわからない`); }
@@ -268,11 +280,11 @@ button { font-family: inherit; color: inherit; }
   $('bRest').onclick = () => {
     if (busy) return;
     const camps = MARKS.filter(m => m.camp && S.found[m.id]);
-    card(`<div class="e">⛺</div><h2>どこで休む？</h2><p>朝になると、基本の素材が6つずつにもどり、群生地の素材もまた生える。</p><div style="display:grid;gap:6px;width:100%">${camps.map(m => `<button class="btn" data-camp="${m.id}"><span class="emo">${m.e}</span> ${m.nm}</button>`).join('')}</div><div class="row"><button class="btn" data-ok>やめる</button></div>`);
+    card(`<div class="e">⛺</div><h2>どこで休む？</h2><p>朝になると、基本の素材が10こずつにもどり、群生地の素材もまた生える。</p><div style="display:grid;gap:6px;width:100%">${camps.map(m => `<button class="btn" data-camp="${m.id}"><span class="emo">${m.e}</span> ${m.nm}</button>`).join('')}</div><div class="row"><button class="btn" data-ok>やめる</button></div>`);
     $('msgCard').querySelectorAll('[data-camp]').forEach(b => b.onclick = () => {
       const m = MARKS.find(q => q.id === b.dataset.camp);
       $('msg').hidden = true;
-      S.x = m.x; S.y = m.y; S.day++; lastPath = null; for (const k of BASIC) S.inv[k] = Math.max(S.inv[k] || 0, 6);
+      S.x = m.x; S.y = m.y; S.day++; lastPath = null; for (const k of BASIC) S.inv[k] = Math.max(S.inv[k] || 0, 10);
       slots = []; reveal(S.x, S.y); save(); sfx.sleep(); follow = true; renderPanel();
       toast(`${m.nm}で一晩休んだ。${S.day}日目の朝`);
     });
@@ -399,8 +411,8 @@ button { font-family: inherit; color: inherit; }
     const [wx, wy] = toWorld(sx, sy), x = Math.floor(wx / CS), y = Math.floor(wy / CS);
     if (x < 0 || y < 0 || x >= N || y >= N || !seen(x, y)) return;
     for (const c of CRES) if (alive(c) && c.x === x && c.y === y) return toast(`${CRE[c.type].e}${CRE[c.type].nm}：${CRE[c.type].d}（${MAT[c.drop].e}を持っている）`);
-    const sp = SPOTS.find(s => s.x === x && s.y === y); if (sp) return toast(`${MAT[sp.m].e}${MAT[sp.m].nm}の群生地${spotReady(sp) ? '：ぴったり降りると3つ採れる' : '：また生えるまで待とう'}`);
-    const mk = MARKS.find(m => m.x === x && m.y === y); if (mk) return toast(`${mk.e}${mk.nm}${S.found[mk.id] ? '' : '：ぴったり降りると調べられる'}`);
+    const sp = SPOTS.find(s => s.x === x && s.y === y); if (sp) return toast(`${MAT[sp.m].e}${MAT[sp.m].nm}の群生地${spotReady(sp) ? '：となりのマスまでに降りると3つ採れる' : '：また生えるまで待とう'}`);
+    const mk = MARKS.find(m => m.x === x && m.y === y); if (mk) return toast(`${mk.e}${mk.nm}${S.found[mk.id] ? '' : '：となりのマスまでに降りると調べられる'}`);
     const nm = ['野原', '水辺', '深い森', '岩山', '城壁'][T[y][x]]; toast(nm + (T[y][x] ? '：ここには降りられない' : ''));
   }
   function burst(x, y) { for (let i = 0; i < 16; i++) { const a = Math.random() * 7, v = .6 + Math.random() * 2; parts.push({ x: (x + .5) * CS, y: (y + .5) * CS, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.2, l: 1 }); } }
