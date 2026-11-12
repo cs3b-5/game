@@ -55,6 +55,10 @@ h2 { margin: 0; font-family: "Dela Gothic One"; font-weight: 400; font-size: 1.6
 .skins .sw::before { left: -5px; transform: rotate(-30deg); } .skins .sw::after { right: -5px; transform: rotate(30deg); }
 .rank { width: 100%; display: grid; gap: 4px; font-weight: 900; font-size: .9rem; }
 .rank div { display: flex; justify-content: space-between; background: rgba(255,255,255,.05); padding: 6px 10px; border-radius: 8px; }
+.rank div.me { background: rgba(255,210,58,.18); outline: 1px solid var(--gold); }
+.rank small { opacity: .6; font-size: .72rem; margin-left: 4px; }
+.tabs { display: flex; gap: 6px; width: 100%; } .tabs button { flex: 1; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.06); border: 2px solid transparent; font-weight: 900; }
+.tabs button.on { border-color: var(--gold); background: rgba(255,210,58,.14); }
 .rank b { font-family: "Dela Gothic One"; font-weight: 400; }
 .hint { position: fixed; z-index: 5; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 10px); transform: translateX(-50%); background: rgba(0,0,0,.5); border-radius: 999px; padding: 8px 16px; font-weight: 900; font-size: .85rem; white-space: nowrap; pointer-events: none; transition: opacity .6s; }
 .loading { position: fixed; inset: 0; display: grid; place-items: center; background: #0a1430; z-index: 50; font-weight: 900; }
@@ -82,7 +86,7 @@ a.back { color: #fff; opacity: .7; font-weight: 800; font-size: .85rem; }
     <div class="card" style="text-align:center"><div class="note">ハイスコア</div><div class="big" id="best">0</div><div class="note">ためた しずく：<b id="bank">0</b></div></div>
     <button class="btn gold" id="go">スタート<small>どこまで走れるか！</small></button>
     <div class="row"><button class="btn ghost" id="toShop">きがえ</button><button class="btn ghost" id="toHelp">あそびかた</button></div>
-    <div class="row"><button class="btn ghost" id="sndBtn">効果音：オン</button><button class="btn ghost" id="toRank">きろく</button></div>
+    <div class="row"><button class="btn ghost" id="sndBtn">効果音：オン</button><button class="btn ghost" id="toRank">ランキング</button></div>
     <a class="back" href="../index.html">← ゲーム一覧へ</a>
   </div>
 </section>
@@ -116,7 +120,8 @@ a.back { color: #fff; opacity: .7; font-weight: 800; font-size: .85rem; }
 
 <section class="scr" id="rank" hidden>
   <div class="col">
-    <h2>きろく</h2>
+    <h2>ランキング</h2>
+    <div class="tabs" id="rankTabs"><button data-t="all" class="on">🌏 みんな</button><button data-t="me">📱 じぶん</button></div>
     <div class="card"><div class="rank" id="rankList"></div></div>
     <button class="btn" data-back>もどる</button>
   </div>
@@ -136,6 +141,7 @@ a.back { color: #fff; opacity: .7; font-weight: 800; font-size: .85rem; }
     <div class="card">
       <div class="big" id="oScore">0</div>
       <div class="newrec" id="newRec" hidden>★ ハイスコア更新！ ★</div>
+      <div class="note" id="oNet" style="text-align:center;margin-top:6px"></div>
       <div class="stats" style="margin-top:10px"><span>走った距離</span><b id="oDist">0m</b><span>しずく</span><b id="oDrop">0</b><span>ハイスコア</span><b id="oBest">0</b></div>
     </div>
     <button class="btn gold" id="again">もう一回！</button>
