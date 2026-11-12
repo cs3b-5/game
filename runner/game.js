@@ -222,6 +222,8 @@ const P = { lane: 1, x: 0, y: 0, vy: 0, slide: 0, air: false, jumpT: .6, bonk: 0
 function clearRun() { for (const e of (G ? G.ents : [])) if (e.obj) { if (e.kind === 'obst') putObst(e.obj); else scene.remove(e.obj); } }
 function newRun() {
   clearRun();
+  // 前の回でぶつかって回ったキャラ・カメラのゆれを元にもどす
+  upa.position.set(0, 0, 0); upa.rotation.set(0, 0, 0); body.rotation.set(0, 0, 0); body.position.set(0, 0, 0); shakeT = 0; shadow.position.x = 0; shadow.scale.setScalar(1);
   G = { gen: makeGen((Math.random() * 2 ** 31) | 0), ents: [], dist: 0, score: 0, drops: 0, t: 0, items: {}, over: false, combo: 0, biome: -1, rows: [], scroll: 0, paused: false };
   Object.assign(P, { lane: 1, x: 0, y: 0, vy: 0, slide: 0, air: false, bonk: 0, laneFrom: 1, laneT: 1 });
   spawn();
@@ -425,16 +427,17 @@ function bot() {
 // ================= オンラインランキング =================
 // GAMES（claude.ai）の共有データベースに、1人1行（自分のベスト）だけ書く。名前は GAMES のアカウント名
 const NET = (() => {
-  let db = null, uid = null, ready = null;
+  let db = null, uid = null, ready = null; let why = '';
   const COL = 'uparun';
   async function init() {
     for (let i = 0; i < 30 && !(window.claude && claude.use); i++) await new Promise(r => setTimeout(r, 100));
-    if (!window.claude || !claude.use) return false;
+    if (!window.claude || !claude.use) { why = 'A'; return false; } // claude.ai の外
     try {
       const [d, u] = await Promise.all([claude.use('db'), claude.use('user')]);
-      if (!d || !u) return false; const id = await u.id(); if (!id) return false;
+      if (!d) { why = 'B'; return false; } if (!u) { why = 'C'; return false; }
+      const id = await u.id(); if (!id) { why = 'D'; return false; }
       db = d; uid = id; return true;
-    } catch (e) { return false; }
+    } catch (e) { why = 'E'; return false; }
   }
   const on = () => (ready = ready || init());
   // 名前：GAMES の名簿にあればそれ、なければこの端末のアカウント名
@@ -464,7 +467,7 @@ const NET = (() => {
       const q = await db.collection(COL).orderBy('score', 'desc').limit(100).get();
       return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(sane).slice(0, 50);
     },
-    get uid() { return uid; },
+    get uid() { return uid; }, get why() { return why; },
   };
 })();
 NET.on();
@@ -492,9 +495,9 @@ function showOver() {
   show('over');
   const el = $('oNet'); el.textContent = 'オンラインランキングに送っています…';
   NET.submit({ s: sc, d: Math.floor(G.dist), c: G.drops }).then(r => {
-    if (!r.ok) el.innerHTML = r.why === 'noname' ? 'ランキングにのせるには、ゲーム一覧の右上で<b>名前をつけてね</b>' : 'オンラインランキングは、claude.ai のゲーム置き場で開いたときだけ使えるよ';
+    if (!r.ok) el.innerHTML = r.why === 'noname' ? 'ランキングにのせるには、ゲーム一覧の右上で<b>名前をつけてね</b>' : `オンラインランキングにつながらなかった（コード ${NET.why || '?'}）`;
     else el.innerHTML = `オンライン <b>${r.rank}位</b>${r.newBest ? '（自己ベスト更新！）' : `（自己ベスト ${r.best.toLocaleString()}）`}`;
-  }).catch(() => { el.textContent = 'ランキングに送れなかった（通信エラー）'; });
+  }).catch(e => { el.textContent = `ランキングに送れなかった（${String(e && e.message || e).slice(0, 60)}）`; });
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function togglePause() {
@@ -514,10 +517,10 @@ async function renderRank() {
   document.querySelectorAll('#rankTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === rankTab));
   if (rankTab === 'all') {
     $('rankList').innerHTML = '<p class="note" style="text-align:center">読みこみ中…</p>';
-    let list = null; try { list = await Promise.race([NET.list(), new Promise(r => setTimeout(() => r('timeout'), 10000))]); } catch (e) { list = 'err'; }
+    let list = null; try { list = await Promise.race([NET.list(), new Promise(r => setTimeout(() => r('timeout'), 12000))]); } catch (e) { list = 'err'; NET.err = String(e && e.message || e); }
     if (rankTab !== 'all') return;
-    if (list === null) { $('rankList').innerHTML = '<p class="note" style="text-align:center">オンラインランキングは、claude.ai のゲーム置き場で開いたときだけ見られるよ</p>'; return; }
-    if (!Array.isArray(list)) { $('rankList').innerHTML = '<p class="note" style="text-align:center">読みこめなかった。あとでもう一度ためしてね</p>'; return; }
+    if (list === null) { $('rankList').innerHTML = `<p class="note" style="text-align:center">オンラインランキングにつながらなかった（コード ${NET.why || '?'}）<br>claude.ai のゲーム置き場で開いたときだけ使えるよ</p>`; return; }
+    if (!Array.isArray(list)) { $('rankList').innerHTML = `<p class="note" style="text-align:center">読みこめなかった（コード ${list === 'timeout' ? 'T' : 'X'}）。あとでもう一度ためしてね</p>`; return; }
     $('rankList').innerHTML = list.length ? list.map((r, i) => `<div class="${r.id === NET.uid ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}位`}　${esc(r.name)} <small>${Math.floor(r.dist).toLocaleString()}m</small></span><b>${Math.floor(r.score).toLocaleString()}</b></div>`).join('') : '<p class="note" style="text-align:center">まだだれも記録がないよ。一番乗りしよう！</p>';
     return;
   }
