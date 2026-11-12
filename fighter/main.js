@@ -354,6 +354,8 @@
     if (G.phase !== 'over') return;
     if (++overT === 150) {
       const w = G.over.w, me = net ? net.me : 0;
+      // オンラインランキング：オンライン対戦の勝利数
+      if (net && w === me) { S.olWins = (S.olWins || 0) + 1; save(); if (window.GAMES_RANK) GAMES_RANK.report('fighter', S.olWins); }
       $('resTitle').textContent = w < 0 ? 'DRAW' : w === me ? 'YOU WIN' : 'YOU LOSE';
       $('resNote').textContent = `${G.wins[0]} - ${G.wins[1]}`;
       $('rAgain').textContent = net ? 'もう一度（相手を待つ）' : 'もう一度';
@@ -553,4 +555,5 @@
   }
   // テスト用
   window.ARASHI = { get G() { return G; }, get net() { return net; }, S };
+  if (window.GAMES_RANK) { GAMES_RANK.mount('fighter', { right: 'max(10px, env(safe-area-inset-right))', bottom: 'max(10px, env(safe-area-inset-bottom))' }, () => running); if (S.olWins) GAMES_RANK.report('fighter', S.olWins); }
 })();

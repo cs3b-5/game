@@ -144,6 +144,7 @@ canvas { image-rendering: pixelated; }
 <div class="big" id="msg" hidden><div class="card" id="msgCard"></div></div>
 <div class="toast" id="toast" style="opacity:0"></div>
 
+<script src="../rank.js"></script>
 <script src="engine.js"></script>
 <script src="sprites.js"></script>
 <script>
@@ -155,7 +156,10 @@ canvas { image-rendering: pixelated; }
   const LS = 'neko-td-v1';
   const blank = () => ({ stars: {}, up: {}, best: {}, seen: {}, tseen: {}, sound: 1 });
   let SV = (() => { try { return Object.assign(blank(), JSON.parse(localStorage.getItem(LS)) || {}); } catch (e) { return blank(); } })();
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify(SV)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify(SV)); } catch (e) {} rankReport(); };
+  // オンラインランキング：エンドレスで到達したウェーブ（いちばん良いステージ）
+  const rankReport = () => { if (window.GAMES_RANK) GAMES_RANK.report('td', Math.max(0, ...Object.entries(SV.best || {}).filter(([k]) => k[0] === 'e').map(([, v]) => v))); };
+  setTimeout(() => { if (window.GAMES_RANK) { GAMES_RANK.mount('td', null, () => !!G); rankReport(); } }, 0);
   const totalStars = () => Object.values(SV.stars).reduce((a, b) => a + b, 0);
   const spentStars = () => UPGRADES.reduce((a, u) => a + u.cost.slice(0, SV.up[u.id] || 0).reduce((x, y) => x + y, 0), 0);
   const opened = s => s === 0 || !!SV.stars[s - 1];

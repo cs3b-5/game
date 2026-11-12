@@ -399,6 +399,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 </section>
 <div class="inspect" id="inspect" hidden><div id="inspectCard"></div><div class="rule" id="inspectRule"></div><div class="cap">マウスを動かすと傾く・クリックで閉じる</div></div>
 
+<script src="../rank.js"></script>
 <script src="../account.js"></script>
 <script src="news.js"></script>
 <script src="bgm.js"></script>
@@ -526,7 +527,9 @@ function makePack(p) {
 const KEY = 'pack-opener-v1';
 let S = { coins: 1000, owned: {}, opened: 0, free: 1, freeAt: Date.now(), bonus: {} };
 try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) S = Object.assign(S, d); } catch (e) {}
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} rankReport(); }
+// オンラインランキング：バトルの勝利数（CPU戦＋オンライン）
+function rankReport() { if (window.GAMES_RANK && S) GAMES_RANK.report('cards', ((S.battle || {}).wins || 0) + ((S.online || {}).wins || 0)); }
 const ownedKinds = () => Object.keys(S.owned).filter(k => S.owned[k] > 0 && +k <= TOTAL).length;
 function tickFree() {
   const now = Date.now();
@@ -1131,6 +1134,7 @@ addEventListener('pagehide', save);
 // カードバトル（battle.js）に道具をわたす
 window.PackBattle.init({ get S() { return S; }, save, hud, CARDS, ELEMENTS, RAR, inspect, cardHTML, tone, chime, audio, sparkle, toast, esc });
 $('battleBtn').addEventListener('click', () => { audio(); window.PackBattle.open(); });
+if (window.GAMES_RANK) { GAMES_RANK.mount('cards'); rankReport(); }
 })();
 </script>
 </body>

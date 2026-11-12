@@ -192,6 +192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 </div>
 <div id="modal" class="modal" hidden></div>
 
+<script src="../rank.js"></script>
 <script src="core.js?v=20261112g"></script>
 <script>
 (function () {
@@ -216,7 +217,13 @@ function load() {
   try { const raw = localStorage.getItem(SAVE); if (raw) { const o = JSON.parse(raw); const base = F.newState(); S = Object.assign(base, o); S.lv = Object.assign(base.lv, o.lv || {}); S.stats = Object.assign(F.newState().stats, o.stats || {}); S.omikuji = o.omikuji || base.omikuji; return; } } catch (e) {}
   S = F.newState();
 }
-function save() { S.last = Date.now(); try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) {} }
+function save() { S.last = Date.now(); try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) {} rankReport(); }
+// オンラインランキング：図鑑コンプリート率（ふつうの魚＋金色の魚＋池のぬし）
+function rankReport() {
+  if (!window.GAMES_RANK) return;
+  const all = F.NFISH * 2 + F.BOSSES.length, got = Object.keys(S.zukan).length + Object.keys(S.gold || {}).length + Object.keys(S.trophy || {}).length;
+  GAMES_RANK.report('fish', Math.round(got / all * 1000) / 10);
+}
 load();
 S.chestN = S.chestN || 0;
 // 前のバージョンのセーブにも新しい項目を足す
@@ -1108,6 +1115,7 @@ requestAnimationFrame(loop);
 
 // テスト用
 window.__fish = { get S() { return S; }, run, F, fmt, openTab, closeSheet, tapAt, G: () => G, ff(sec) { for (let i = 0; i < sec * 20; i++) { run.sync(); run.step(.05); while (run.events.length) { const e = run.events.shift(); if (e.k === 'catch' && e.chest) S.chestN++; } } hud(); }, isMobile };
+if (window.GAMES_RANK) { GAMES_RANK.mount('fish', { left: 'max(10px, env(safe-area-inset-left))', top: 'calc(max(10px, env(safe-area-inset-top)) + 120px)' }); rankReport(); }
 })();
 </script>
 </body>

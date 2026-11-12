@@ -37,6 +37,13 @@ a.app:hover::after, a.app:focus-visible::after, a.app:hover::before, a.app:focus
 [hidden] { display: none !important; }
 
 /* アカウント（ユーザー名だけ） */
+.rkAll { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; z-index: 20; display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: rgba(27,31,39,.85); border: 1px solid rgba(255,255,255,.1); color: var(--ink); font: 700 .85rem "Noto Sans JP", sans-serif; cursor: pointer; backdrop-filter: blur(6px); }
+.rkDlg { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(4,6,14,.7); padding: 14px; }
+.rkBox { width: min(520px, 100%); max-height: 90vh; overflow: auto; background: #171b24; border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 16px; color: var(--ink); font-family: "Noto Sans JP", sans-serif; }
+.rkBox h2 { margin: 0 0 4px; text-align: center; font-size: 1.2rem; } .rkBox .sub { text-align: center; font-size: .78rem; opacity: .7; margin-bottom: 10px; }
+.rkG { display: block; width: 100%; text-align: left; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 8px 12px; margin: 6px 0; color: inherit; font: inherit; cursor: pointer; }
+.rkG b { display: block; font-size: .92rem; margin-bottom: 2px; } .rkG div { display: flex; justify-content: space-between; font-size: .8rem; opacity: .9; } .rkG em { font-style: normal; opacity: .6; font-size: .78rem; }
+.rkX { display: block; width: 100%; margin-top: 10px; padding: 10px; border-radius: 10px; border: 0; background: rgba(255,255,255,.1); color: inherit; font: 700 .95rem "Noto Sans JP", sans-serif; cursor: pointer; }
 .acc { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; background: rgba(27,31,39,.85); border: 1px solid rgba(255,255,255,.1); color: var(--ink); font: 700 .85rem "Noto Sans JP", sans-serif; cursor: pointer; backdrop-filter: blur(6px); max-width: calc(100vw - 24px); }
 .acc .av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #3a4152; font-size: .95rem; flex: none; }
 .acc .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -59,6 +66,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 </style>
 </head>
 <body>
+<button class="rkAll" id="rkAll" type="button" aria-label="みんなのランキング">🏆<span>ランキング</span></button>
 <button class="acc" id="acc" type="button" aria-haspopup="dialog"><span class="av" id="accAv">👤</span><span class="nm" id="accNm">名前をつける</span></button>
 <div class="accDlg" id="accDlg" hidden role="dialog" aria-modal="true" aria-labelledby="accTtl">
   <form class="accBox" id="accForm" autocomplete="off">
@@ -298,6 +306,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   </nav>
 </main>
 <script src="account.js"></script>
+<script src="rank.js"></script>
 <script>
 // ユーザー名だけのアカウント。
 // claude.ai で開いたとき：共有の名簿（db）で「名前のダブり」を防ぐ。保存するのは 名前 と 中のID（ランダムな記号）だけ。
@@ -322,12 +331,16 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
     $('accOut').hidden = !(a && a.name);
   }
   function msg(t, cls) { $('accMsg').textContent = t || ''; $('accMsg').className = 'accMsg' + (cls ? ' ' + cls : ''); }
-  function open() { const a = local(); $('accIn').value = a ? a.name : ''; msg(db && uid ? '' : 'この画面では名前はこの端末だけに保存されます'); $('accDlg').hidden = false; setTimeout(() => $('accIn').focus(), 30); }
+  function open() { const a = local(); $('accIn').value = a ? a.name : ''; msg(db && uid || (window.GAMES_RANK && GAMES_RANK.kind === 'firebase') ? '' : 'この画面では名前はこの端末だけに保存されます'); $('accDlg').hidden = false; setTimeout(() => $('accIn').focus(), 30); }
   function close() { $('accDlg').hidden = true; }
 
   async function claim(name) {
     const key = norm(name);
-    if (!db || !uid) { saveLocal({ name, key, shared: false }); return { ok: true }; }
+    if (!db || !uid) {
+      // claude.ai の外（GitHub など）：Firebase の名簿にのせる
+      if (window.GAMES_RANK && GAMES_RANK.kind === 'firebase') { const r = await GAMES_RANK.claim(name); if (!r.ok) return r; saveLocal({ name, key, shared: true }); return { ok: true }; }
+      saveLocal({ name, key, shared: false }); return { ok: true };
+    }
     const lock = db.doc('locks/' + hex(key));
     const L = await lock.acquire({ holder: uid, ttlMs: 8000 });
     if (!L.acquired) return { ok: false, why: 'いま同じ名前をだれかが登録中。少し待ってね' };
@@ -348,7 +361,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
     if (!name) return msg('名前を入れてね', 'ng');
     if (!ok(name)) return msg('使えない記号が入っています', 'ng');
     const a = local();
-    if (a && a.name === name && (a.shared || !db)) { close(); return; }
+    if (a && a.name === name && a.shared) { close(); return; }
     busy = true; $('accGo').disabled = true; msg('たしかめ中…');
     try {
       const r = await claim(name);
@@ -367,6 +380,22 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   };
 
   paint();
+  // GitHub など：Firebase の名簿の名前に合わせる
+  if (window.GAMES_RANK && GAMES_RANK.kind === 'firebase') GAMES_RANK.myName().then(n => { if (n) paint(); }).catch(() => {});
+  // みんなのランキング（全部のゲームの上位3人）
+  $('rkAll').onclick = async () => {
+    if (!window.GAMES_RANK) return;
+    const d = document.createElement('div'); d.className = 'rkDlg';
+    d.innerHTML = '<div class="rkBox"><h2>🏆 みんなのランキング</h2><div class="sub">ゲームを押すと、そのゲームのランキングが見られる</div><div class="rkList"><p style="text-align:center;opacity:.7">読みこみ中…</p></div><button class="rkX" type="button">とじる</button></div>';
+    const close = () => d.remove(); d.querySelector('.rkX').onclick = close; d.addEventListener('click', e => { if (e.target === d) close(); });
+    document.body.appendChild(d);
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let all = null; try { if (await GAMES_RANK.on()) all = await GAMES_RANK.top(3); } catch (e) {}
+    const box = d.querySelector('.rkList');
+    if (!all) { box.innerHTML = `<p style="text-align:center;opacity:.8">ランキングにつながらなかった（コード ${GAMES_RANK.why || '?'}）</p>`; return; }
+    box.innerHTML = Object.entries(GAMES_RANK.META).map(([g, m]) => { const rows = all[g] || []; return `<button class="rkG" data-g="${g}"><b>${esc(m.t)} <em>${esc(m.sub || 'ベストスコア')}</em></b>${rows.length ? rows.map((r, i) => `<div><span>${['🥇', '🥈', '🥉'][i]} ${esc(r.name)}</span><span>${esc(GAMES_RANK.fmt(g, r.score))}</span></div>`).join('') : '<div><em>まだ記録なし</em></div>'}</button>`; }).join('');
+    box.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { close(); GAMES_RANK.show(b.dataset.g); });
+  };
   // claude.ai の中なら共有の名簿をつなぐ
   (async () => {
     for (let i = 0; i < 20 && !(window.claude && claude.use); i++) await new Promise(r => setTimeout(r, 100));

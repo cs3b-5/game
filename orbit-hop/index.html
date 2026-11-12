@@ -199,6 +199,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   </div>
 </div>
 
+<script src="../rank.js"></script>
 <script>
 (() => {
   const cv = document.getElementById('cv');
@@ -232,7 +233,8 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   // ---------- storage (best score) ----------
   let best = 0;
   try { best = parseInt(localStorage.getItem('orbit-hop-best') || '0', 10) || 0; } catch (e) {}
-  function saveBest() { try { localStorage.setItem('orbit-hop-best', String(best)); } catch (e) {} }
+  function saveBest() { try { localStorage.setItem('orbit-hop-best', String(best)); } catch (e) {} if (window.GAMES_RANK) GAMES_RANK.report('orbit', best); }
+  setTimeout(() => { if (window.GAMES_RANK) { GAMES_RANK.mount('orbit'); if (best) GAMES_RANK.report('orbit', best); } }, 0);
 
   // ---------- audio ----------
   let ac = null;

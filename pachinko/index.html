@@ -199,6 +199,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   </div>
 </div>
 
+<script src="../rank.js"></script>
 <script src="board.js"></script>
 <script>
 (() => {
@@ -231,7 +232,7 @@ let S = { balls: 1000, mode: 'normal', jitanLeft: 0, stLeft: 0, power: 35, mute:
   stats: { spins: 0, hits: 0, rush: 0, maxChain: 0, chain: 0, in: 0, out: 0, spinsSinceHit: 0 }, graph: [1000] };
 try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) S = Object.assign(S, d, { stats: Object.assign(S.stats, d.stats || {}) }); } catch (e) {}
 let saveT = 0;
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (window.GAMES_RANK) GAMES_RANK.report('pachinko', S.stats.maxChain || 0); }
 
 // =============================================================
 //  音
@@ -913,6 +914,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { sav
 
 // テスト用の窓口
 window.__pk = { force(reach, hit, rush = true, color = 'red', yokoku = false, gimm = false) { holds.heso.push({ hit, rush, reach, color, yokoku, kind: 'heso', gim: gimm }); }, W, get S() { return S; }, get spin() { return spin; }, get bonus() { return bonus; }, get holds() { return holds; }, RULE, setPower, setFire, start: () => $('startBtn').click(), tick };
+if (window.GAMES_RANK) { GAMES_RANK.mount('pachinko'); GAMES_RANK.report('pachinko', S.stats.maxChain || 0); }
 })();
 </script>
 </body>

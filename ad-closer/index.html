@@ -267,6 +267,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   </div>
 </div>
 
+<script src="../rank.js"></script>
 <script>
 (() => {
 'use strict';
@@ -293,7 +294,7 @@ let SAVE = { coins: 0, lv: {}, best: { score: 0, time: 0, closes: 0 }, runs: 0 }
 try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) SAVE = Object.assign(SAVE, d, { best: Object.assign(SAVE.best, d.best || {}) }); } catch (e) {}
 const lv = k => SAVE.lv[k] || 0;
 const upCost = (u, l) => Math.round(u.base * Math.pow(u.r, l));
-function persist() { try { localStorage.setItem(KEY, JSON.stringify(SAVE)); } catch (e) {} }
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(SAVE)); } catch (e) {} if (window.GAMES_RANK) GAMES_RANK.report('adcloser', SAVE.best.score || 0); }
 
 // =============================================================
 //  音
@@ -680,6 +681,7 @@ $('shopBtn2').addEventListener('click', openShop);
 $('shopBack').addEventListener('click', () => { $('shopOv').hidden = true; (G && G.over ? $('result') : $('title')).hidden = false; });
 $('tCoins').textContent = SAVE.coins ? `コイン ${SAVE.coins.toLocaleString('ja-JP')}` : '';
 addEventListener('keydown', e => { if (e.key === 'Enter' && !running && !$('title').hidden) start(); });
+if (window.GAMES_RANK) { GAMES_RANK.mount('adcloser', null, () => running); if (SAVE.best.score) GAMES_RANK.report('adcloser', SAVE.best.score); }
 })();
 </script>
 </body>

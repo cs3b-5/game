@@ -546,6 +546,7 @@ function endGame() {
   const rows = [0, 1].map(i => `<tr><td style="text-align:left;padding-right:10px">${esc(G.names[i])}</td>${Array.from({ length: Math.max(S.innings, S.inn) }, (_, k) => `<td>${S.line[i][k] ?? '-'}</td>`).join('')}<td style="color:var(--gold);padding-left:8px">${S.score[i]}</td></tr>`).join('');
   $('resBox').innerHTML = `<div style="font-family:'Dela Gothic One';font-size:2.4rem">${S.score[0]} - ${S.score[1]}</div><div style="overflow:auto"><table style="margin:8px auto;border-collapse:collapse;font-weight:900;font-size:.9rem">${rows}</table></div>`;
   if (win) { W.cheer(4); SND.cheer(3); SND.jingle(true); }
+  if (win && G.mode === 'cpu') { SV.cpuWins = (SV.cpuWins || 0) + 1; save(); if (window.GAMES_RANK) GAMES_RANK.report('upa', SV.cpuWins); }
   jk(`試合終了！ ${S.score[0]}対${S.score[1]}で、${draw ? '引き分け' : (S.score[0] > S.score[1] ? teamAt(S, 0).n : teamAt(S, 1).n) + 'の勝利'}です！`);
   setTimeout(() => { $('hud').hidden = true; $('ctl').hidden = true; $('pauseBtn').hidden = true; show('result'); }, 1500);
   $('againBtn').hidden = G.mode === 'online';
@@ -743,6 +744,7 @@ function titleTeams() {
 }
 titleTeams();
 show('title');
+if (window.GAMES_RANK) { GAMES_RANK.mount('upa', { left: '50%', transform: 'translateX(-50%)', bottom: 'max(10px, env(safe-area-inset-bottom))' }, () => !!G || $('title').hidden); if (SV.cpuWins) GAMES_RANK.report('upa', SV.cpuWins); }
 addEventListener('resize', () => W.resize());
 $('loading').remove();
 requestAnimationFrame(loop);

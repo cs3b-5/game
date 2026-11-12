@@ -230,6 +230,7 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
 <div class="modal" id="modal" hidden><div class="box" id="mbox"></div></div>
 <div class="toast" id="toast" style="opacity:0"></div>
 
+<script src="../rank.js"></script>
 <script src="../account.js"></script>
 <script src="gen.js?v=5"></script>
 <script>
@@ -251,7 +252,10 @@ input.num { font: inherit; width: 110px; padding: 9px 10px; border-radius: 10px;
   const LS = 'nazotoki-v1';
   const blank = () => ({ cur: null, stat: { easy: 0, normal: 0, hard: 0 }, stars: 0, streak: 0, best: 0, howSeen: 0 });
   let SV = (() => { try { return Object.assign(blank(), JSON.parse(localStorage.getItem(LS)) || {}); } catch (e) { return blank(); } })();
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify(SV)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify(SV)); } catch (e) {} rankReport(); };
+  // オンラインランキング：解決した事件の数（2つ目は最高連続解決）
+  const rankReport = () => { if (window.GAMES_RANK) GAMES_RANK.report('mystery', (SV.stat.easy || 0) + (SV.stat.normal || 0) + (SV.stat.hard || 0), SV.best || 0); };
+  setTimeout(() => { if (window.GAMES_RANK) { GAMES_RANK.mount('mystery', { right: 'max(10px, env(safe-area-inset-right))', top: 'max(10px, env(safe-area-inset-top))' }, () => !document.getElementById('home') || document.getElementById('home').hidden); rankReport(); } }, 0);
 
   // ================= 事件 =================
   let C = null, G = null, tab = 'look', sel = [];

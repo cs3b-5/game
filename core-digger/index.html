@@ -165,6 +165,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 </div>
 <div class="fade" id="fade"><div id="fadeText"></div></div>
 
+<script src="../rank.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
 (() => {
@@ -237,7 +238,7 @@ function load() {
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (d && d.v === 1) return Object.assign(fresh(), d, { lv: Object.assign(fresh().lv, d.lv || {}) }); } catch (e) {}
   return null;
 }
-function save() { if (!S) return; S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function save() { if (!S) return; S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} if (S.ended && window.GAMES_RANK) GAMES_RANK.report('digger', Math.round(S.clearT || S.playT)); }
 function earn(v) { S.money += v; S.total += v; }
 // テスト用の窓口
 window.__dbg = { get S() { return S; }, get look() { return [yaw, pitch, pos.x, pos.z]; }, get aim() { return [aim, mining]; } };
@@ -700,7 +701,7 @@ function descend() {
   const c = DRILL[S.layer];
   if (S.money < c) return;
   S.money -= c;
-  if (S.layer === LAYERS.length - 1) { S.ended = true; save(); $('shop').hidden = true; showEnding(); return; }
+  if (S.layer === LAYERS.length - 1) { S.ended = true; S.clearT = S.clearT || S.playT; save(); $('shop').hidden = true; showEnding(); return; }
   $('shop').hidden = true;
   const f = $('fade');
   $('fadeText').innerHTML = `${esc(LAYERS[S.layer + 1].name)}<br><span style="font-size:1.1rem;color:#ddd">${DEPTHS[S.layer + 1]}</span>`;
@@ -817,6 +818,7 @@ requestAnimationFrame(frame);
 addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 window.__ready = true;
+if (window.GAMES_RANK) { GAMES_RANK.mount('digger'); if (S && S.ended) GAMES_RANK.report('digger', Math.round(S.clearT || S.playT)); }
 })();
 </script>
 </body>

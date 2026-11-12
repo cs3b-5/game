@@ -105,6 +105,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans 
   </div>
 </section>
 
+<script src="../rank.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="shapes.js"></script>
 <script>
@@ -112,7 +113,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Noto Sans 
   const $ = id => document.getElementById(id);
   const LS = 'screw-koubou-v1';
   const S = Object.assign({ level: 1, hint: 3, slot: 1, best: 0 }, (() => { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) { return {}; } })());
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} if (window.GAMES_RANK) GAMES_RANK.report('screw', S.best || 0); };
+  setTimeout(() => { if (window.GAMES_RANK) { GAMES_RANK.mount('screw', { left: 'max(10px, env(safe-area-inset-left))', top: 'calc(max(10px, env(safe-area-inset-top)) + 56px)' }); GAMES_RANK.report('screw', S.best || 0); } }, 0);
 
   // ねじの色
   const COLORS = [

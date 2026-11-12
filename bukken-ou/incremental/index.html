@@ -142,6 +142,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
 <div id="sheetRoot"></div>
 <div id="modalRoot"></div>
 
+<script src="../../rank.js"></script>
 <script>
 (() => {
 'use strict';
@@ -974,7 +975,7 @@ function checkChapter() {
 // =============================================================
 //  セーブ
 // =============================================================
-function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} if (window.GAMES_RANK) GAMES_RANK.report('bukken', Math.floor(S.total || 0)); }
 function exportSave() { S.savedAt = Date.now(); return btoa(unescape(encodeURIComponent(JSON.stringify(S)))); }
 function normalize(data) {
   const s = Object.assign(newCore(), data);
@@ -1044,6 +1045,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pagehide', save);
+if (window.GAMES_RANK) { GAMES_RANK.mount('bukken'); GAMES_RANK.report('bukken', Math.floor(S.total || 0)); }
 })();
 </script>
 </body>
