@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>ウパラン</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Dela+Gothic+One&display=swap">
+<style>
+:root { --pink: #ff5c8a; --gold: #ffd23a; --aqua: #4ad8ff; --glass: rgba(10,20,44,.72); --line: rgba(255,255,255,.16); color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1430; color: #fff; font-family: "M PLUS Rounded 1c", sans-serif; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.top { position: absolute; left: 0; right: 0; top: max(10px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: flex-start; padding: 0 max(12px, env(safe-area-inset-left)); }
+.score { font-family: "Dela Gothic One"; font-size: clamp(26px, 6vw, 44px); line-height: 1; text-shadow: 0 3px 0 rgba(0,0,0,.45); }
+.score small { display: block; font: 900 .72rem "M PLUS Rounded 1c"; opacity: .85; margin-top: 4px; }
+.score .x2 { color: var(--gold); font-size: .5em; margin-left: 6px; }
+.drops { display: flex; align-items: center; gap: 6px; font-family: "Dela Gothic One"; font-size: clamp(18px, 4.4vw, 28px); background: rgba(0,0,0,.35); border-radius: 999px; padding: 4px 14px 4px 8px; margin-right: 50px; }
+.drops i { width: 22px; height: 22px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: radial-gradient(circle at 35% 35%, #fff, #7fe8ff 40%, #2a9aff); display: block; }
+.items { position: absolute; left: max(12px, env(safe-area-inset-left)); top: calc(max(10px, env(safe-area-inset-top)) + 70px); display: grid; gap: 6px; }
+.items div { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,.4); border-radius: 10px; padding: 4px 10px 4px 6px; font-weight: 900; font-size: .8rem; }
+.items b { font-size: 1.1rem; } .items i { display: block; width: 60px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: hidden; } .items i u { display: block; height: 100%; background: var(--aqua); }
+#pause { position: fixed; z-index: 6; right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); width: 42px; height: 42px; border-radius: 12px; background: rgba(0,0,0,.4); font-size: 1rem; }
+#toast { position: fixed; z-index: 6; left: 50%; top: 30%; transform: translate(-50%, 0) scale(.6); font-family: "Dela Gothic One"; font-size: clamp(26px, 7vw, 54px); color: #fff; -webkit-text-stroke: 2px #0a2a5a; paint-order: stroke fill; text-shadow: 0 5px 0 #2a7aff; opacity: 0; transition: opacity .2s, transform .25s cubic-bezier(.2,1.6,.4,1); pointer-events: none; white-space: nowrap; }
+#toast.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.scr { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; overflow: auto; background: radial-gradient(800px 600px at 50% 30%, rgba(20,60,140,.35), rgba(4,10,30,.82)); }
+.col { display: grid; gap: 14px; justify-items: center; width: min(440px, 100%); }
+.logo { margin: 0; text-align: center; line-height: .95; filter: drop-shadow(0 6px 0 #0a2a5a) drop-shadow(0 14px 24px rgba(0,0,0,.5)); }
+.logo span { display: block; font-family: "Dela Gothic One"; font-size: clamp(58px, 16vw, 120px); background: linear-gradient(180deg, #fff 10%, #9ff0ff 45%, #2a9aff 75%, #1a4ad0); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 2px #0a2a5a; }
+.logo small { display: inline-block; margin-top: 8px; font: 900 .78rem "M PLUS Rounded 1c"; letter-spacing: .4em; background: rgba(0,0,0,.35); padding: 4px 8px 4px 14px; border-radius: 999px; }
+.btn { width: 100%; padding: 15px 18px; border-radius: 16px; font-weight: 900; font-size: 1.1rem; color: #062040; background: linear-gradient(180deg, #fff, #bff2ff); box-shadow: 0 5px 0 #1a7ad0, 0 10px 24px rgba(0,0,0,.35); }
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #1a7ad0; }
+.btn.gold { background: linear-gradient(180deg, #fff6c8, #ffd23a); box-shadow: 0 5px 0 #b07800, 0 10px 24px rgba(0,0,0,.35); color: #3a2400; }
+.btn.ghost { background: rgba(255,255,255,.08); color: #fff; box-shadow: none; border: 1px solid var(--line); }
+.btn small { display: block; font-size: .72rem; opacity: .7; }
+.row { display: flex; gap: 10px; width: 100%; }
+.card { width: 100%; background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.note { font-size: .82rem; line-height: 1.75; opacity: .9; margin: 0; }
+.note b { color: var(--gold); }
+h2 { margin: 0; font-family: "Dela Gothic One"; font-weight: 400; font-size: 1.6rem; text-align: center; }
+.big { font-family: "Dela Gothic One"; font-size: 3rem; text-align: center; line-height: 1.1; color: var(--gold); }
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-weight: 900; }
+.stats b { font-family: "Dela Gothic One"; font-weight: 400; text-align: right; }
+.newrec { color: #ff7ab0; font-weight: 900; text-align: center; animation: pop .6s infinite alternate; }
+@keyframes pop { to { transform: scale(1.08); } }
+.skins { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.skins button { background: rgba(255,255,255,.06); border: 2px solid transparent; border-radius: 14px; padding: 8px 4px; display: grid; justify-items: center; gap: 4px; font-size: .7rem; font-weight: 900; }
+.skins button.on { border-color: var(--gold); background: rgba(255,210,58,.12); }
+.skins button.lock { opacity: .7; }
+.skins .sw { width: 40px; height: 40px; border-radius: 50%; box-shadow: inset 0 -6px 0 rgba(0,0,0,.15); position: relative; }
+.skins .sw::before, .skins .sw::after { content: ''; position: absolute; top: 4px; width: 10px; height: 14px; border-radius: 6px; background: var(--g); }
+.skins .sw::before { left: -5px; transform: rotate(-30deg); } .skins .sw::after { right: -5px; transform: rotate(30deg); }
+.rank { width: 100%; display: grid; gap: 4px; font-weight: 900; font-size: .9rem; }
+.rank div { display: flex; justify-content: space-between; background: rgba(255,255,255,.05); padding: 6px 10px; border-radius: 8px; }
+.rank b { font-family: "Dela Gothic One"; font-weight: 400; }
+.hint { position: fixed; z-index: 5; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 10px); transform: translateX(-50%); background: rgba(0,0,0,.5); border-radius: 999px; padding: 8px 16px; font-weight: 900; font-size: .85rem; white-space: nowrap; pointer-events: none; transition: opacity .6s; }
+.loading { position: fixed; inset: 0; display: grid; place-items: center; background: #0a1430; z-index: 50; font-weight: 900; }
+a.back { color: #fff; opacity: .7; font-weight: 800; font-size: .85rem; }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="ゲーム画面"></canvas>
+<div class="loading" id="loading">コースをつくっています…</div>
+
+<div id="hud" hidden>
+  <div class="top">
+    <div class="score"><span id="sc">0</span><span class="x2" id="x2" hidden>×2</span><small id="dist">0m</small></div>
+    <div class="drops"><i></i><span id="dr">0</span></div>
+  </div>
+  <div class="items" id="items"></div>
+</div>
+<button id="pause" hidden aria-label="一時停止">⏸</button>
+<div id="toast"></div>
+<div class="hint" id="hint" hidden></div>
+
+<section class="scr" id="title" hidden>
+  <div class="col">
+    <h1 class="logo"><span>ウパラン</span><small>UPA RUN</small></h1>
+    <div class="card" style="text-align:center"><div class="note">ハイスコア</div><div class="big" id="best">0</div><div class="note">ためた しずく：<b id="bank">0</b></div></div>
+    <button class="btn gold" id="go">スタート<small>どこまで走れるか！</small></button>
+    <div class="row"><button class="btn ghost" id="toShop">きがえ</button><button class="btn ghost" id="toHelp">あそびかた</button></div>
+    <div class="row"><button class="btn ghost" id="sndBtn">効果音：オン</button><button class="btn ghost" id="toRank">きろく</button></div>
+    <a class="back" href="../index.html">← ゲーム一覧へ</a>
+  </div>
+</section>
+
+<section class="scr" id="help" hidden>
+  <div class="col">
+    <h2>あそびかた</h2>
+    <div class="card note">
+      ウーパールーパーが勝手に走りつづける。<b>ぶつからずに、どこまで行けるか</b>を競おう。<br><br>
+      <b>スマホ</b>：左右にスワイプでレーン移動／上にスワイプかタップでジャンプ／下にスワイプでスライディング（空中なら急降下）<br>
+      <b>PC</b>：←→（A・D）でレーン移動／↑・W・スペースでジャンプ／↓・Sでスライディング<br><br>
+      🟧 低い柵 → ジャンプ　🟦 頭の高さのバー → スライディング<br>
+      📦 箱・🚚 水槽トラック → レーンを変えてよける（横からぶつかると押しもどされる）<br><br>
+      💧 <b>しずく</b>を集めると、きがえに使える。<br>
+      🧲 マグネット：しずくを吸いよせる　🫧 あわバリア：1回だけぶつかっても平気<br>
+      ✨ スコア2倍　🌀 スーパージャンプ：トラックも飛びこえる<br><br>
+      走るほど速くなって、景色も朝→昼→夕方→夜→ネオンと変わっていく。
+    </div>
+    <button class="btn" data-back>もどる</button>
+  </div>
+</section>
+
+<section class="scr" id="shop" hidden>
+  <div class="col">
+    <h2>きがえ</h2>
+    <div class="card note" style="text-align:center">しずく：<b id="bank2">0</b></div>
+    <div class="skins" id="skins"></div>
+    <button class="btn" data-back>もどる</button>
+  </div>
+</section>
+
+<section class="scr" id="rank" hidden>
+  <div class="col">
+    <h2>きろく</h2>
+    <div class="card"><div class="rank" id="rankList"></div></div>
+    <button class="btn" data-back>もどる</button>
+  </div>
+</section>
+
+<section class="scr" id="paused" hidden>
+  <div class="col">
+    <h2>一時停止</h2>
+    <button class="btn gold" id="resume">つづける</button>
+    <button class="btn ghost" id="quit">やめてタイトルへ</button>
+  </div>
+</section>
+
+<section class="scr" id="over" hidden>
+  <div class="col">
+    <h2 id="overTitle">ドボン！</h2>
+    <div class="card">
+      <div class="big" id="oScore">0</div>
+      <div class="newrec" id="newRec" hidden>★ ハイスコア更新！ ★</div>
+      <div class="stats" style="margin-top:10px"><span>走った距離</span><b id="oDist">0m</b><span>しずく</span><b id="oDrop">0</b><span>ハイスコア</span><b id="oBest">0</b></div>
+    </div>
+    <button class="btn gold" id="again">もう一回！</button>
+    <button class="btn ghost" id="toTitle">タイトルへ</button>
+  </div>
+</section>
+
+<script src="../account.js"></script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
