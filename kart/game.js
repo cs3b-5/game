@@ -26,7 +26,8 @@ const GQ = SV.gq;
 // ---------- 画面 ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, [1, 1.25, 1.6][GQ]));
+const prMax = Math.min(devicePixelRatio || 1, [0.8, 1.1, 1.5][GQ]); let pr = prMax; renderer.setPixelRatio(pr);
+function setPR() { renderer.setPixelRatio(pr); if (composer) composer.setPixelRatio(pr); resize(); }
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1;
 renderer.shadowMap.enabled = GQ > 0; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
@@ -81,15 +82,18 @@ function bgmStop() { if (bgmTimer) clearInterval(bgmTimer); bgmTimer = null; }
 
 // ---------- 入力 ----------
 const keys = {};
-addEventListener('keydown', e => { keys[e.code] = true; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape' && mode === 'race') togglePause(); if (e.code === 'KeyM') { SV.vol = SV.vol > 0 ? 0 : 0.6; if (master) master.gain.value = SV.vol; save(); toast(SV.vol ? '🔊 音あり' : '🔇 ミュート'); } ac(); });
+addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyF') $('fps').hidden = !$('fps').hidden; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape' && mode === 'race') togglePause(); if (e.code === 'KeyM') { SV.vol = SV.vol > 0 ? 0 : 0.6; if (master) master.gain.value = SV.vol; save(); toast(SV.vol ? '🔊 音あり' : '🔇 ミュート'); } ac(); });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-function readInput() {
+let INP = { thr: 0, brk: 0, steer: 0, drift: false, item: false, back: false }, gpLast = 0, gpOn = false;
+addEventListener('gamepadconnected', () => { gpOn = true; }); addEventListener('gamepaddisconnected', () => { gpOn = navigator.getGamepads && [...navigator.getGamepads()].some(g => g); });
+const readInput = () => INP;
+function pollInput() {
   const k = keys; let steer = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   let thr = k.KeyW || k.ArrowUp ? 1 : 0, brk = k.KeyS || k.ArrowDown ? 1 : 0, drift = !!(k.Space || k.ShiftRight || k.KeyK), item = !!(k.ShiftLeft || k.KeyE || k.KeyJ || k.Enter), back = !!(k.KeyC);
-  const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g && g.connected) : null;
+  const gp = gpOn && navigator.getGamepads ? [...navigator.getGamepads()].find(g => g && g.connected) : null;
   if (gp) { const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.15) steer = ax; const b = i => gp.buttons[i] && gp.buttons[i].pressed; if (b(0) || b(7)) thr = 1; if (b(1) || b(6)) brk = 1; if (b(5) || b(4) && false) drift = true; if (b(2) || b(4)) item = true; if (b(3)) back = true; if (b(14)) steer = -1; if (b(15)) steer = 1; }
-  return { thr, brk, steer, drift, item, back };
+  INP = { thr, brk, steer, drift, item, back }; return INP;
 }
 
 // ---------- 状態 ----------
@@ -151,6 +155,9 @@ function startRace(trackIdx, opt = {}) {
     const tag = makeTag(CHARS.find(c => c.id === k.id).name, n === player); tag.position.y = 2.9; g.add(tag);
     return { g, shield, flames: [flame, flame2], tag, drv: g.getObjectByName('driver') };
   });
+  // 最初に全部のシェーダーを作っておく（途中でカクッとしないように）
+  { const tmp = []; for (const o of karts3d) { o.shield.visible = true; o.flames.forEach(f => f.visible = true); } for (const kind of Object.keys(itemMeshes)) { const m = itemMeshes[kind](); m.position.set(R.karts[0].x, R.karts[0].y + 3, R.karts[0].z); scene.add(m); tmp.push(m); }
+    try { renderer.compile(scene, camera); } catch (e) {} for (const m of tmp) scene.remove(m); for (const o of karts3d) { o.shield.visible = false; o.flames.forEach(f => f.visible = false); } }
   mode = 'race'; paused = false; camMode = 0; camInit = true;
   $('title').hidden = true; $('menuSel').hidden = true; $('hud').hidden = false; $('result').hidden = true; $('pause').hidden = true;
   $('hTrack').textContent = R.tr.name; startEngine(); bgmStart(R.tr.theme);
@@ -169,7 +176,7 @@ function update(dt) {
   tAll += dt;
   if (mode === 'title') { titleSpin(dt); return; }
   if (mode !== 'race' || paused) return;
-  const inp = BOT ? null : readInput();
+  const inp = BOT ? null : pollInput();
   if (BOT) R.karts[player].cpu = true;
   const ev = R.step(dt, inp);
   const me = R.karts[player];
@@ -273,7 +280,9 @@ function updateCam(dt) {
 
 // ---------- HUD ----------
 const mm = $('mini'), mmx = mm.getContext('2d'); let mmPath = null;
+let hudT = 0, mmT = 0;
 function hud(dt) {
+  hudT += dt; mmT += dt;
   const k = R.karts[player];
   const pos = k.rank, suf = pos === 1 ? 'st' : pos === 2 ? 'nd' : pos === 3 ? 'rd' : 'th';
   $('hPos').innerHTML = raceTT ? '' : `${pos}<small>${suf}</small>`; $('hPos').className = 'pos p' + Math.min(pos, 4);
@@ -289,6 +298,7 @@ function hud(dt) {
   const dg = $('hDrift'); dg.style.opacity = k.drift ? 1 : 0; dg.firstElementChild.style.width = Math.min(100, k.dTime / 3.1 * 100) + '%'; dg.firstElementChild.style.background = ['#aaa', '#4ab8ff', '#ff9a2a', '#c86aff'][k.dLvl];
   $('hWrong').hidden = !(k.wrong > 1);
   // ミニマップ
+  if (mmT < 1 / 20) return; mmT = 0;
   const P = R.P; if (!mmPath) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let i = 0; i < P.N; i++) { x0 = Math.min(x0, P.x[i]); x1 = Math.max(x1, P.x[i]); z0 = Math.min(z0, P.z[i]); z1 = Math.max(z1, P.z[i]); } mmPath = { x0, z0, s: 180 / Math.max(x1 - x0, z1 - z0) }; }
   const W = mm.width, H = mm.height, s = mmPath.s * W / 200, ox = (W - (mmPath.s * W / 200) * 0) / 2; const mx = x => 10 * W / 200 + (x - mmPath.x0) * s, mz = z => 10 * W / 200 + (z - mmPath.z0) * s;
   mmx.clearRect(0, 0, W, H); mmx.lineJoin = 'round';
@@ -298,7 +308,8 @@ function hud(dt) {
   for (const o of R.objs) { mmx.fillStyle = o.kind === 'slime' ? '#5f5' : o.kind === 'bomb' ? '#222' : '#f44'; mmx.beginPath(); mmx.arc(mx(o.x), mz(o.z), 3, 0, 7); mmx.fill(); }
   for (const kk of [...R.karts].reverse()) { const c = CHARS.find(c => c.id === kk.id); mmx.fillStyle = '#' + new THREE.Color(c.kart).getHexString(); mmx.strokeStyle = kk.n === player ? '#fff' : '#000'; mmx.lineWidth = kk.n === player ? 3 : 1.5; mmx.beginPath(); mmx.arc(mx(kk.x), mz(kk.z), kk.n === player ? 7 : 5, 0, 7); mmx.fill(); mmx.stroke(); }
   // 順位リスト
-  const order = R.rankAll(); $('hList').innerHTML = raceTT ? '' : order.map(kk => `<div class="${kk.n === player ? 'me' : ''}"><b>${kk.rank}</b>${CHARS.find(c => c.id === kk.id).name}</div>`).join('');
+  if (hudT < 0.25) return; hudT = 0;
+  const order = R.rankAll(); const hl = raceTT ? '' : order.map(kk => `<div class="${kk.n === player ? 'me' : ''}"><b>${kk.rank}</b>${CHARS.find(c => c.id === kk.id).name}</div>`).join(''); if ($('hList').innerHTML !== hl) $('hList').innerHTML = hl;
 }
 let msgT = 0;
 function bigMsg(t, ms) { const el = $('big'); el.textContent = t; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); clearTimeout(msgT); msgT = setTimeout(() => el.classList.remove('on'), ms); }
@@ -348,6 +359,7 @@ function toTitle() {
   TS = buildTrackScene(scene, renderer, race, GQ); R = null; renderer.toneMappingExposure = TS.exposure;
   titleKart = makeKart(SV.char, 1); const i = 40; titleKart.position.set(race.P.x[i], race.P.y[i], race.P.z[i]); titleKart.rotation.y = Math.atan2(race.P.tx[i], race.P.tz[i]); scene.add(titleKart);
   titlePt = { x: race.P.x[i], y: race.P.y[i], z: race.P.z[i], yaw: titleKart.rotation.y }; TS.sun.target.position.set(titlePt.x, titlePt.y, titlePt.z); TS.sun.position.copy(TS.sun.target.position).addScaledVector(TS.sunDir, 160);
+  try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); const nm = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; $('gpuName').textContent = nm ? 'つかっているGPU：' + nm.replace(/ANGLE \(|\)$|Direct3D11.*|vs_.*$/g, '').slice(0, 70) : ''; } catch (e) {}
   $('tBest').innerHTML = TRACKS.map(t => `<span>${t.name}</span><b>${SV.best[t.id] ? fmtT(SV.best[t.id]) : '—'}</b>`).join('') + `<span>タイムアタック（サーキット）</span><b>${SV.best.tt_circuit ? fmtT(SV.best.tt_circuit) : '—'}</b>`;
 }
 let titlePt = null;
@@ -374,9 +386,14 @@ let last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
-  update(dt);
+  const t0 = performance.now(); update(dt); const t1 = performance.now();
+  fpsN++; fpsAcc += (now - lastFrame) / 1000; lastFrame = now;
+  if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsN = 0; fpsAcc = 0; $('fps').textContent = `${Math.round(fps)} fps　${(renderer.getPixelRatio() * 100).toFixed(0)}%`; if (mode === 'race' && !paused) { if (fps < 50 && pr > 0.55) { pr = Math.max(0.55, pr - 0.15); setPR(); } else if (fps > 58 && pr < prMax) { slowOk++; if (slowOk > 4) { pr = Math.min(prMax, pr + 0.1); setPR(); slowOk = 0; } } } }
   if (composer) composer.render(dt); else renderer.render(scene, camera);
+  const t2 = performance.now(); PROF.u += t1 - t0; PROF.r += t2 - t1; PROF.n++; PROF.calls = renderer.info.render.calls; PROF.tris = renderer.info.render.triangles;
 }
+const PROF = { u: 0, r: 0, n: 0 }; window.PROF = PROF;
+let fps = 60, fpsN = 0, fpsAcc = 0, lastFrame = performance.now(), slowOk = 0;
 toTitle();
 requestAnimationFrame(loop);
 if (window.__loadDone) window.__loadDone();

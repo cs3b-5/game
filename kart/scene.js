@@ -84,7 +84,7 @@ export function buildTrackScene(scene, renderer, race, GQ) {
   }
   const amb = new THREE.HemisphereLight(theme === 'day' ? 0xcfe6ff : theme === 'night' ? 0x4050a0 : 0x8090b0, theme === 'day' ? 0x5a7a3a : 0x202028, theme === 'day' ? 1.5 : theme === 'night' ? 0.55 : 0.4); root.add(amb);
   const sun = new THREE.DirectionalLight(theme === 'night' ? 0x9fb0ff : 0xfff2dc, theme === 'day' ? 5.2 : theme === 'night' ? 0.9 : 3.4); root.add(sun); root.add(sun.target);
-  sun.castShadow = GQ > 0; if (GQ > 0) { const s = sun.shadow; s.mapSize.set(GQ === 2 ? 4096 : 2048, GQ === 2 ? 4096 : 2048); const r = 70; Object.assign(s.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 400 }); s.camera.updateProjectionMatrix(); s.bias = -0.0003; s.normalBias = 0.05; }
+  sun.castShadow = GQ > 0; if (GQ > 0) { const s = sun.shadow; s.mapSize.set(GQ === 2 ? 2048 : 1024, GQ === 2 ? 2048 : 1024); const r = 70; Object.assign(s.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 400 }); s.camera.updateProjectionMatrix(); s.bias = -0.0003; s.normalBias = 0.05; }
   out.sun = sun; out.sunDir = sunDir; out.exposure = theme === 'day' ? 0.58 : theme === 'night' ? 1.0 : 1.0;
 
   // 地面

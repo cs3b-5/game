@@ -99,6 +99,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
   <div id="hWrong" hidden>逆走中！</div>
 </div>
 <div id="big"></div>
+<div id="fps" style="position:fixed;left:50%;bottom:6px;transform:translateX(-50%);z-index:9;font:900 12px monospace;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:6px;pointer-events:none"></div>
 <div id="toast"></div>
 
 <div class="scr" id="title" hidden>
@@ -110,11 +111,11 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
     <div class="card">
       <b>操作</b>　<kbd>W</kbd><kbd>↑</kbd> アクセル　<kbd>S</kbd><kbd>↓</kbd> ブレーキ　<kbd>A</kbd><kbd>D</kbd> ハンドル<br>
       <kbd>Space</kbd> ドリフト（曲がりながら長押し → 離すとミニターボ）　<kbd>Shift</kbd>/<kbd>E</kbd> アイテム<br>
-      <kbd>C</kbd> うしろを見る　<kbd>Esc</kbd> ポーズ　<kbd>M</kbd> 音　🎮 ゲームパッドも使える<br>
+      <kbd>C</kbd> うしろを見る　<kbd>Esc</kbd> ポーズ　<kbd>M</kbd> 音　<kbd>F</kbd> FPS表示　🎮 ゲームパッドも使える<br>
       <span style="opacity:.75">スタートのコツ：「1」が出たらアクセルでロケットスタート</span>
     </div>
     <div class="card stat" id="tBest"></div>
-    <div class="card"><b>画質</b>（変えると読みこみ直し）<div class="row3" id="gfx" style="margin-top:6px"><button data-g="0">ひくい</button><button data-g="1">ふつう</button><button data-g="2">たかい</button></div></div>
+    <div class="card"><b>画質</b>（変えると読みこみ直し）<div id="gpuName" style="font-size:11px;opacity:.7"></div><div class="row3" id="gfx" style="margin-top:6px"><button data-g="0">ひくい</button><button data-g="1">ふつう</button><button data-g="2">たかい</button></div></div>
     <a href="../index.html" style="color:#fff;opacity:.7;font-size:13px;font-weight:900">← GAMES にもどる</a>
   </div>
 </div>
@@ -158,6 +159,6 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 <script type="importmap">{ "imports": { "three": "../upa/vendor/three.module.min.js" } }</script>
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
-<script type="module" src="game.js?v=1"></script>
+<script type="module" src="game.js?v=3"></script>
 </body>
 </html>

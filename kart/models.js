@@ -4,7 +4,7 @@ import * as THREE from '../upa/vendor/three.module.min.js';
 import { CHARS } from './chars.js';
 export { CHARS };
 
-const M = (c, o = {}) => new THREE.MeshPhysicalMaterial(Object.assign({ color: c, roughness: 0.55, metalness: 0 }, o));
+const M = (c, o = {}) => (o.clearcoat || o.transmission ? new THREE.MeshPhysicalMaterial(Object.assign({ color: c, roughness: 0.55, metalness: 0 }, o)) : new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.55, metalness: 0 }, o)));
 const sph = (r, m, ws = 24, hs = 16) => new THREE.Mesh(new THREE.SphereGeometry(r, ws, hs), m);
 function eyes(g, y, z, sx, r = 0.07, col = 0x111111) {
   const em = M(col, { roughness: 0.2, clearcoat: 1 }), hm = new THREE.MeshBasicMaterial({ color: 0xffffff });
