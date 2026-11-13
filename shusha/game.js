@@ -1,5 +1,5 @@
 // 出社できない — 本体（Canvas 2D + planck.js）
-import { makeWorld, STAGES, ENDLESS, rankAt } from './physics.js';
+import { makeWorld, STAGES, ENDLESS, rankAt } from './physics.js?v=3';
 const EI = STAGES.length; // エンドレスの番号
 const planck = window.planck;
 const $ = id => document.getElementById(id);

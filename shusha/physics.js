@@ -29,7 +29,7 @@ function genEndless(seed) {
     const d = Math.min(1, x / 220);
     let k; do { k = kinds[R() * kinds.length | 0]; } while (k === last); last = k;
     const x0 = x;
-    if (k === 'curb') { for (let i = 0; i < 3; i++) { add(0, 0.06); add(2.2 - d * 0.6, 0); add(0, -0.06); add(1.6, 0); } }
+    if (k === 'curb') { for (let i = 0; i < 3; i++) { add(0.1, 0.06); add(2.2 - d * 0.6, 0); add(0.1, -0.06); add(1.6, 0); } }
     else if (k === 'hill') { const h = 0.4 + d * 0.5 + R() * 0.3; add(4, h); add(1.5, 0); add(4, -h); }
     else if (k === 'ice') { const l = 3 + d * 3; ice.push([x, x + l]); add(l, 0); }
     else if (k === 'wind') { const l = 6 + d * 5; zones.push({ kind: 'wind', x1: x, x2: x + l }); add(l, 0); }
@@ -60,7 +60,7 @@ export function makeWorld(planck, stage) {
   const L = st.endless ? 1700 : st.len + 25;
   const EG = st.endless ? genEndless(st.seed || (Math.random() * 1e9) | 0) : null;
   const deco = []; // 描画用（段差・氷・ベルトなど）
-  if (st.curbs) { let x = 0, y = 0; while (x < L) { x += 3; pts.push(Vec2(x, y)); y = y > 0 ? 0 : 0.06; pts.push(Vec2(x, y)); } }
+  if (st.curbs) { let x = 0, y = 0; while (x < L) { x += 3; pts.push(Vec2(x, y)); y = y > 0 ? 0 : 0.06; x += 0.1; pts.push(Vec2(x, y)); } } // 段差の角は少しななめにして、足がはさまらないように
   else if (st.hill) { pts.push(Vec2(4, 0), Vec2(9.5, 0.75), Vec2(11.5, 0.75), Vec2(16, 0), Vec2(L, 0)); }
   else if (st.stairs) { const [x0, n, h, w] = st.stairs; pts.push(Vec2(x0, 0), Vec2(x0 + n * w, n * h), Vec2(L, n * h)); deco.push({ kind: 'stairs', x0, n, h, w }); } // 当たりはなだらかな坂（見た目は階段）
   else if (EG) { pts.length = 0; for (const [x, y] of EG.pts) pts.push(Vec2(x, y)); pts.push(Vec2(EG.end + 50, pts[pts.length - 1].y)); }
@@ -90,14 +90,14 @@ export function makeWorld(planck, stage) {
 
   // ---- 人（ラグドール） ----
   const GROUP = -1; const parts = {};
-  const mk = (name, x, y, shape, dens, ang = 0) => { const b = world.createDynamicBody({ position: Vec2(x, y), angle: ang, angularDamping: 0.6 }); const f = b.createFixture(shape, { density: dens * 100, friction: 0.8, filterGroupIndex: GROUP }); f.setUserData({ part: name }); parts[name] = b; return b; };
+  const mk = (name, x, y, shape, dens, ang = 0) => { const b = world.createDynamicBody({ position: Vec2(x, y), angle: ang, angularDamping: 0.6, bullet: /foot|calf/.test(name) }); const f = b.createFixture(shape, { density: dens * 100, friction: 0.8, filterGroupIndex: GROUP }); f.setUserData({ part: name }); parts[name] = b; return b; };
   const x0 = 0, y0 = 0.02;
   mk('torso', x0, y0 + 1.27, Box(0.16, 0.36), 1.1);
   mk('head', x0 + 0.02, y0 + 1.79, Circle(0.13), 0.9);
   for (const s of ['L', 'R']) {
     mk('thigh' + s, x0, y0 + 0.69, Box(0.075, 0.24), 1.3);
     mk('calf' + s, x0, y0 + 0.24, Box(0.06, 0.2), 1.1);
-    mk('foot' + s, x0 + 0.07, y0 + 0.035, Box(0.13, 0.035), 1.4);
+    mk('foot' + s, x0 + 0.07, y0 + 0.04, Box(0.13, 0.04), 1.25);
     mk('uarm' + s, x0, y0 + 1.42, Box(0.05, 0.17), 0.5);
     mk('larm' + s, x0, y0 + 1.1, Box(0.045, 0.16), 0.5);
   }
