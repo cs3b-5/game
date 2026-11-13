@@ -70,7 +70,7 @@ const BOSSES = [
 ];
 // 金色の魚：ゴールのあとだけ出る。はじめて釣った種類ごとに、ずっと値段+3%
 const GOLD_CHANCE = 1 / 500;
-function goldChance(S) { return S.cleared ? GOLD_CHANCE * (1 + luckEff(S) * .01) : 0; }
+function goldChance(S) { return S.cleared ? GOLD_CHANCE * (1 + luck(S) * .01) : 0; } // 金色（👑）は運の数字そのままで上がる（効きめのゆるやかさは関係なし）
 const goldCount = S => Object.keys(S.gold || {}).length;
 
 // ---------------- 強化 ----------------
