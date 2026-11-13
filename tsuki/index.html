@@ -154,12 +154,13 @@ body.fp .money { color: #9fe8ff; text-shadow: 0 0 10px rgba(80,200,255,.6), 0 2p
 (function () {
   var t0 = Date.now();
   window.__loadSet = function (txt, p) { var b = document.getElementById('loadBar'), x = document.getElementById('loadTxt'); if (b) b.style.width = p + '%'; if (x) x.textContent = txt; };
-  window.__loadDone = function () { var l = document.getElementById('load'); if (l) { l.classList.add('done'); setTimeout(function () { l.remove(); }, 500); } };
+  window.__loadDone = function () { var l = document.getElementById('load'); if (l) { l.classList.add('done'); setTimeout(function () { if (l.parentNode) l.remove(); }, 500); } };
   function fail(msg) { var x = document.getElementById('loadTxt'), r = document.getElementById('loadRe'); if (!x || !document.getElementById('load')) return; x.innerHTML = '読みこみに失敗しました…<br><small style="opacity:.7">' + String(msg).replace(/[<>&]/g, '') + '</small>'; x.style.color = '#ffb0a0'; if (r) r.hidden = false; }
   var mine = function (u) { return /tsuki|three|upa\/vendor/.test(String(u || '')); };
   addEventListener('error', function (e) { var t = e.target; if (t && t.tagName === 'SCRIPT') return fail('ファイルが読めない：' + t.src); if (e.message && (mine(e.filename) || !e.filename)) fail(e.message); }, true);
   addEventListener('unhandledrejection', function (e) { var r = e.reason; if (r && mine(r.stack)) fail(r.message || r); });
   setTimeout(function () { var c = document.createElement('canvas'); if (!(c.getContext('webgl2') || c.getContext('webgl'))) fail('このブラウザでは3D（WebGL）が使えないみたい'); }, 0);
+  var iv = setInterval(function () { var t = document.getElementById('title'); if (!document.getElementById('load')) return clearInterval(iv); if (window.TSUKI && t && !t.hidden) { clearInterval(iv); window.__loadDone(); } }, 300);
   setTimeout(function () { if (document.getElementById('load') && !document.getElementById('load').classList.contains('done')) { var x = document.getElementById('loadTxt'); if (x && !/失敗/.test(x.textContent)) x.textContent += '（時間がかかっています…）'; } }, 25000);
 })();
 </script>
@@ -218,6 +219,6 @@ body.fp .money { color: #9fe8ff; text-shadow: 0 0 10px rgba(80,200,255,.6), 0 2p
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
 <script type="importmap">{ "imports": { "three": "../upa/vendor/three.module.min.js" } }</script>
-<script type="module" src="game.js"></script>
+<script type="module" src="game.js?v=20261113c"></script>
 </body>
 </html>
