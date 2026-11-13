@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>月面おそうじ局</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Dela+Gothic+One&display=swap">
+<style>
+:root { --o: #ff9a3c; --b: #5cc8ff; --g: #7ff0a8; --glass: rgba(12,16,30,.78); --line: rgba(255,255,255,.15); color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: "M PLUS Rounded 1c", sans-serif; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.tl { position: absolute; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); display: grid; gap: 6px; }
+.money { font-family: "Dela Gothic One"; font-size: clamp(24px, 5.4vw, 34px); line-height: 1; color: #ffe27a; text-shadow: 0 3px 0 rgba(0,0,0,.5); }
+.chip { background: rgba(0,0,0,.45); border: 1px solid var(--line); border-radius: 12px; padding: 5px 10px; font-weight: 900; font-size: .82rem; width: max-content; max-width: 62vw; }
+.chip i { display: block; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); margin-top: 4px; overflow: hidden; } .chip i u { display: block; height: 100%; background: var(--g); }
+.chip.tot u { background: var(--b); }
+.tc { position: absolute; left: 50%; transform: translateX(-50%); top: max(10px, env(safe-area-inset-top)); width: min(330px, 46vw); text-align: center; }
+.gauge { height: 22px; border-radius: 11px; background: rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.3); overflow: hidden; position: relative; }
+.gauge u { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #c9bfa8, #f3ead6); transition: width .1s; }
+.gauge u.full { background: linear-gradient(90deg, #ff9a3c, #ffd06a); animation: blink .6s infinite alternate; }
+@keyframes blink { to { filter: brightness(1.35); } }
+.gauge span { position: relative; font-weight: 900; font-size: .78rem; line-height: 18px; color: #fff; text-shadow: 0 1px 2px #000; }
+.caps { display: flex; gap: 4px; justify-content: center; margin-top: 5px; min-height: 18px; }
+.caps b { width: 14px; height: 18px; border-radius: 5px; border: 2px solid rgba(255,255,255,.45); background: rgba(0,0,0,.4); }
+.caps b.on { background: linear-gradient(180deg, #fff, #c9d9e8); border-color: #fff; }
+@media (max-width: 640px) { .tc { left: auto; right: max(10px, env(safe-area-inset-right)); transform: none; top: calc(max(10px, env(safe-area-inset-top)) + 54px); width: 46vw; } .chip { max-width: 48vw; font-size: .74rem; } #arrow { top: calc(max(10px, env(safe-area-inset-top)) + 150px); } #hint { font-size: .76rem; } }
+#hint { margin-top: 6px; font-weight: 900; font-size: .85rem; text-shadow: 0 1px 3px #000; min-height: 1.2em; }
+#arrow { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 92px); width: 46px; height: 46px; margin-left: -23px; display: grid; place-items: center; font-size: 30px; color: var(--o); filter: drop-shadow(0 2px 2px #000); }
+#arrow small { position: absolute; top: 44px; font-size: .7rem; font-weight: 900; color: #fff; white-space: nowrap; }
+.tr { position: absolute; right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); display: flex; gap: 8px; pointer-events: auto; }
+.ib { width: 46px; height: 46px; border-radius: 14px; background: rgba(0,0,0,.5); border: 1px solid var(--line); font-size: 1.3rem; display: grid; place-items: center; }
+.br { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2, auto); gap: 12px; pointer-events: auto; align-items: end; }
+.ab { width: 70px; height: 70px; border-radius: 50%; background: rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.35); font-size: 1.6rem; display: grid; place-items: center; position: relative; }
+.ab small { position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); font-size: .62rem; font-weight: 900; white-space: nowrap; background: rgba(0,0,0,.6); padding: 1px 6px; border-radius: 8px; }
+.ab.hot { border-color: var(--o); box-shadow: 0 0 0 4px rgba(255,154,60,.35); animation: blink .5s infinite alternate; }
+.ab.off { opacity: .4; }
+.ab kbd { position: absolute; top: -4px; right: -4px; font: 900 .62rem monospace; background: #fff; color: #000; border-radius: 5px; padding: 1px 4px; }
+body.touch .ab kbd { display: none; }
+#stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); background: rgba(255,255,255,.06); }
+#stick i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,255,255,.35); }
+.keys { position: absolute; left: max(10px, env(safe-area-inset-left)); bottom: max(10px, env(safe-area-inset-bottom)); font-size: .72rem; opacity: .7; line-height: 1.6; background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 10px; }
+body.touch .keys { display: none; }
+#toast { position: fixed; z-index: 7; left: 50%; top: 26%; transform: translate(-50%, 0) scale(.7); font-family: "Dela Gothic One"; font-size: clamp(20px, 5.5vw, 40px); color: #fff; -webkit-text-stroke: 2px #2a1a00; paint-order: stroke fill; text-shadow: 0 4px 0 #c76a10; opacity: 0; transition: opacity .2s, transform .25s cubic-bezier(.2,1.6,.4,1); pointer-events: none; text-align: center; white-space: pre; }
+#toast.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+#log { position: fixed; z-index: 6; left: max(10px, env(safe-area-inset-left)); top: 40%; display: grid; gap: 4px; pointer-events: none; }
+#log div { background: rgba(0,0,0,.55); border-left: 3px solid #ffe27a; padding: 4px 10px; border-radius: 6px; font-weight: 900; font-size: .8rem; animation: fade 4s forwards; }
+@keyframes fade { 0% { opacity: 0; transform: translateX(-10px); } 8% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.scr { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(2,4,12,.7); }
+.box { width: min(560px, 100%); max-height: calc(100% - 10px); display: flex; flex-direction: column; background: var(--glass); border: 1px solid var(--line); border-radius: 20px; padding: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.box h2 { margin: 0 0 8px; font-family: "Dela Gothic One"; font-weight: 400; font-size: 1.3rem; display: flex; align-items: center; gap: 8px; }
+.box h2 .sp { flex: 1; }
+.x { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.1); font-size: 1rem; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+.tabs button { flex: none; padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,.08); font-weight: 900; font-size: .86rem; }
+.tabs button.on { background: #ffe27a; color: #2a1a00; }
+.list { overflow: auto; display: grid; gap: 8px; padding: 4px 2px; }
+.it { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 14px; padding: 9px 10px; }
+.it .ic { font-size: 1.8rem; text-align: center; }
+.it b { display: block; font-size: .95rem; } .it p { margin: 2px 0 0; font-size: .74rem; opacity: .8; line-height: 1.45; }
+.it .st { font-size: .7rem; color: #bfe6ff; }
+.buy { min-width: 84px; padding: 9px 10px; border-radius: 12px; font-weight: 900; background: linear-gradient(180deg, #fff6c8, #ffd23a); color: #3a2400; box-shadow: 0 3px 0 #b07800; }
+.buy:disabled { background: rgba(255,255,255,.12); color: rgba(255,255,255,.5); box-shadow: none; cursor: default; }
+.buy.use { background: linear-gradient(180deg, #e6f7ff, #8fd6ff); color: #002a40; box-shadow: 0 3px 0 #2a7ab0; }
+#mapc { width: 100%; aspect-ratio: 1; border-radius: 14px; background: #051018; display: block; touch-action: none; }
+.mapinfo { display: flex; justify-content: space-between; font-size: .8rem; font-weight: 900; margin-top: 8px; gap: 8px; flex-wrap: wrap; }
+.leg span { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; } .leg i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+#title { background: radial-gradient(900px 700px at 50% 30%, rgba(30,40,90,.25), rgba(0,0,0,.55)); }
+.col { display: grid; gap: 12px; justify-items: center; width: min(420px, 100%); }
+.logo { margin: 0; text-align: center; line-height: 1; filter: drop-shadow(0 6px 0 #3a2000) drop-shadow(0 12px 22px rgba(0,0,0,.6)); }
+.logo span { display: block; white-space: nowrap; font-family: "Dela Gothic One"; font-size: clamp(40px, min(12vw, 11vh), 76px); background: linear-gradient(180deg, #fffbe8 10%, #ffe27a 50%, #ff9a3c 85%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 2px #3a2000; }
+.logo small { display: inline-block; margin-top: 10px; font: 900 .78rem "M PLUS Rounded 1c"; letter-spacing: .15em; background: rgba(0,0,0,.45); padding: 5px 14px; border-radius: 999px; }
+.btn { width: 100%; padding: 14px 18px; border-radius: 16px; font-weight: 900; font-size: 1.08rem; color: #2a1a00; background: linear-gradient(180deg, #fff6c8, #ffd23a); box-shadow: 0 5px 0 #b07800, 0 10px 24px rgba(0,0,0,.35); }
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #b07800; }
+.btn.ghost { background: rgba(255,255,255,.08); color: #fff; box-shadow: none; border: 1px solid var(--line); }
+.btn small { display: block; font-size: .72rem; opacity: .75; }
+.card { width: 100%; background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; font-size: .84rem; line-height: 1.65; }
+.card b { color: #ffe27a; }
+.talk { display: grid; grid-template-columns: 54px 1fr; gap: 10px; align-items: start; }
+.talk .face { width: 54px; height: 54px; border-radius: 50%; background: #23304a; display: grid; place-items: center; font-size: 2rem; }
+.back { color: #fff; opacity: .7; font-size: .82rem; text-decoration: none; }
+.stat { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: .84rem; }
+.stat b { text-align: right; }
+.menu { display: grid; gap: 10px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" hidden>
+  <div class="tl">
+    <div class="money" id="money">$0</div>
+    <div class="chip" id="secChip"><span id="secTxt">—</span><i><u id="secBar" style="width:0"></u></i></div>
+    <div class="chip tot"><span id="totTxt">月面清掃率 0%</span><i><u id="totBar" style="width:0"></u></i></div>
+  </div>
+  <div class="tc">
+    <div class="gauge"><u id="gBar" style="width:0"></u><span id="gTxt">0 / 0.5kg</span></div>
+    <div class="caps" id="caps"></div>
+    <div id="hint"></div>
+  </div>
+  <div id="arrow" hidden>▲<small id="arrowTxt"></small></div>
+  <div class="tr">
+    <button class="ib" id="bMap" aria-label="マップ">🗺️</button>
+    <button class="ib" id="bShop" aria-label="ショップ">🛒</button>
+    <button class="ib" id="bMenu" aria-label="メニュー">☰</button>
+  </div>
+  <div class="br">
+    <button class="ab" id="bRide" hidden>🚗<small>乗る</small><kbd>E</kbd></button>
+    <button class="ab" id="bBrush">🪥<small>ブラシ</small><kbd>F</kbd></button>
+    <button class="ab" id="bJump">⤴️<small>ジャンプ</small><kbd>␣</kbd></button>
+    <button class="ab" id="bPack">📦<small>パック</small><kbd>Q</kbd></button>
+  </div>
+  <div class="keys">WASD/矢印：移動　ドラッグ：カメラ　ホイール：ズーム<br>Q：パック　F：ブラシ上げ下げ　E：乗る/降りる　M：マップ　B：ショップ</div>
+  <div id="stick" hidden><i></i></div>
+</div>
+<div id="toast"></div>
+<div id="log"></div>
+
+<div class="scr" id="title">
+  <div class="col">
+    <h1 class="logo"><span>月面おそうじ局</span><small>月面管理局（LSD）清掃課</small></h1>
+    <div class="card" id="tStat" hidden></div>
+    <button class="btn" id="tGo">しゅっきん！<small id="tGoSub">歯ブラシ1本からはじめる</small></button>
+    <button class="btn ghost" id="tNew" hidden>はじめから</button>
+    <div class="card">
+      <b>あそびかた</b><br>
+      歩くと🪥でホコリを掃く → ゲージが満タンになったら📦パック → 基地の<b>回収口</b>（オレンジの輪）か<b>集積所</b>（青い輪）に運ぶと売れる。<br>
+      お金で道具・強化・集積所・ロボ・清掃車を買って、16地区ぜんぶをピカピカにしよう。ホコリの下には<b>落とし物</b>も…？
+    </div>
+    <a class="back" href="../index.html">← GAMES にもどる</a>
+  </div>
+</div>
+
+<div class="scr" id="shop" hidden>
+  <div class="box">
+    <h2>🛒 局のショップ<span class="sp"></span><span id="shopMoney" style="color:#ffe27a;font-size:1rem"></span><button class="x" data-close>✕</button></h2>
+    <div class="tabs" id="shopTabs"></div>
+    <div class="list" id="shopList"></div>
+  </div>
+</div>
+
+<div class="scr" id="map" hidden>
+  <div class="box">
+    <h2>🗺️ ホログラムマップ<span class="sp"></span><button class="x" data-close>✕</button></h2>
+    <canvas id="mapc" width="640" height="640"></canvas>
+    <div class="mapinfo"><span id="mapTot"></span><span class="leg"><span><i style="background:#ff9a3c"></i>手つかず</span><span><i style="background:#5cc8ff"></i>そうじ中</span><span><i style="background:#7ff0a8"></i>完了</span></span></div>
+    <div class="mapinfo" style="opacity:.8"><span>🟠回収口　🔵集積所　🤖ロボ　🚗車　❗落とし物</span><span id="mapSec"></span></div>
+  </div>
+</div>
+
+<div class="scr" id="menu" hidden>
+  <div class="box">
+    <h2>☰ メニュー<span class="sp"></span><button class="x" data-close>✕</button></h2>
+    <div class="menu">
+      <div class="card stat" id="statBox"></div>
+      <button class="btn ghost" id="mHelp">あそびかた</button>
+      <button class="btn ghost" id="mTitle">タイトルへ（セーブして）</button>
+    </div>
+  </div>
+</div>
+
+<div class="scr" id="talk" hidden>
+  <div class="box">
+    <div class="talk"><div class="face">👨‍🚀</div><div><b style="color:#ffe27a">清掃課長</b><div id="talkTxt" style="margin-top:4px;line-height:1.7;font-size:.92rem"></div></div></div>
+    <button class="btn" id="talkOk" style="margin-top:12px">りょうかい！</button>
+  </div>
+</div>
+
+<script src="../account.js"></script>
+<script src="../rank.js"></script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
