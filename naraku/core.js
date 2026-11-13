@@ -23,10 +23,12 @@ export function newGame(seed = (Math.random() * 2 ** 31) | 0, bonus = {}) {
   };
   G._r = r;
   // 最初の持ち物
-  G.p.inv.push(mkItem(G, 'rusty', 0), mkItem(G, 'woodshield', 0), mkItem(G, 'bread', 0), mkItem(G, 'p_heal', 0));
-  G.p.eq.weapon = G.p.inv[0].uid; G.p.eq.shield = G.p.inv[1].uid; G.p.inv[0].known = G.p.inv[1].known = true;
+  if (!bonus.items) { G.p.inv.push(mkItem(G, 'rusty', 0), mkItem(G, 'woodshield', 0), mkItem(G, 'bread', 0), mkItem(G, 'p_heal', 0));
+  G.p.inv[0].plus = G.p.inv[1].plus = 0; G.p.inv[0].cursed = G.p.inv[1].cursed = false; G.p.eq.weapon = G.p.inv[0].uid; G.p.eq.shield = G.p.inv[1].uid; G.p.inv[0].known = G.p.inv[1].known = true; }
   G.known.p_heal = true;
   G.p.mhp = G.p.hp = 30 + (bonus.hp || 0); G.p.mbelly = G.p.belly = 100 + (bonus.belly || 0);
+  for (const o of bonus.items || []) { const it = Object.assign({}, o, { uid: G.uid++, known: true }); if (it.k === 'potion' || it.k === 'scroll' || it.k === 'wand') G.known[it.id] = true; G.p.inv.push(it); }
+  if (bonus.items) { G.p.eq = { weapon: null, shield: null, ring: null }; for (const sl of ['weapon', 'shield', 'ring']) { const c = G.p.inv.filter(i => i.k === sl).sort((a, b) => (a.cursed - b.cursed) || ((ITEMS[b.id].v || 0) + (b.plus || 0)) - ((ITEMS[a.id].v || 0) + (a.plus || 0)))[0]; if (c && !c.cursed) G.p.eq[sl] = c.uid; } }
   for (const id of bonus.kit || []) { const it = mkItem(G, id, 0); it.cursed = false; if (it.plus < 0) it.plus = 0; if (it.k === 'potion' || it.k === 'scroll' || it.k === 'wand') G.known[id] = true; G.p.inv.push(it); }
   newFloor(G, 1);
   return G;
@@ -62,7 +64,7 @@ function carveCorr(G, x0, y0, x1, y1) {
 export function newFloor(G, n) {
   const r = rng(G); G.floor = n; G.stats.maxFloor = Math.max(G.stats.maxFloor, n);
   G.t = new Uint8Array(W * H); G.rid = new Int16Array(W * H).fill(-1); G.seen = new Uint8Array(W * H);
-  G.rooms = []; G.items = []; G.traps = []; G.mons = []; G.pillars = []; G.boss = n === 10 || n === FLOORS; G.mapRead = false; G.sightAll = false; G.spawnT = 0; G.stairs = null;
+  G.rooms = []; G.items = []; G.traps = []; G.mons = []; G.pillars = []; G.boss = n === 10 || n === FLOORS; G.mapRead = false; G.sightAll = false; G.spawnT = 0; G.stairs = null; G.exit = null;
   if (G.boss) {
     // ボスの間：大部屋ひとつと、入口の小部屋
     const a = { i: 0, x: 4, y: 12, w: 7, h: 10 }, b = { i: 1, x: 18, y: 5, w: 28, h: 25 };
@@ -94,6 +96,7 @@ export function newFloor(G, n) {
   const rmL = shuffle([...G.rooms], r);
   const sr = rmL[0]; G.stairs = { x: sr.x + 1 + Math.floor(r() * (sr.w - 2)), y: sr.y + 1 + Math.floor(r() * (sr.h - 2)) };
   const pr = rmL[1]; G.p.x = pr.x + Math.floor(r() * pr.w); G.p.y = pr.y + Math.floor(r() * pr.h);
+  if (n >= 2 && (n % 3 === 0 || r() < 0.3) && rmL.length > 2) { const er = rmL[2 + Math.floor(r() * (rmL.length - 2))]; const [ex, ey] = freeIn(G, er); if (ex != null) G.exit = { x: ex, y: ey }; }
   // アイテム・罠・敵
   const ni = 4 + Math.floor(r() * 4);
   for (let i = 0; i < ni; i++) { const rm = G.rooms[Math.floor(r() * G.rooms.length)]; placeIn(G, rm, rollItem(G, n)); }
@@ -113,7 +116,7 @@ function exitOf(c, o, r) {
   if (o.cy > c.cy) return [rm.x + Math.floor(r() * rm.w), rm.y + rm.h];
   return [rm.x + Math.floor(r() * rm.w), rm.y - 1];
 }
-function freeIn(G, rm) { const r = rng(G); for (let k = 0; k < 40; k++) { const x = rm.x + Math.floor(r() * rm.w), y = rm.y + Math.floor(r() * rm.h); if (!G.t[y * W + x]) continue; if (G.items.some(i => i.x === x && i.y === y) || G.mons.some(m => m.x === x && m.y === y) || (G.p.x === x && G.p.y === y) || (G.stairs && G.stairs.x === x && G.stairs.y === y) || G.traps.some(t => t.x === x && t.y === y)) continue; return [x, y]; } return [null, null]; }
+function freeIn(G, rm) { const r = rng(G); for (let k = 0; k < 40; k++) { const x = rm.x + Math.floor(r() * rm.w), y = rm.y + Math.floor(r() * rm.h); if (!G.t[y * W + x]) continue; if (G.items.some(i => i.x === x && i.y === y) || G.mons.some(m => m.x === x && m.y === y) || (G.p.x === x && G.p.y === y) || (G.stairs && G.stairs.x === x && G.stairs.y === y) || (G.exit && G.exit.x === x && G.exit.y === y) || G.traps.some(t => t.x === x && t.y === y)) continue; return [x, y]; } return [null, null]; }
 function placeIn(G, rm, it) { const [x, y] = freeIn(G, rm); if (x == null) return; if (it.mimic) { const m = mkMon(G, 'mimic', x, y); m.disguise = it.it; G.mons.push(m); return; } G.items.push({ x, y, it }); }
 function rollItem(G, n) {
   const r = rng(G);
@@ -172,12 +175,14 @@ export function act(G, a) {
   } else if (a.k === 'attack') { const [dx, dy] = DIRS[p.dir]; const m = monAt(G, p.x + dx, p.y + dy); if (m && !(dx && dy && (!walk(G, p.x + dx, p.y) || !walk(G, p.x, p.y + dy)))) attackMon(G, ev, m); else ev.push({ t: 'swing', id: 0 }); }
   else if (a.k === 'wait') { if (p.st.sleep > 0) msg(G, ev, 'ぐっすり眠っている…'); }
   else if (a.k === 'pick') { const fi = G.items.find(i => i.x === p.x && i.y === p.y); if (fi) pickUp(G, ev, fi); else took = false; }
+  else if (a.k === 'extract') { if (G.exit && p.x === G.exit.x && p.y === G.exit.y) { extract(G, ev, '帰還の魔法陣'); return ev; } took = false; }
   else if (a.k === 'stairs') { if (G.stairs && p.x === G.stairs.x && p.y === G.stairs.y) { descend(G, ev); return ev; } took = false; }
   else if (a.k === 'use') took = useItem(G, ev, a.uid, a.target);
   else if (a.k === 'throw') took = throwItem(G, ev, a.uid);
   else if (a.k === 'equip') took = equip(G, ev, a.uid);
   else if (a.k === 'drop') took = drop(G, ev, a.uid);
   if (!took) return ev;
+  if (G.extracted) { syncR(G); return ev; }
   endTurn(G, ev);
   syncR(G);
   return ev;
@@ -200,8 +205,8 @@ function killMon(G, ev, m) {
   // ドロップ
   const r = rng(G); if (r() < (D.boss ? 1 : 0.12) && walk(G, m.x, m.y) && !G.items.some(i => i.x === m.x && i.y === m.y)) { const it = D.boss ? mkItem(G, G.floor >= FLOORS ? 'holy' : 'katana', G.floor) : rollItem(G, G.floor); if (!it.mimic) { G.items.push({ x: m.x, y: m.y, it }); ev.push({ t: 'drop', x: m.x, y: m.y }); } }
   if (D.boss) {
-    if (G.floor >= FLOORS) { G.over = true; G.win = true; msg(G, ev, '奈落の主をたおした！ 光が差しこむ…'); ev.push({ t: 'win' }); }
-    else { const b = G.rooms[1]; G.stairs = { x: b.x + b.w - 3, y: b.y + Math.floor(b.h / 2) }; msg(G, ev, '奥に下り階段があらわれた'); ev.push({ t: 'stairsAppear', x: G.stairs.x, y: G.stairs.y }); }
+    if (G.floor >= FLOORS) { G.over = true; G.win = true; G.extracted = true; msg(G, ev, '奈落の主をたおした！ 光が差しこむ…'); ev.push({ t: 'win' }); }
+    else { const b = G.rooms[1]; G.stairs = { x: b.x + b.w - 3, y: b.y + Math.floor(b.h / 2) }; msg(G, ev, '奥に下り階段と帰還の魔法陣があらわれた'); ev.push({ t: 'stairsAppear', x: G.stairs.x, y: G.stairs.y }); G.exit = { x: G.stairs.x - 2, y: G.stairs.y }; ev.push({ t: 'exitAppear', x: G.exit.x, y: G.exit.y }); }
   }
 }
 function gainXp(G, ev, n) { const p = G.p; p.xp += n; while (p.xp >= xpNeed(p.lv)) { p.xp -= xpNeed(p.lv); p.lv++; const up = 5 + Math.floor(rng(G)() * 3); p.mhp += up; p.hp += up; msg(G, ev, `レベルが ${p.lv} に上がった！`); ev.push({ t: 'lvup' }); } }
@@ -211,6 +216,7 @@ function stepOn(G, ev, noPick) {
   const tr = G.traps.find(t => t.x === p.x && t.y === p.y);
   if (tr) { tr.known = true; springTrap(G, ev, tr); }
   if (G.stairs && p.x === G.stairs.x && p.y === G.stairs.y) ev.push({ t: 'onStairs' });
+  if (G.exit && p.x === G.exit.x && p.y === G.exit.y) ev.push({ t: 'onExit' });
 }
 function pickUp(G, ev, fi) {
   const p = G.p;
@@ -227,6 +233,7 @@ function springTrap(G, ev, tr) {
   else if (tr.k === 'sleep') { p.st.sleep = 4; msg(G, ev, '眠ってしまった…'); }
   else if (tr.k === 'rust') { const w = eqItem(G, r() < 0.5 ? 'weapon' : 'shield'); if (w) { w.plus--; msg(G, ev, `${ITEMS[w.id].nm}がさびた（-1）`); } }
 }
+function extract(G, ev, how) { G.over = true; G.extracted = true; G.cause = how; msg(G, ev, '地上に帰還した！'); ev.push({ t: 'extract' }); }
 function descend(G, ev, fell) {
   if (G.floor >= FLOORS) return;
   ev.push({ t: 'floor', n: G.floor + 1, fell: !!fell });
@@ -264,6 +271,7 @@ function useItem(G, ev, uid, target) {
   const p = G.p, it = p.inv.find(i => i.uid === uid); if (!it) return false; const d = ITEMS[it.id], r = rng(G);
   const wasKnown = G.known[it.id];
   if (d.k === 'weapon' || d.k === 'shield' || d.k === 'ring') return equip(G, ev, uid);
+  if (d.k === 'treasure') { msg(G, ev, `${d.nm}…持ち帰れば高く売れそうだ`); return false; }
   if (d.k === 'food') { removeInv(G, it); const over = p.belly + d.v > p.mbelly; p.belly = Math.min(p.mbelly, p.belly + d.v); if (over && p.belly >= p.mbelly) { p.mbelly = Math.min(200, p.mbelly + (d.v >= 100 ? 10 : 3)); p.belly = p.mbelly; msg(G, ev, `${d.nm}を食べた。お腹の最大がふえた`); } else msg(G, ev, `${d.nm}を食べた。お腹がふくれた`); if (d.hp) p.hp = Math.min(p.mhp, p.hp + d.hp); ev.push({ t: 'eat' }); return true; }
   if (d.k === 'potion') {
     removeInv(G, it); G.known[it.id] = true; const nm = d.nm; ev.push({ t: 'drink', id: it.id });
@@ -285,6 +293,7 @@ function useItem(G, ev, uid, target) {
     if (it.id === 's_weapon') { const w = eqItem(G, 'weapon'); if (w) { w.plus++; w.cursed = false; msg(G, ev, `${ITEMS[w.id].nm}が強くなった（+1）`); } else msg(G, ev, `${nm}を読んだが、何も起こらなかった`); }
     if (it.id === 's_shield') { const w = eqItem(G, 'shield'); if (w) { w.plus++; w.cursed = false; msg(G, ev, `${ITEMS[w.id].nm}が強くなった（+1）`); } else msg(G, ev, `${nm}を読んだが、何も起こらなかった`); }
     if (it.id === 's_ident') { const tgt = p.inv.find(i => i.uid === target) || p.inv.find(i => !isKnown(G, i)); if (tgt) { identify(G, tgt); msg(G, ev, `${itemName(G, tgt)}だとわかった`); } else msg(G, ev, `${nm}を読んだが、わからない物はなかった`); }
+    if (it.id === 's_escape') { msg(G, ev, `${nm}を読んだ。光につつまれる…`); extract(G, ev, nm); return true; }
     if (it.id === 's_teleport') { teleport(G, ev); msg(G, ev, `${nm}を読んだ。体が消えた！`); }
     if (it.id === 's_purify') { for (const i of p.inv) { i.cursed = false; if (i.plus < 0) i.plus = 0; } msg(G, ev, `${nm}を読んだ。呪いが解けた`); }
     if (it.id === 's_fear') { for (const m of roomMons(G)) m.st.fear = 15; msg(G, ev, `${nm}を読んだ。敵はおびえて逃げだした`); }

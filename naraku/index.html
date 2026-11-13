@@ -105,6 +105,27 @@ body.touch #pcKeys { display: none; }
 .help { text-align: left; font-size: 14px; line-height: 1.75; }
 .help h3 { margin: 12px 0 4px; font-size: 15px; color: #ffd060; }
 #stairsAsk { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); z-index: 8; text-align: center; }
+#tGold { font-size: 22px; color: #ffd060; font-weight: 700; }
+.ph { display: flex; gap: 10px; align-items: center; margin: 10px 0 6px; text-align: left; }
+.ph b { font-size: 16px; color: #e8d0ff; } .ph span { opacity: .7; font-size: 13px; } .ph small { opacity: .55; margin-left: auto; font-size: 12px; }
+.ph .tg { margin-left: auto; }
+.tg { padding: 7px 12px; border-radius: 8px; background: #ffffff10; border: 1px solid #6a5a7a; font-size: 13px; }
+.tg.on { background: #5a2a7a; border-color: #b080e0; }
+.slist { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; max-height: 26vh; overflow: auto; padding: 2px; }
+.bagl { min-height: 44px; background: #00000030; border-radius: 8px; padding: 5px; }
+.si { display: flex; gap: 6px; align-items: center; padding: 7px 8px; border-radius: 8px; background: #ffffff0a; border: 1px solid #ffffff14; font-size: 13px; text-align: left; }
+.si b { flex: 1; font-weight: 500; } .si small { opacity: .7; font-size: 11px; white-space: nowrap; }
+.si.in { background: #5a3a8044; border-color: #a080d0; } .si.sup { opacity: .7; border-style: dashed; }
+.si:disabled { opacity: .35; }
+.empty { opacity: .5; font-size: 13px; margin: 6px; grid-column: 1 / -1; }
+.risk { color: #ff9a7a; font-size: 13px; margin: 10px 0 0; }
+.loot { max-height: 30vh; overflow: auto; text-align: left; font-size: 14px; margin: 0 auto; max-width: 340px; }
+.loot div { display: flex; justify-content: space-between; padding: 3px 4px; border-bottom: 1px solid #ffffff10; }
+.loot b { color: #ffd060; }
+.sum { font-size: 18px; margin: 10px 0 4px; } .sum b { color: #ffd060; font-size: 22px; } .sum small { font-size: 13px; opacity: .8; }
+.sum.lost { color: #ff8a8a; }
+#toast { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); background: #000c; border: 1px solid #a080d0; padding: 8px 16px; border-radius: 10px; z-index: 30; opacity: 0; transition: opacity .3s; pointer-events: none; }
+#toast.on { opacity: 1; }
 #load { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: radial-gradient(900px 700px at 50% 30%, #1c0f2a, #000 70%); transition: opacity .45s; }
 #load.done { opacity: 0; pointer-events: none; }
 .lbar { width: 240px; height: 6px; background: #2a1a3a; border-radius: 3px; overflow: hidden; }
@@ -124,6 +145,7 @@ body.touch #pcKeys { display: none; }
     <div class="hpw"><span><small class="k">HP</small><b id="hHp">15/15</b></span><div class="bar"><div id="hpBar"></div></div><div class="bar xpb"><div id="xpBar"></div></div></div>
     <span class="belly"><small class="k">お腹</small><b id="hBelly">100%</b></span>
     <span><small class="k">攻</small><b id="hAtk">0</b> <small class="k">防</small><b id="hDef">0</b></span>
+    <span><small class="k">💰</small><b id="hVal">0G</b></span>
     <span id="hSt"></span>
   </div>
 </div>
@@ -150,8 +172,8 @@ body.touch #pcKeys { display: none; }
 </div>
 
 <div id="stairsAsk" class="panel" hidden style="width:auto">
-  <div style="margin-bottom:10px">階段がある。下りる？</div>
-  <div class="row"><button id="sYes">下りる（Enter）</button><button id="sNo">やめる</button></div>
+  <div style="margin-bottom:10px" id="askTxt">階段がある。下りる？</div>
+  <div class="row"><button id="sYes" style="background:#5a2a7a;border-color:#b080e0">下りる</button><button id="sNo">やめる</button></div>
 </div>
 
 <div class="scr" id="inv" hidden><div class="panel">
@@ -173,8 +195,15 @@ body.touch #pcKeys { display: none; }
 
 <div class="scr" id="help" hidden><div class="panel help">
   <h2>遊び方</h2>
-  <p>入るたびに形がかわるダンジョン「奈落」。地下20階にいる <b>奈落の主</b> をたおせばクリア。<b>力つきたら持ち物もレベルもぜんぶ失って最初から。</b></p>
-  <h3>ターン制</h3>
+  <p>奈落にもぐって、お宝や装備を集めて <b>生きて地上に帰る</b> ゲーム。</p>
+  <h3>出撃と帰還</h3>
+  拠点の倉庫から持っていく物をえらんで出撃。どの階にもあるとは限らない <b style="color:#60ffc0">帰還の魔法陣</b>（緑に光る円）か <b>帰還の巻物</b> で地上に帰れば、拾った物はぜんぶ倉庫へ。<br><b style="color:#ff8a8a">力つきたら、持っていった物も拾った物もぜんぶなくなる。</b>レベルも毎回1から。欲ばるか、帰るか。
+  <h3>拠点</h3>
+  🏪商人でお宝や装備を売ってお金にし、薬や装備を買える。🔨拠点強化で倉庫を広げたり体をきたえたりできる（死んでもなくならない）。支給セット（錆びた剣・木の盾・黒パン・回復薬）はいつでも無料。
+  <h3>ゴール</h3>
+  地下10階に「骸骨王」、地下20階に「奈落の主」。主をたおせば制覇。
+  
+<h3>ターン制</h3>
   あなたが1歩動くか1回攻撃すると、敵も1回動く。あせらず、1手ずつ考えよう。通路で戦えば囲まれにくい。
   <h3>お腹</h3>
   歩くとお腹がへる。0%になるとHPがへりつづける。パンや干し肉を拾っておこう。
@@ -188,27 +217,48 @@ body.touch #pcKeys { display: none; }
   矢印/WASD で移動（2つ同時押しで斜め・QEZC・テンキーでも斜め）、Shift＋方向で向きだけ変える。Space：攻撃　R：足ぶみ　F：拾う・階段　I：持ち物　Esc：メニュー
   <h3>そうさ（スマホ）</h3>
   行きたい場所をタップすると自動で歩く（敵が見えたら止まる）。となりの敵をタップで攻撃、自分をタップで足元。🔍探索で自動で歩きまわる（敵・罠・ダメージで止まる）。▶で早送り。2本指でズーム。メニューで十字キーも出せる。
-  <h3>周回</h3>
-  力つきると「魂」がもらえる。🔥篝火で体力・腕力・守り・持ちこみなどを強化すると、次の冒険が楽になる。📅今日の奈落はみんな同じマップで、1日1回だけ魂2倍。
+  <h3>今日の奈落</h3>
+  みんな同じマップ。1日1回、帰還できたら +200G。
   <div class="row"><button id="hBack">もどる</button></div>
 </div></div>
 
+<div id="toast"></div>
 <div class="scr" id="title" hidden>
   <div class="col">
-    <h1 class="logo">奈落の迷宮<small>NARAKU · 地下二十階のローグライク</small></h1>
-    <button class="btn" id="tCont" hidden>▶ 続きから</button>
-    <button class="btn" id="tNew">⚔ 新しく潜る</button>
-    <button class="btn" id="tDaily" style="background:linear-gradient(#2a5a7a,#123048);border-color:#70b0e0">📅 今日の奈落</button>
-    <div id="tSouls">👻 0</div>
-    <div class="row" style="margin:0"><button class="btn ghost" id="tCamp" style="min-width:110px">🔥 篝火</button><button class="btn ghost" id="tDex" style="min-width:110px">📖 図鑑</button><button class="btn ghost" id="tHelp" style="min-width:110px">遊び方</button></div>
+    <h1 class="logo">奈落の迷宮<small>潜って、拾って、生きて帰れ</small></h1>
+    <div id="tGold">💰 0G</div>
+    <button class="btn" id="tCont" hidden>▶ 冒険の続きから</button>
+    <button class="btn" id="tPrep">⚔ 出撃準備</button>
+    <div class="row" style="margin:0"><button class="btn ghost" id="tShop" style="min-width:150px">🏪 商人</button><button class="btn ghost" id="tCamp" style="min-width:150px">🔨 拠点強化</button></div>
+    <div class="row" style="margin:0"><button class="btn ghost" id="tDex" style="min-width:150px">📖 図鑑</button><button class="btn ghost" id="tHelp" style="min-width:150px">遊び方</button></div>
     <div class="recs" id="tRec"></div>
     <a href="../" style="color:#a090c0;font-size:13px">← ゲーム一覧</a>
   </div>
 </div>
 
+<div class="scr" id="prep" hidden style="z-index:12"><div class="panel">
+  <h2>⚔ 出撃準備</h2>
+  <div class="ph"><b>持っていく</b><span id="pBagN"></span><button id="pSupply" class="tg">支給セット（無料）</button></div>
+  <div class="slist bagl" id="pBag"></div>
+  <div class="ph"><b>📦 倉庫</b><span id="pStashN"></span><small>タップで出し入れ</small></div>
+  <div class="slist" id="pStash"></div>
+  <div id="pRisk" class="risk"></div>
+  <div class="row"><button class="btn" id="pGo">⚔ 出撃する</button></div>
+  <div class="row"><button class="btn" id="pDaily" style="background:linear-gradient(#2a5a7a,#123048);border-color:#70b0e0;font-size:15px">📅 今日の奈落</button></div>
+  <div class="row"><button id="pBack">もどる</button></div>
+</div></div>
+
+<div class="scr" id="shop" hidden style="z-index:12"><div class="panel">
+  <h2>🏪 商人　<span style="color:#ffd060">💰 <span id="shGold">0</span>G</span>　<small style="font-size:13px;color:#aaa">倉庫 <span id="shStash"></span></small></h2>
+  <div class="row" style="justify-content:flex-start"><button id="shBuyT" class="tg">買う</button><button id="shSellT" class="tg">売る</button></div>
+  <div class="slist" id="shList" style="max-height:52vh"></div>
+  <div class="row"><button id="shAll" hidden style="background:#6a5010;border-color:#e0b040"></button></div>
+  <div class="row"><button id="shBack">もどる</button></div>
+</div></div>
+
 <div class="scr" id="camp" hidden style="z-index:12"><div class="panel">
-  <h2>🔥 篝火　<span style="color:#c8a0ff">👻 <span id="cSouls">0</span></span></h2>
-  <p style="font-size:13px;opacity:.75;margin:0 0 10px;text-align:left">力つきても「魂」は残る。魂をささげて、次の冒険を有利にしよう。<br>（深く潜る・敵をたおす・新しい敵をたおすほど魂がもらえる）</p>
+  <h2>🔨 拠点強化　<span style="color:#ffd060">💰 <span id="cSouls">0</span>G</span></h2>
+  <p style="font-size:13px;opacity:.75;margin:0 0 10px;text-align:left">持ち帰ったお宝を売ったお金で、拠点と体をきたえる。強化は死んでもなくならない。</p>
   <div id="cList"></div>
   <div class="row"><button id="cBack">もどる</button></div>
 </div></div>
@@ -222,9 +272,10 @@ body.touch #pcKeys { display: none; }
 <div class="scr" id="over" hidden>
   <div class="panel" style="text-align:center">
     <h2 id="ovTitle" style="font-size:26px">あなたは力つきた…</h2>
-    <div class="grid2" id="ovBody" style="max-width:320px;margin:10px auto 16px"></div>
-    <div class="row"><button class="btn" id="ovNew">もう一度潜る</button></div>
-    <div class="row"><button class="btn ghost" id="ovCamp" style="min-width:110px">🔥 篝火で強化</button><button class="btn ghost" id="ovTitle2" style="min-width:110px">タイトルへ</button></div>
+    <div class="grid2" id="ovBody" style="max-width:320px;margin:10px auto 8px"></div>
+    <div id="ovLoot"></div>
+    <div class="row"><button class="btn" id="ovNew">⚔ 出撃準備へ</button></div>
+    <div class="row"><button class="btn ghost" id="ovTitle2" style="min-width:110px">タイトルへ</button></div>
   </div>
 </div>
 
@@ -250,6 +301,6 @@ body.touch #pcKeys { display: none; }
 </script>
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
-<script type="module" src="game.js?v=2"></script>
+<script type="module" src="game.js?v=3"></script>
 </body>
 </html>

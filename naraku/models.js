@@ -62,6 +62,7 @@ export function makeItem(it, look) {
   else if (k === 'scroll') { g.add(at(Cy(0.07, 0.07, 0.36, mat(0xe8dcc0, { roughness: 0.9 }), 10), 0, 0.08, 0, 0, 0, Math.PI / 2)); g.add(at(Cy(0.075, 0.075, 0.05, mat(0x8a1a1a)), 0, 0.08, 0, 0, 0, Math.PI / 2)); }
   else if (k === 'food') { g.add(at(S(0.16, mat(0x5a3418, { roughness: 0.9 }), 1), 0, 0.1, 0)); g.children[0].scale.set(0.2, 0.11, 0.14); }
   else if (k === 'wand') { g.add(at(Cy(0.02, 0.025, 0.5, mat(0x3a2418)), 0, 0.05, 0, Math.PI / 2, 0, 0.8)); g.add(at(S(0.05, glowMat(1.8, 0.6, 2.6), 1), 0.19, 0.05, 0.16)); }
+  else if (k === 'treasure') { const gold = mat(0xffc040, { metalness: 1, roughness: 0.25, emissive: 0x6a4000, emissiveIntensity: 0.6 }); if (it.id === 'gem' || it.id === 'dragoneye') g.add(at(S(0.13, new THREE.MeshStandardMaterial({ color: it.id === 'gem' ? 0x40e0ff : 0xff3020, emissive: it.id === 'gem' ? 0x1080a0 : 0xa01000, emissiveIntensity: 1.2, roughness: 0.05, metalness: 0.3, flatShading: true }), 0), 0, 0.15, 0)); else if (it.id === 'crown') { g.add(at(Cy(0.15, 0.15, 0.1, gold, 12), 0, 0.1, 0)); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; g.add(at(Co(0.04, 0.1, gold, 4), Math.cos(a) * 0.14, 0.2, Math.sin(a) * 0.14)); } } else if (it.id === 'chalice') { g.add(at(Cy(0.11, 0.04, 0.14, gold, 12), 0, 0.22, 0)); g.add(at(Cy(0.02, 0.02, 0.12, gold), 0, 0.09, 0)); g.add(at(Cy(0.08, 0.08, 0.02, gold, 12), 0, 0.02, 0)); } else if (it.id === 'candle') { g.add(at(Cy(0.03, 0.03, 0.28, mat(0xb06a30, { metalness: 0.9, roughness: 0.3 })), 0, 0.14, 0)); g.add(at(Cy(0.09, 0.09, 0.03, mat(0xb06a30, { metalness: 0.9, roughness: 0.3 }), 10), 0, 0.02, 0)); } else for (let i = 0; i < 4; i++) g.add(at(Cy(0.08, 0.08, 0.025, mat(0xd8d8e0, { metalness: 1, roughness: 0.3 }), 14), (i % 2) * 0.05 - 0.02, 0.015 + i * 0.026, (i >> 1) * 0.04)); }
   else if (k === 'throw') { for (let i = 0; i < 3; i++) g.add(at(B(0.03, 0.3, 0.01, mat(0xb8bcc8, { metalness: 0.9, roughness: 0.2 })), (i - 1) * 0.07, 0.04, 0, Math.PI / 2, 0, (i - 1) * 0.3)); }
   return g;
 }
@@ -74,4 +75,13 @@ export function makeStairs() {
 }
 export function makeTorch() {
   const g = new THREE.Group(); g.add(at(Cy(0.03, 0.05, 0.3, mat(0x3a2a1a)), 0, 0, 0, 0.5)); const f = new THREE.Mesh(geo('flame', () => new THREE.ConeGeometry(0.08, 0.25, 8)), glowMat(3, 1.4, 0.3)); f.position.set(0, 0.2, 0.06); f.name = 'flame'; g.add(f); return g;
+}
+
+export function makeExit() {
+  const g = new THREE.Group();
+  const c = new THREE.Color(0.4, 2.2, 1.4);
+  const r1 = new THREE.Mesh(new THREE.RingGeometry(0.36, 0.46, 40), new THREE.MeshBasicMaterial({ color: c, toneMapped: false, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })); r1.rotation.x = -Math.PI / 2; r1.position.y = 0.02; r1.name = 'ring'; g.add(r1);
+  const r2 = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.22, 6), r1.material); r2.rotation.x = -Math.PI / 2; r2.position.y = 0.025; r2.name = 'hex'; g.add(r2);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 2.2, 24, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 1.2, 0.8), toneMapped: false, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })); beam.position.y = 1.1; beam.name = 'beam'; g.add(beam);
+  return g;
 }

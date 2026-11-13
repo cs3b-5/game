@@ -63,6 +63,7 @@ export const ITEMS = {
   s_teleport:{ k: 'scroll', nm: '転移の巻物',  f: 1, w: 5 },
   s_purify: { k: 'scroll', nm: '解呪の巻物',   f: 3, w: 3 },
   s_fear:   { k: 'scroll', nm: '恐怖の巻物',   f: 4, w: 3 },
+  s_escape: { k: 'scroll', nm: '帰還の巻物',   f: 4, w: 1 },
   // 食べ物
   bread:    { k: 'food', nm: '黒パン',       f: 1, w: 12, v: 50 },
   bigbread: { k: 'food', nm: '大きな黒パン', f: 3, w: 3, v: 100 },
@@ -76,6 +77,13 @@ export const ITEMS = {
   // 投げる
   knife:    { k: 'throw', nm: '投げナイフ',   f: 1, w: 5, v: 6 },
   holywater:{ k: 'throw', nm: '聖水',         f: 4, w: 2, v: 25 },
+  // お宝（持ち帰って売る）
+  coin:     { k: 'treasure', nm: '古い銀貨',     f: 1, w: 6, g: 30 },
+  candle:   { k: 'treasure', nm: '銅の燭台',     f: 1, w: 4, g: 60 },
+  gem:      { k: 'treasure', nm: '宝石の原石',   f: 3, w: 3, g: 130 },
+  chalice:  { k: 'treasure', nm: '黄金の杯',     f: 6, w: 2, g: 260 },
+  crown:    { k: 'treasure', nm: '古の王冠',     f: 10, w: 1, g: 600 },
+  dragoneye:{ k: 'treasure', nm: '竜の眼玉',     f: 14, w: 1, g: 1200 },
 };
 // 薬と巻物の「見た目の名前」（プレイごとにシャッフル）
 export const POTION_LOOKS = ['赤い薬', '青い薬', '緑の薬', '黄色い薬', '紫の薬', '黒い薬', '白い薬', '銀色の薬', '濁った薬', '光る薬'];

@@ -1,7 +1,7 @@
 // 奈落の迷宮 — 画面・操作
 import * as THREE from '../upa/vendor/three.module.min.js';
 import * as C from './core.js';
-import { makeHero, makeMon, makeItem, makeStairs, makeTorch, mat, glowMat } from './models.js';
+import { makeHero, makeMon, makeItem, makeStairs, makeTorch, makeExit, mat, glowMat } from './models.js';
 const { W, H, ITEMS, MONS, DIRS } = C;
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search), BOT = Q.has('bot');
@@ -13,17 +13,38 @@ const saveRec = () => { try { localStorage.setItem(REC, JSON.stringify(rec)); } 
 const META = 'naraku-meta';
 const meta = Object.assign({ souls: 0, up: {}, dex: { m: {}, i: {} }, daily: { date: '', done: false }, pad: false, spd: 1 }, (() => { try { return JSON.parse(localStorage.getItem(META) || '{}'); } catch (e) { return {}; } })());
 const saveMeta = () => { try { localStorage.setItem(META, JSON.stringify(meta)); } catch (e) {} };
+if (meta.gold == null) meta.gold = 100 + (meta.souls || 0) * 2;
+if (!meta.stash) meta.stash = [];
 const UPG = [
-  { k: 'hp', ic: '❤️', nm: '体力', d: l => `最大HP +${l * 5}`, max: 10, cost: l => 15 + l * 15 },
-  { k: 'atk', ic: '🗡️', nm: '腕力', d: l => `攻撃 +${l}`, max: 5, cost: l => 40 + l * 45 },
-  { k: 'def', ic: '🛡️', nm: '守り', d: l => `防御 +${l}`, max: 5, cost: l => 40 + l * 45 },
-  { k: 'belly', ic: '🍞', nm: '胃袋', d: l => `お腹の最大 +${l * 10}%`, max: 5, cost: l => 25 + l * 25 },
-  { k: 'kit', ic: '🎒', nm: '持ちこみ', d: l => l ? '最初に持っている：' + KIT.slice(0, l).map(id => ITEMS[id].nm).join('・') : '最初の持ち物がふえる', max: 4, cost: l => 50 + l * 60 },
-  { k: 'soul', ic: '👻', nm: '魂の器', d: l => `もらえる魂 +${l * 10}%`, max: 5, cost: l => 60 + l * 70 },
+  { k: 'stash', ic: '📦', nm: '倉庫', d: l => `倉庫の広さ ${30 + l * 10}`, max: 7, cost: l => 100 + l * 120 },
+  { k: 'hp', ic: '❤️', nm: '体力', d: l => `最大HP +${l * 5}`, max: 10, cost: l => 60 + l * 60 },
+  { k: 'atk', ic: '🗡️', nm: '腕力', d: l => `攻撃 +${l}`, max: 5, cost: l => 150 + l * 150 },
+  { k: 'def', ic: '🛡️', nm: '守り', d: l => `防御 +${l}`, max: 5, cost: l => 150 + l * 150 },
+  { k: 'belly', ic: '🍞', nm: '胃袋', d: l => `お腹の最大 +${l * 10}%`, max: 5, cost: l => 80 + l * 80 },
 ];
-const KIT = ['p_heal', 'knife', 's_teleport', 'p_bigheal'];
 const upLv = k => meta.up[k] || 0;
-const bonus = () => ({ hp: upLv('hp') * 5, atk: upLv('atk'), def: upLv('def'), belly: upLv('belly') * 10, kit: KIT.slice(0, upLv('kit')) });
+const stashCap = () => 30 + upLv('stash') * 10;
+const bonus = () => ({ hp: upLv('hp') * 5, atk: upLv('atk'), def: upLv('def'), belly: upLv('belly') * 10 });
+const BASE_P = { p_heal: 20, p_bigheal: 60, p_str: 80, p_life: 120, p_xp: 100, p_poison: 5, p_confuse: 10, p_sight: 30, s_map: 25, s_thunder: 50, s_sleep: 40, s_weapon: 80, s_shield: 80, s_ident: 30, s_teleport: 40, s_purify: 50, s_fear: 40, s_escape: 150, bread: 10, bigbread: 25, jerky: 12 };
+function price(o) {
+  const d = ITEMS[o.id]; let v;
+  if (d.k === 'weapon') v = d.v * d.v * 6 + (o.plus || 0) * 40;
+  else if (d.k === 'shield') v = d.v * d.v * 7 + (o.plus || 0) * 40;
+  else if (d.k === 'ring') v = 150;
+  else if (d.k === 'wand') v = 30 + (o.ch || 0) * 15;
+  else if (d.k === 'throw') v = (o.id === 'holywater' ? 30 : 4) * (o.n || 1);
+  else if (d.k === 'treasure') v = d.g;
+  else v = BASE_P[o.id] || 10;
+  if (o.cursed) v = v / 2;
+  if (o.sup) return 1;
+  return Math.max(1, Math.round(v));
+}
+const strip = it => { const o = { id: it.id, k: it.k }; for (const f of ['plus', 'cursed', 'n', 'ch', 'sup']) if (it[f] != null) o[f] = it[f]; return o; };
+const freshItem = id => { const d = ITEMS[id], o = { id, k: d.k }; if (d.k === 'weapon' || d.k === 'shield') { o.plus = 0; o.cursed = false; } if (d.k === 'ring') o.cursed = false; if (d.k === 'throw') o.n = id === 'knife' ? 5 : 1; if (d.k === 'wand') o.ch = 5; return o; };
+const oName = o => { const d = ITEMS[o.id]; let n = d.nm; if ((d.k === 'weapon' || d.k === 'shield') && o.plus) n += (o.plus > 0 ? '+' : '') + o.plus; if (d.k === 'throw') n += `（${o.n}本）`; if (d.k === 'wand') n += `[${o.ch}]`; if (o.cursed) n += '（呪）'; if (o.sup) n += '（支給）'; return n; };
+const SHOP = ['bread', 'jerky', 'p_heal', 'knife', 's_ident', 's_teleport', 'p_bigheal', 'dagger', 'longsword', 'leather', 'iron', 's_escape'];
+const buyPrice = id => Math.max(10, Math.round(price(freshItem(id)) * 2.5 / 5) * 5);
+const SUPPLY = ['rusty', 'woodshield', 'bread', 'p_heal'];
 const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; };
 let GQ = +(localStorage.getItem('naraku-gq') ?? (isTouch ? 1 : 2)); if (Q.has('gq')) GQ = +Q.get('gq');
 
@@ -74,6 +95,7 @@ function buildFloor() {
   for (const rm of G.rooms) { const cands = []; for (let x = rm.x; x < rm.x + rm.w; x++) { if (!G.t[(rm.y - 1) * W + x]) cands.push([x, rm.y - 1, 0, 0.45]); } for (let k = 0; k < Math.min(2, cands.length); k++) { const c = cands[Math.floor(r() * cands.length)]; const t = makeTorch(); t.position.set(c[0], 0.62, c[1] + c[3]); root.add(t); torches.push({ o: t, x: c[0], y: c[1] + 1, ph: r() * 6 }); } }
   // 階段
   let stairs = null; if (G.stairs) { stairs = makeStairs(); stairs.position.set(G.stairs.x, 0.01, G.stairs.y); root.add(stairs); }
+  let exitO = null; if (G.exit) { exitO = makeExit(); exitO.position.set(G.exit.x, 0, G.exit.y); root.add(exitO); }
   // 罠
   const trapM = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.3, 0.3), transparent: true, opacity: 0.8, toneMapped: false });
   const traps = G.traps.map(t => { const m = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.32, 6), trapM); m.rotation.x = -Math.PI / 2; m.position.set(t.x, 0.02, t.y); m.visible = false; root.add(m); return { t, m }; });
@@ -81,7 +103,7 @@ function buildFloor() {
   const dn = GQ === 0 ? 80 : 220, dp = new Float32Array(dn * 3); for (let i = 0; i < dn; i++) dp.set([Math.random() * 20 - 10, Math.random() * 3, Math.random() * 20 - 10], i * 3);
   const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
   const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xb8a0ff, size: 0.04, transparent: true, opacity: 0.5, depthWrite: false })); root.add(dust);
-  floorObjs = { root, fm, wm, fl, wl, wmOn: new Uint8Array(wl.length), torches, stairs, traps, dust };
+  floorObjs = { root, fm, wm, fl, wl, wmOn: new Uint8Array(wl.length), torches, stairs, traps, dust, exitO };
   // 主人公
   if (!hero) { hero = big(makeHero(), 1.35); scene.add(hero); }
   hero.position.set(G.p.x, 0, G.p.y); hero.rotation.y = dirYaw(G.p.dir);
@@ -98,6 +120,7 @@ function refreshFog() {
   fm.instanceColor.needsUpdate = true; wm.instanceColor.needsUpdate = true;
   for (const t of traps) t.m.visible = t.t.known && !!G.seen[t.t.y * W + t.t.x] && G.traps.includes(t.t);
   if (floorObjs.stairs) floorObjs.stairs.visible = !!G.seen[G.stairs.y * W + G.stairs.x];
+  if (floorObjs.exitO) floorObjs.exitO.visible = !!G.seen[G.exit.y * W + G.exit.x];
   for (const t of floorObjs.torches) t.o.visible = !!G.seen[t.y * W + t.x];
   drawMini();
 }
@@ -130,7 +153,7 @@ function doAct(a) {
   for (const e of ev) { if (e.t === 'move' || e.t === 'turn') moves.push(e); else { if (moves.length) { steps.push({ k: 'moves', list: moves }); moves = []; } steps.push({ k: 'one', e }); } }
   if (moves.length) steps.push({ k: 'moves', list: moves });
   animQ.push(...steps); busy = true;
-  afterTurn = () => { if (G.floor !== before.f) { stopAuto(); buildFloor(); flash(0x000000, 0.6); saveMeta(); } for (const it of G.p.inv) if (C.isKnown(G, it)) meta.dex.i[it.id] = 1; refreshFog(); syncEntities(false); hud(); save(); if (G.over) gameOver(); else if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && a.k === 'move' && !BOT) askStairs(); };
+  afterTurn = () => { if (G.floor !== before.f) { stopAuto(); buildFloor(); flash(0x000000, 0.6); saveMeta(); } for (const it of G.p.inv) if (C.isKnown(G, it)) meta.dex.i[it.id] = 1; refreshFog(); syncEntities(false); hud(); save(); if (G.over) gameOver(); else if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && a.k === 'move' && !BOT && !auto) askStairs(); else if (onExit() && a.k === 'move' && !BOT && !auto) askExit(); };
 }
 let afterTurn = null;
 const T_MOVE = 0.11, T_ATK = 0.16;
@@ -158,6 +181,8 @@ function playStep(dt) {
       else if (e.t === 'floor') { sfx.stairs(); }
       else if (e.t === 'warp') { hero.position.set(e.x, 0, e.y); camSnap = true; flash(0x8040ff, 0.4); }
       else if (e.t === 'reveal' || e.t === 'spawn') { syncEntities(true); refreshFog(); anim.dur = 0.1; }
+      else if (e.t === 'exitAppear') { floorObjs.exitO = makeExit(); floorObjs.exitO.position.set(e.x, 0, e.y); floorObjs.root.add(floorObjs.exitO); }
+      else if (e.t === 'extract') { flash(0xc0ffe0, 0.9); sfx.lvup(); ring(hero.position, 0x60ffc0); anim.dur = 0.6; }
       else if (e.t === 'stairsAppear') { floorObjs.stairs = makeStairs(); floorObjs.stairs.position.set(e.x, 0.01, e.y); floorObjs.root.add(floorObjs.stairs); sfx.lvup(); }
       else if (e.t === 'drink' || e.t === 'read' || e.t === 'eat') { sfx.use(); ring(hero.position, e.t === 'read' ? 0xb0a0ff : 0x60ff90); anim.dur = 0.15; }
       else if (e.t === 'cast') { const o = monObj.get(e.id); if (o) ring(o.g.position, 0xff40c0); sfx.zap(); anim.dur = 0.2; }
@@ -219,6 +244,7 @@ function frame(dt) {
     const cape = hero.getObjectByName('cape'); if (cape) cape.rotation.x = 0.15 + Math.sin(tAll * 2) * 0.05 + (busy ? 0.2 : 0);
     for (const [, o] of itemObj) { o.rotation.y += dt * 0.8; o.position.y = 0.04 + Math.sin(tAll * 2 + o.position.x) * 0.03; }
     if (floorObjs) {
+      if (floorObjs.exitO) { floorObjs.exitO.getObjectByName('ring').rotation.z = tAll * 0.8; floorObjs.exitO.getObjectByName('hex').rotation.z = -tAll * 1.5; floorObjs.exitO.getObjectByName('beam').material.opacity = 0.14 + Math.sin(tAll * 3) * 0.06; }
       if (floorObjs.stairs) { const r = floorObjs.stairs.getObjectByName('ring'); if (r) r.material.opacity = 0.6 + Math.sin(tAll * 3) * 0.3; }
       // たいまつ：近い4つだけ光らせる
       const near = floorObjs.torches.filter(t => t.o.visible).sort((a, b) => (a.x - hero.position.x) ** 2 + (a.y - hero.position.z) ** 2 - ((b.x - hero.position.x) ** 2 + (b.y - hero.position.z) ** 2));
@@ -251,7 +277,7 @@ const heldDir = () => { if (padDir != null) return padDir; const ks = Object.key
   const v = [0, 0]; for (const k of ks) { const [dx, dy] = DIRS[KEYMAP[k]]; v[0] += dx; v[1] += dy; } v[0] = Math.sign(v[0]); v[1] = Math.sign(v[1]); if (!v[0] && !v[1]) return null; return DIRS.findIndex(([a, b]) => a === v[0] && b === v[1]); };
 const turnOnly = () => !!(keys.ShiftLeft || keys.ShiftRight) || $('bTurn').classList.contains('on');
 const keyHeld = () => heldDir() != null;
-const modalClosed = () => $('inv').hidden && $('menu').hidden && $('title').hidden && $('over').hidden && $('help').hidden && $('camp').hidden && $('dex').hidden;
+const modalClosed = () => $('inv').hidden && $('menu').hidden && $('title').hidden && $('over').hidden && $('help').hidden && $('camp').hidden && $('dex').hidden && $('prep').hidden && $('shop').hidden;
 addEventListener('keydown', e => {
   ac(); if (auto && !e.repeat) { stopAuto(); if (!(e.code in KEYMAP)) return; }
   if (!$('title').hidden || !$('over').hidden) return;
@@ -259,7 +285,7 @@ addEventListener('keydown', e => {
   if (!$('inv').hidden) { invKey(e); return; }
   if (!$('menu').hidden || !$('help').hidden) { if (e.code === 'Escape') closeModals(); return; }
   if (e.code in KEYMAP) { e.preventDefault(); keys[e.code] = true; if (!e.repeat) { const d = heldDir(); if (d != null) { doAct(turnOnly() ? { k: 'turn', d } : { k: 'move', d }); repT = -0.22; } } return; }
-  if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && e.code === 'Enter') askStairs(); else doAct({ k: 'attack' }); }
+  if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (e.code === 'Enter' && onExit()) askExit(); else if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && e.code === 'Enter') askStairs(); else doAct({ k: 'attack' }); }
   if (e.code === 'KeyR' || e.code === 'Numpad5' || e.code === 'Period') doAct({ k: 'wait' });
   if (e.code === 'KeyV') startExplore();
   if (e.code === 'KeyB') cycleSpd();
@@ -317,7 +343,7 @@ function autoStep() {
     const { tx, ty } = auto;
     const m = C.monAt(G, tx, ty);
     if (m && Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) === 1 && diagOk(p.x, p.y, m.x - p.x, m.y - p.y)) { stopAuto(); doAct({ k: 'move', d: DIRS.findIndex(([a, b]) => a === m.x - p.x && b === m.y - p.y) }); return; }
-    if (p.x === tx && p.y === ty) { stopAuto(); if (G.stairs && tx === G.stairs.x && ty === G.stairs.y) askStairs(); return; }
+    if (p.x === tx && p.y === ty) { stopAuto(); if (G.stairs && tx === G.stairs.x && ty === G.stairs.y) askStairs(); else if (onExit()) askExit(); return; }
     const d = pathDir((x, y) => x === tx && y === ty, (x, y) => !!G.seen[y * W + x]);
     if (d < 0) { stopAuto('そこへは行けない'); return; }
     doAct({ k: 'move', d });
@@ -368,6 +394,7 @@ function hud() {
   $('hBelly').textContent = `${p.belly}%`; $('hBelly').parentElement.classList.toggle('low', p.belly <= 20);
   $('hAtk').textContent = C.pAtk(G); $('hDef').textContent = C.pDef(G);
   const st = []; if (p.st.confuse > 0) st.push('混乱'); if (p.st.sleep > 0) st.push('睡眠'); if (p.str < 0) st.push(`毒${p.str}`); if (p.str > 0) st.push(`力+${p.str}`); $('hSt').textContent = st.join(' ');
+  const val = p.inv.reduce((a, it) => a + (C.isKnown(G, it) ? price(it) : 20), 0); $('hVal').textContent = `${val}G`;
   $('xpBar').style.width = (p.xp / C.xpNeed(p.lv) * 100) + '%';
 }
 function log(t) { const el = $('log'); const d = document.createElement('div'); d.textContent = t; el.appendChild(d); while (el.children.length > 5) el.firstChild.remove(); clearTimeout(d._t); setTimeout(() => d.classList.add('old'), 4000); }
@@ -377,6 +404,7 @@ function drawMini() {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (!G.seen[i] || !G.t[i]) continue; mx.fillStyle = G.rid[i] >= 0 ? 'rgba(120,110,170,.65)' : 'rgba(100,90,140,.55)'; mx.fillRect(x * s, y * s, s, s); }
   for (const fi of G.items) if (G.seen[fi.y * W + fi.x] && (C.visible(G, fi.x, fi.y) || G.mapRead || G.sightAll)) { mx.fillStyle = '#7fe0ff'; mx.fillRect(fi.x * s + 1, fi.y * s + 1, s - 2, s - 2); }
   for (const t of G.traps) if (t.known) { mx.fillStyle = '#ff5050'; mx.fillRect(t.x * s + 1, t.y * s + 1, s - 2, s - 2); }
+  if (G.exit && G.seen[G.exit.y * W + G.exit.x]) { mx.fillStyle = '#40ffb0'; mx.fillRect(G.exit.x * s - 1, G.exit.y * s - 1, s + 2, s + 2); }
   if (G.stairs && G.seen[G.stairs.y * W + G.stairs.x]) { mx.strokeStyle = '#d8a0ff'; mx.lineWidth = 2; mx.strokeRect(G.stairs.x * s, G.stairs.y * s, s, s); }
   for (const m of G.mons) if ((C.visible(G, m.x, m.y) || G.sightAll) && !m.disguise) { mx.fillStyle = MONS[m.mid].boss ? '#ff40ff' : '#ff4a4a'; mx.beginPath(); mx.arc((m.x + 0.5) * s, (m.y + 0.5) * s, s * 0.45, 0, 7); mx.fill(); }
   mx.fillStyle = '#ffd060'; mx.beginPath(); mx.arc((G.p.x + 0.5) * s, (G.p.y + 0.5) * s, s * 0.6, 0, 7); mx.fill();
@@ -386,7 +414,7 @@ function drawMini() {
 let invSel = 0, invMode = null; // invMode: {k:'ident', uid}
 function openInv(mode) { if (!G || G.over) return; invMode = mode || null; $('inv').hidden = false; invSel = Math.min(invSel, Math.max(0, G.p.inv.length - 1)); drawInv(); }
 function closeModals() { for (const id of ['inv', 'menu', 'help']) $(id).hidden = true; invMode = null; }
-const KIND_IC = { weapon: '🗡️', shield: '🛡️', ring: '💍', potion: '🧪', scroll: '📜', food: '🍞', wand: '🪄', throw: '🔪' };
+const KIND_IC = { weapon: '🗡️', shield: '🛡️', ring: '💍', potion: '🧪', scroll: '📜', food: '🍞', wand: '🪄', throw: '🔪', treasure: '💰' };
 function drawInv() {
   const p = G.p, inv = p.inv;
   $('invTitle').textContent = invMode ? '識別する物をえらぶ' : `持ち物 ${inv.length}/18`;
@@ -398,7 +426,7 @@ function drawInv() {
   const add = (label, fn, cls = '') => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = fn; acts.appendChild(b); };
   if (invMode && invMode.k === 'ident') { add('これを識別', () => { const uid = invMode.uid; closeModals(); doAct({ k: 'use', uid, target: it.uid }); }, 'pri'); add('やめる', () => closeModals()); return; }
   const eq = Object.values(p.eq).includes(it.uid);
-  const use = { potion: '飲む', scroll: '読む', food: '食べる', wand: '振る', throw: '投げる', weapon: eq ? '外す' : '装備', shield: eq ? '外す' : '装備', ring: eq ? '外す' : '装備' }[it.k];
+  const use = { treasure: '調べる', potion: '飲む', scroll: '読む', food: '食べる', wand: '振る', throw: '投げる', weapon: eq ? '外す' : '装備', shield: eq ? '外す' : '装備', ring: eq ? '外す' : '装備' }[it.k];
   add(use, () => { closeModals(); if (it.id === 's_ident' && G.known.s_ident && p.inv.some(x => x !== it && !C.isKnown(G, x))) { openInv({ k: 'ident', uid: it.uid }); return; } doAct(it.k === 'throw' ? { k: 'throw', uid: it.uid } : { k: 'use', uid: it.uid }); }, 'pri');
   if (it.k !== 'throw') add('投げる', () => { closeModals(); doAct({ k: 'throw', uid: it.uid }); });
   add('置く', () => { closeModals(); doAct({ k: 'drop', uid: it.uid }); });
@@ -410,9 +438,10 @@ function descOf(it) {
   if (d.k === 'shield') return `防御 ${d.v}${kn && it.plus ? `（${it.plus > 0 ? '+' : ''}${it.plus}）` : ''}${!kn ? '　装備するまで強さ（+−）はわからない' : ''}`;
   if (d.k === 'ring') return { atk3: '攻撃 +3', def3: '防御 +3', regen: 'HPの回復が速くなる', belly: 'お腹がへりにくい', sight: 'その階の敵とアイテムが見える' }[d.eff] + (kn && it.cursed ? '（呪われている）' : '');
   if (d.k === 'food') return `お腹 +${d.v}%${d.hp ? `・HP +${d.hp}` : ''}。満腹のときに食べると最大がふえる`;
+  if (d.k === 'treasure') return `お宝。持ち帰って売れば ${d.g}G`;
   if (d.k === 'throw') return `前に投げる。${it.id === 'holywater' ? '亡者に大ダメージ' : `ダメージ ${d.v}`}`;
   if (!kn) return '使うまで何かわからない。投げると敵にかかる';
-  return { p_heal: 'HPを回復。満タンなら最大HPが少しふえる', p_bigheal: 'HPを全回復＋状態異常をなおす', p_str: '力が 1 上がる（毒も消える）', p_life: '最大HP +8', p_xp: 'レベルが 1 上がる', p_poison: '力が下がる。敵に投げるとダメージ', p_confuse: '混乱する。敵に投げると混乱させる', p_sight: 'その階の敵とアイテムが全部見える', s_map: 'その階の地図がわかる', s_thunder: 'まわりの敵に 25 ダメージ', s_sleep: 'まわりの敵を眠らせる', s_weapon: '武器 +1（呪いも解ける）', s_shield: '盾 +1（呪いも解ける）', s_ident: '持ち物を1つ識別する', s_teleport: 'どこかへワープ', s_purify: '呪いを解く', s_fear: 'まわりの敵が逃げだす', w_blow: '向いている方の敵をふきとばす', w_slow: '敵をおそくする', w_bolt: '雷で大ダメージ', w_swap: '敵と場所を入れ替える', w_seal: '敵の特技を封じる' }[it.id] || '';
+  return { p_heal: 'HPを回復。満タンなら最大HPが少しふえる', p_bigheal: 'HPを全回復＋状態異常をなおす', p_str: '力が 1 上がる（毒も消える）', p_life: '最大HP +8', p_xp: 'レベルが 1 上がる', p_poison: '力が下がる。敵に投げるとダメージ', p_confuse: '混乱する。敵に投げると混乱させる', p_sight: 'その階の敵とアイテムが全部見える', s_map: 'その階の地図がわかる', s_thunder: 'まわりの敵に 25 ダメージ', s_sleep: 'まわりの敵を眠らせる', s_weapon: '武器 +1（呪いも解ける）', s_shield: '盾 +1（呪いも解ける）', s_ident: '持ち物を1つ識別する', s_teleport: 'どこかへワープ', s_purify: '呪いを解く', s_fear: 'まわりの敵が逃げだす', s_escape: 'すぐに地上へ帰還する（持ち物を持ち帰れる）', w_blow: '向いている方の敵をふきとばす', w_slow: '敵をおそくする', w_bolt: '雷で大ダメージ', w_swap: '敵と場所を入れ替える', w_seal: '敵の特技を封じる' }[it.id] || '';
 }
 function invKey(e) {
   const n = G.p.inv.length; if (e.code === 'Escape' || e.code === 'KeyI' || e.code === 'Tab') { e.preventDefault(); closeModals(); return; }
@@ -425,10 +454,14 @@ function footMenu() {
   if (!G || busy) return;
   const fi = G.items.find(i => i.x === G.p.x && i.y === G.p.y);
   if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y) { askStairs(); return; }
+  if (onExit()) { askExit(); return; }
   if (fi) doAct({ k: 'pick' }); else { log('足元には何もない'); }
 }
-function askStairs() { stairsAsk = true; $('stairsAsk').hidden = false; }
-$('sYes').onclick = () => { stairsAsk = false; $('stairsAsk').hidden = true; doAct({ k: 'stairs' }); };
+let askK = 'stairs';
+function askStairs() { askK = 'stairs'; $('askTxt').textContent = '階段がある。下りる？'; $('sYes').textContent = '下りる'; stairsAsk = true; $('stairsAsk').hidden = false; }
+function askExit() { askK = 'extract'; $('askTxt').innerHTML = `帰還の魔法陣だ。地上に帰る？<br><small style="opacity:.75">持ち物（${G.p.inv.length}個）を倉庫に持ち帰れる</small>`; $('sYes').textContent = '帰還する'; stairsAsk = true; $('stairsAsk').hidden = false; }
+const onExit = () => G.exit && G.p.x === G.exit.x && G.p.y === G.exit.y;
+$('sYes').onclick = () => { stairsAsk = false; $('stairsAsk').hidden = true; doAct({ k: askK }); };
 $('sNo').onclick = () => { stairsAsk = false; $('stairsAsk').hidden = true; };
 
 // ---------- セーブ・ゲームオーバー ----------
@@ -436,31 +469,45 @@ let saveT = 0;
 function save() { if (!G || BOT) return; if (G.over) { try { localStorage.removeItem(SAVE); } catch (e) {} return; } if (G.floor !== lastFloor || ++saveT >= 8) { saveT = 0; lastFloor = G.floor; try { localStorage.setItem(SAVE, C.serialize(G)); } catch (e) {} } }
 addEventListener('pagehide', () => { if (G && !G.over && !BOT) try { localStorage.setItem(SAVE, C.serialize(G)); } catch (e) {} });
 function gameOver() {
-  rec.runs++; rec.kills += G.stats.kills; if (G.win) rec.wins++; const fl = G.win ? C.FLOORS : G.floor; if (fl > rec.best) rec.best = fl;
-  rec.deaths.unshift({ f: fl, lv: G.p.lv, cause: G.win ? '制覇' : G.cause, d: Date.now() }); rec.deaths = rec.deaths.slice(0, 10); saveRec();
+  const ext = !!G.extracted;
+  rec.runs++; rec.kills += G.stats.kills; if (G.win) rec.wins++; const fl = G.stats.maxFloor; if (fl > rec.best) rec.best = fl;
+  rec.deaths.unshift({ f: fl, lv: G.p.lv, cause: G.win ? '制覇' : ext ? '帰還' : G.cause, d: Date.now() }); rec.deaths = rec.deaths.slice(0, 10); saveRec();
   if (window.GAMES_RANK) GAMES_RANK.report('naraku', rec.best);
   stopAuto();
-  // 魂
-  let newM = 0; for (const [mid, n] of Object.entries(G.stats.killsBy || {})) { if (!meta.dex.m[mid]) newM++; meta.dex.m[mid] = (meta.dex.m[mid] || 0) + n; }
-  for (const it of G.p.inv) if (C.isKnown(G, it)) meta.dex.i[it.id] = 1;
-  const parts = [['到達', G.stats.maxFloor * 8], ['たおした敵', G.stats.kills * 2]];
-  if (G.stats.maxFloor > 10) parts.push(['骸骨王', 60]); if (G.win) parts.push(['制覇', 300]); if (newM) parts.push([`新しい敵 ${newM}種`, newM * 10]);
-  let souls = parts.reduce((a, b) => a + b[1], 0); souls = Math.round(souls * (1 + upLv('soul') * 0.1));
-  const dailyBonus = G.daily && meta.daily.date === today() && !meta.daily.done; if (G.daily && meta.daily.date === today()) meta.daily.done = true; if (dailyBonus) souls *= 2;
-  meta.souls += souls; saveMeta();
-  const soulTxt = `👻 魂 +${souls}${dailyBonus ? '（今日の奈落 2倍！）' : ''}`;
+  for (const [mid, n] of Object.entries(G.stats.killsBy || {})) meta.dex.m[mid] = (meta.dex.m[mid] || 0) + n;
+  let body = '', title;
+  const inv = G.p.inv.map(strip);
+  const total = inv.reduce((a, o) => a + price(o), 0);
+  if (ext) {
+    for (const o of inv) meta.dex.i[o.id] = 1;
+    title = G.win ? '奈落を制し、生還した！' : '帰還成功！';
+    let sold = 0, bonusG = 0;
+    for (const o of inv) { if (meta.stash.length < stashCap()) meta.stash.push(o); else sold += price(o); }
+    if (G.daily && meta.daily.date === today() && !meta.daily.done) { bonusG = 200; meta.daily.done = true; }
+    if (G.win) bonusG += 2000;
+    meta.gold += sold + bonusG; meta.runsOk = (meta.runsOk || 0) + 1;
+    body = `<div class="loot">${inv.map(o => `<div><span>${KIND_IC[o.k]} ${oName(o)}</span><b>${price(o)}G</b></div>`).join('') || '<div>手ぶらで帰ってきた</div>'}</div>
+      <div class="sum">持ち帰った価値 <b>${total}G</b>${sold ? `<br><small>倉庫がいっぱい → ${sold}G で売った</small>` : ''}${bonusG ? `<br><small>ボーナス +${bonusG}G${G.win ? '（制覇）' : '（今日の奈落）'}</small>` : ''}</div>
+      <small style="opacity:.7">ぜんぶ鑑定して倉庫に入れた</small>`;
+  } else {
+    if (G.daily && meta.daily.date === today()) meta.daily.done = true;
+    title = 'あなたは力つきた…';
+    body = `<div class="sum lost">持ち物 ${inv.length}個（${total}G）は<br>奈落に消えた…</div>`;
+  }
+  saveMeta();
   setTimeout(() => {
-    $('over').hidden = false; $('ovTitle').textContent = G.win ? '奈落を制した！' : 'あなたは力つきた…';
-    $('ovBody').innerHTML = [['到達', `地下${G.floor}階`], ['原因', G.win ? '奈落の主をたおした' : G.cause], ['レベル', G.p.lv], ['たおした敵', G.stats.kills], ['ターン', G.stats.turns], ['最高記録', `地下${rec.best}階`]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('') + `<span></span><b></b><span style="grid-column:span 2;color:#c8a0ff;font-size:18px;opacity:1;text-align:center">${soulTxt}<br><small style="opacity:.7;font-size:12px">${parts.map(([a, b]) => a + ' ' + b).join('　')}${upLv('soul') ? `　×${(1 + upLv('soul') * 0.1).toFixed(1)}` : ''}</small><br><small style="font-size:13px">篝火で強くなれる（手持ち ${meta.souls}）</small></span>`;
-  }, 900);
+    $('over').hidden = false; $('ovTitle').textContent = title; $('ovTitle').style.color = ext ? '#80ffc0' : '';
+    $('ovBody').innerHTML = [['到達', `地下${G.stats.maxFloor}階`], ['原因', ext ? (G.win ? '奈落の主をたおした' : G.cause + 'で帰還') : G.cause], ['レベル', G.p.lv], ['たおした敵', G.stats.kills]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('');
+    $('ovLoot').innerHTML = body;
+  }, ext ? 700 : 900);
 }
 function newRun(load, daily) {
   if (load) { try { G = C.deserialize(localStorage.getItem(SAVE)); } catch (e) { G = null; } }
-  if (!G) { if (daily) { meta.daily = { date: today(), done: false }; saveMeta(); } G = C.newGame(daily ? +today() * 7919 % 2147483647 : undefined, Object.assign(bonus(), { daily: !!daily })); }
+  if (!G) { if (daily) { meta.daily = { date: today(), done: false }; } const items = depart(); saveMeta(); G = C.newGame(daily ? +today() * 7919 % 2147483647 : undefined, Object.assign(bonus(), { daily: !!daily, items })); }
   lastFloor = 0; document.body.classList.add('playing'); $('title').hidden = true; $('over').hidden = true; $('hud').hidden = false; $('log').innerHTML = '';
   buildFloor(); hud(); log(load ? `地下${G.floor}階から再開` : daily ? '今日の奈落に足をふみいれた…（みんな同じマップ）' : '奈落の迷宮に足をふみいれた…');
   if (!load && isTouch) log('行きたい場所をタップで移動、🔍で自動探索');
-  if (!load) log('目標：地下20階の「奈落の主」をたおすこと');
+  if (!load) log(G.exit ? '帰還の魔法陣がこの階のどこかにある' : '帰還の魔法陣を探して、拾った物を持ち帰ろう');
 }
 function openMenu() { $('menu').hidden = false; $('mStat').innerHTML = [['攻撃', C.pAtk(G)], ['防御', C.pDef(G)], ['経験', `${G.p.xp}/${C.xpNeed(G.p.lv)}`], ['お腹の最大', G.p.mbelly + '%'], ['たおした敵', G.stats.kills], ['ターン', G.stats.turns]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join(''); $('mMute').textContent = muted ? '🔇 音：なし' : '🔊 音：あり'; $('mPad').textContent = meta.pad ? '✚ 十字キー：あり' : '✚ 十字キー：なし'; }
 $('mPad').onclick = () => { meta.pad = !meta.pad; saveMeta(); applyPad(); openMenu(); };
@@ -471,15 +518,14 @@ $('mHelp').onclick = () => { $('menu').hidden = true; $('help').hidden = false; 
 $('hBack').onclick = () => closeModals();
 $('mMute').onclick = () => { muted = !muted; localStorage.setItem('naraku-mute', muted ? '1' : '0'); openMenu(); };
 $('mTitle').onclick = () => { if (G && !G.over) try { localStorage.setItem(SAVE, C.serialize(G)); } catch (e) {} closeModals(); toTitle(); };
-$('mGiveup').onclick = () => { if (!confirm('この冒険をあきらめる？（記録は残る）')) return; closeModals(); G.over = true; G.cause = 'あきらめた'; save(); gameOver(); };
+$('mGiveup').onclick = () => { if (!confirm('この冒険をあきらめる？（持ち物はすべて失う）')) return; closeModals(); G.over = true; G.cause = 'あきらめた'; save(); gameOver(); };
 document.querySelectorAll('#gfx button').forEach(b => { b.classList.toggle('on', +b.dataset.g === GQ); b.onclick = () => { localStorage.setItem('naraku-gq', b.dataset.g); if (G && !G.over) try { localStorage.setItem(SAVE, C.serialize(G)); } catch (e) {} location.reload(); }; });
-$('ovNew').onclick = () => { G = null; newRun(false); };
-$('ovCamp').onclick = () => { toTitle(); openCamp(); };
+$('ovNew').onclick = () => { toTitle(); openPrep(); };
 $('ovTitle2').onclick = () => toTitle();
 function openCamp() {
-  $('camp').hidden = false; $('cSouls').textContent = meta.souls;
-  $('cList').innerHTML = UPG.map(u => { const l = upLv(u.k), mx = l >= u.max, c = u.cost(l); return `<div class="up"><span class="ic">${u.ic}</span><div><b>${u.nm}</b> <small>Lv${l}/${u.max}</small><br><small>${mx ? u.d(l) : `次：${u.d(l + 1)}`}</small></div><button data-k="${u.k}" ${mx || meta.souls < c ? 'disabled' : ''}>${mx ? '最大' : `👻${c}`}</button></div>`; }).join('');
-  $('cList').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => { const u = UPG.find(x => x.k === b.dataset.k), l = upLv(u.k), c = u.cost(l); if (meta.souls < c || l >= u.max) return; meta.souls -= c; meta.up[u.k] = l + 1; saveMeta(); sfx.lvup(); openCamp(); toTitle(); });
+  $('camp').hidden = false; $('cSouls').textContent = meta.gold;
+  $('cList').innerHTML = UPG.map(u => { const l = upLv(u.k), mx = l >= u.max, c = u.cost(l); return `<div class="up"><span class="ic">${u.ic}</span><div><b>${u.nm}</b> <small>Lv${l}/${u.max}</small><br><small>${mx ? u.d(l) : `次：${u.d(l + 1)}`}</small></div><button data-k="${u.k}" ${mx || meta.gold < c ? 'disabled' : ''}>${mx ? '最大' : `${c}G`}</button></div>`; }).join('');
+  $('cList').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => { const u = UPG.find(x => x.k === b.dataset.k), l = upLv(u.k), c = u.cost(l); if (meta.gold < c || l >= u.max) return; meta.gold -= c; meta.up[u.k] = l + 1; saveMeta(); sfx.lvup(); openCamp(); toTitle(); });
 }
 function openDex() {
   $('dex').hidden = false;
@@ -489,12 +535,56 @@ function openDex() {
   $('dMon').innerHTML = ms.map(([k, d]) => meta.dex.m[k] ? `<div class="dc"><b>${d.nm}</b><small>HP${d.hp} 攻${d.atk}　たおした ${meta.dex.m[k]}</small></div>` : `<div class="dc no"><b>？？？</b><small>${d.boss ? 'ボス' : `地下${d.f ? d.f[0] : '?'}階〜`}</small></div>`).join('');
   $('dIt').innerHTML = its.map(([k, d]) => meta.dex.i[k] ? `<div class="dc"><b>${KIND_IC[d.k]} ${d.nm}</b></div>` : `<div class="dc no"><b>${KIND_IC[d.k]} ？？？</b></div>`).join('');
 }
-$('tCamp').onclick = () => openCamp(); $('cBack').onclick = () => { $('camp').hidden = true; };
+$('tCamp').onclick = () => openCamp(); $('cBack').onclick = () => { $('camp').hidden = true; toTitle(); };
 $('tDex').onclick = () => openDex(); $('dBack').onclick = () => { $('dex').hidden = true; };
-$('tDaily').onclick = () => { ac(); if (meta.daily.date === today() && meta.daily.done) return; if (localStorage.getItem(SAVE) && !confirm('いまの冒険は消えます。今日の奈落に潜る？')) return; localStorage.removeItem(SAVE); G = null; newRun(false, true); };
-function toTitle() { document.body.classList.remove('playing'); stopAuto(); $('hud').hidden = true; $('over').hidden = true; $('title').hidden = false; const has = !!localStorage.getItem(SAVE); $('tCont').hidden = !has; const dd = meta.daily.date === today() && meta.daily.done; $('tDaily').disabled = dd; $('tDaily').innerHTML = dd ? '📅 今日の奈落：挑戦ずみ（また明日）' : '📅 今日の奈落 <small>魂2倍・1日1回</small>'; $('tSouls').textContent = `👻 ${meta.souls}`; $('tRec').innerHTML = `最高記録 地下${rec.best}階　冒険 ${rec.runs}回　制覇 ${rec.wins}回` + (rec.deaths.length ? '<br><span style="opacity:.7">' + rec.deaths.slice(0, 3).map(d => `B${d.f}F Lv${d.lv}「${d.cause}」`).join('　') + '</span>' : ''); }
-$('tNew').onclick = () => { ac(); if (localStorage.getItem(SAVE) && !confirm('いまの冒険は消えます。新しく潜る？')) return; localStorage.removeItem(SAVE); G = null; newRun(false); };
-$('tCont').onclick = () => { ac(); newRun(true); };
+function toTitle() { document.body.classList.remove('playing'); stopAuto(); $('hud').hidden = true; $('over').hidden = true; $('title').hidden = false; const has = !!localStorage.getItem(SAVE); $('tCont').hidden = !has; $('tPrep').hidden = has; $('tGold').innerHTML = `💰 ${meta.gold}G　<span style="opacity:.75;font-size:15px">📦 倉庫 ${meta.stash.length}/${stashCap()}</span>`; $('tRec').innerHTML = `最高記録 地下${rec.best}階　帰還 ${meta.runsOk || 0}回　冒険 ${rec.runs}回` + (rec.deaths.length ? '<br><span style="opacity:.7">' + rec.deaths.slice(0, 3).map(d => `B${d.f}F Lv${d.lv}「${d.cause}」`).join('　') + '</span>' : ''); }
+// ---- 出撃準備 ----
+let bag = new Set(), supply = true;
+const KORD = ['weapon', 'shield', 'ring', 'treasure', 'potion', 'scroll', 'wand', 'throw', 'food'];
+const kindOrder = o => KORD.indexOf(o.k) * 100000 - price(o);
+function openPrep() {
+  $('prep').hidden = false;
+  bag = new Set([...bag].filter(i => i < meta.stash.length));
+  const n = bag.size + (supply ? SUPPLY.length : 0);
+  $('pBagN').textContent = `${n}/18`;
+  $('pStashN').textContent = `${meta.stash.length}/${stashCap()}`;
+  $('pSupply').classList.toggle('on', supply);
+  const row = (o, i, inBag) => `<button class="si${inBag ? ' in' : ''}" data-i="${i}"><span>${KIND_IC[o.k]}</span><b>${oName(o)}</b><small>${price(o)}G</small></button>`;
+  const idx = meta.stash.map((o, i) => i).sort((a, b) => kindOrder(meta.stash[a]) - kindOrder(meta.stash[b]));
+  $('pBag').innerHTML = ((supply ? SUPPLY.map(id => `<div class="si sup"><span>${KIND_IC[ITEMS[id].k]}</span><b>${ITEMS[id].nm}</b><small>支給</small></div>`).join('') : '') + idx.filter(i => bag.has(i)).map(i => row(meta.stash[i], i, true)).join('')) || '<p class="empty">なにも持っていない（素手）</p>';
+  $('pStash').innerHTML = idx.filter(i => !bag.has(i)).map(i => row(meta.stash[i], i, false)).join('') || '<p class="empty">倉庫はからっぽ</p>';
+  const risk = [...bag].reduce((a, i) => a + price(meta.stash[i]), 0);
+  $('pRisk').textContent = risk ? `⚠ 力つきると持っていった物（${risk}G分）はなくなる` : '⚠ 力つきると持っていった物はなくなる';
+  document.querySelectorAll('#prep .si[data-i]').forEach(b => b.onclick = () => { const i = +b.dataset.i; if (bag.has(i)) bag.delete(i); else { if (bag.size + (supply ? SUPPLY.length : 0) >= 18) { toast('持ち物は18個まで'); return; } bag.add(i); } openPrep(); });
+  const dd = meta.daily.date === today() && meta.daily.done; $('pDaily').disabled = dd; $('pDaily').innerHTML = dd ? '📅 今日の奈落：挑戦ずみ' : '📅 今日の奈落で出撃 <small>帰還で +200G・1日1回</small>';
+}
+function depart() { const sel = [...bag].sort((a, b) => b - a); const items = []; for (const i of sel) items.push(meta.stash.splice(i, 1)[0]); bag = new Set(); if (supply) for (const id of SUPPLY) items.push(Object.assign(freshItem(id), { sup: true })); return items.reverse(); }
+$('pSupply').onclick = () => { if (!supply && bag.size + SUPPLY.length > 18) { toast('持ち物がいっぱい'); return; } supply = !supply; openPrep(); };
+$('pGo').onclick = () => { ac(); $('prep').hidden = true; G = null; newRun(false); };
+$('pDaily').onclick = () => { ac(); $('prep').hidden = true; G = null; newRun(false, true); };
+$('pBack').onclick = () => { $('prep').hidden = true; };
+$('tPrep').onclick = () => openPrep();
+// ---- 商人 ----
+let shopTab = 'buy';
+function openShop() {
+  $('shop').hidden = false; $('shGold').textContent = meta.gold; $('shStash').textContent = `${meta.stash.length}/${stashCap()}`;
+  $('shBuyT').classList.toggle('on', shopTab === 'buy'); $('shSellT').classList.toggle('on', shopTab === 'sell');
+  if (shopTab === 'buy') {
+    $('shList').innerHTML = SHOP.map(id => { const c = buyPrice(id), o = freshItem(id); return `<button class="si" data-b="${id}" ${meta.gold < c ? 'disabled' : ''}><span>${KIND_IC[o.k]}</span><b>${oName(o)}</b><small>${c}G</small></button>`; }).join('');
+    $('shList').querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const id = b.dataset.b, c = buyPrice(id); if (meta.gold < c) return; if (meta.stash.length >= stashCap()) { toast('倉庫がいっぱい'); return; } meta.gold -= c; meta.stash.push(freshItem(id)); saveMeta(); sfx.pick(); openShop(); });
+    $('shAll').hidden = true;
+  } else {
+    const idx = meta.stash.map((o, i) => i).sort((a, b) => kindOrder(meta.stash[a]) - kindOrder(meta.stash[b]));
+    $('shList').innerHTML = idx.map(i => { const o = meta.stash[i]; return `<button class="si" data-s="${i}"><span>${KIND_IC[o.k]}</span><b>${oName(o)}</b><small>${price(o)}G で売る</small></button>`; }).join('') || '<p class="empty">倉庫はからっぽ</p>';
+    $('shList').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { const i = +b.dataset.s, o = meta.stash[i]; if (!o) return; if (price(o) >= 300 && !confirm(`${oName(o)} を ${price(o)}G で売る？`)) return; meta.stash.splice(i, 1); bag = new Set(); meta.gold += price(o); saveMeta(); sfx.pick(); openShop(); });
+    const tr = meta.stash.filter(o => o.k === 'treasure'); $('shAll').hidden = !tr.length; $('shAll').textContent = `💰 お宝をぜんぶ売る（${tr.reduce((a, o) => a + price(o), 0)}G）`;
+  }
+}
+$('shAll').onclick = () => { let g = 0; meta.stash = meta.stash.filter(o => { if (o.k === 'treasure') { g += price(o); return false; } return true; }); bag = new Set(); meta.gold += g; saveMeta(); sfx.lvup(); openShop(); };
+$('shBuyT').onclick = () => { shopTab = 'buy'; openShop(); }; $('shSellT').onclick = () => { shopTab = 'sell'; openShop(); };
+$('shBack').onclick = () => { $('shop').hidden = true; toTitle(); };
+$('tShop').onclick = () => openShop();
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 1600); }
 $('tHelp').onclick = () => { $('help').hidden = false; };
 
 // ---------- テスト用ボット ----------
