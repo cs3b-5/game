@@ -53,6 +53,7 @@
       } catch (e) { why = 'E'; return false; }
     }
     const col = (g, d) => 'rk_' + g + (d ? '_day' : '');
+    const saves = () => db.collection('data/users/' + uid);
     return {
       kind: 'claude', get uid() { return uid; }, get why() { return why; },
       on: async () => { if (db) return true; if (!ready) ready = init().then(ok => { if (!ok) ready = null; return ok; }); return ready; },
@@ -66,6 +67,9 @@
         await db.doc('accounts/' + uid).set({ name, key, at: Date.now() });
         return { ok: true };
       },
+      canSync: () => !!db,
+      async pullSaves() { const q = await saves().get(); const o = {}; q.docs.forEach(d => { const v = d.data(); if (v && typeof v.k === 'string') o[v.k] = v; }); return o; },
+      async pushSave(k, v, t) { await saves().doc(hex(k)).set({ k, v, t }); },
       async getMine(g, d) { const r = await db.doc(`${col(g, d)}/${uid}`).get(); if (!r.exists) return null; const v = r.data(); return d && v.day !== d ? null : v; },
       async put(g, v, d) { await db.doc(`${col(g, d)}/${uid}`).set(d ? { ...v, day: d } : v); },
       async list(g, d) {
@@ -110,6 +114,9 @@
       // ---- 合言葉（ほかの端末でも同じ名前を使う） ----
       // 本物のメールは使わない。中で作った住所（ID@players.shima-games.invalid）と合言葉で、同じアカウントに入れるようにする
       hasPass() { return !!(auth && auth.currentUser && !auth.currentUser.isAnonymous); },
+      canSync() { return this.hasPass(); },
+      async pullSaves() { const q = await F.getDocs(F.collection(fs, 'saves', uid, 'keys')); const o = {}; q.docs.forEach(d => { const v = d.data(); if (v && typeof v.k === 'string') o[v.k] = v; }); return o; },
+      async pushSave(k, v, t) { await F.setDoc(F.doc(fs, 'saves', uid, 'keys', hex(k)), { k, v, t }); },
       async setPass(pass) {
         const u = auth.currentUser, mail = u.email || `${uid.toLowerCase()}@players.shima-games.invalid`;
         if (u.isAnonymous) await A.linkWithCredential(u, A.EmailAuthProvider.credential(mail, pass));
@@ -308,7 +315,7 @@
     if (!(await B.on())) return { ok: false, why: 'つながっていません' };
     if (!(await myName())) return { ok: false, why: '先に名前を決めてね' };
     if (!p || p.length < 6) return { ok: false, why: '合言葉は6文字以上にしてね' };
-    try { await B.setPass(p); return { ok: true }; }
+    try { await B.setPass(p); syncNow(); return { ok: true }; }
     catch (e) { return { ok: false, why: /operation-not-allowed/.test(e.code || '') ? 'Firebase の「メール/パスワード」がまだオフみたい' : /weak-password/.test(e.code || '') ? '合言葉が短すぎるよ' : /requires-recent-login/.test(e.code || '') ? 'もう一度ログインしなおしてから変えてね' : '設定できなかった（' + (e.code || e.message) + '）' }; }
   }
   async function login(name, p) {
@@ -320,5 +327,55 @@
     const b = ls.get(BEST, {}); for (const k in b) { b[k].sent = false; queue[k.replace('@', '')] = 1; } ls.set(BEST, b); flush();
     return r;
   }
-  window.GAMES_RANK = { setPass, login, hasPass: () => !!(B.hasPass && B.hasPass()), today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
+  // ================= セーブの同期（ほかの端末へ持っていく） =================
+  // ゲームのセーブ（localStorage）のうち、下の名前で始まるものだけ。名前（games-account）は送らない
+  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'arashi-ken', 'games-rank-best'];
+  const META_K = 'games-sync';
+  const syncKeys = () => { const ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SYNC_PREFIX.some(p => k.startsWith(p))) ks.push(k); } } catch (e) {} return ks; };
+  const raw = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const hash = v => { let h = 0; for (let i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) | 0; return v.length + ':' + h; };
+  let syncOn = false, dirty = {}, pushing = false;
+  // 変わったセーブをさがす（数秒ごと）
+  function scan(markAll) {
+    const m = ls.get(META_K, { t: {}, h: {} }); let ch = false;
+    for (const k of syncKeys()) { const v = raw(k); if (v === null) continue; const h = hash(v); if (markAll || m.h[k] !== h) { m.h[k] = h; m.t[k] = markAll && m.t[k] ? m.t[k] : Date.now(); dirty[k] = 1; ch = true; } }
+    if (ch) ls.set(META_K, m);
+  }
+  async function push() {
+    if (pushing || !syncOn) return; const ks = Object.keys(dirty); if (!ks.length) return; pushing = true;
+    try { const m = ls.get(META_K, { t: {}, h: {} }); for (const k of ks) { const v = raw(k); if (v === null || v.length > 900000) { delete dirty[k]; continue; } await B.pushSave(k, v, m.t[k] || Date.now()); delete dirty[k]; } }
+    catch (e) { console.warn('sync push', e); } finally { pushing = false; }
+  }
+  // クラウドから持ってくる。force なら、このPCのセーブより新しくなくても上書き。変わったら true
+  async function pull(force) {
+    const remote = await B.pullSaves(), m = ls.get(META_K, { t: {}, h: {} }); let ch = false;
+    for (const [k, r] of Object.entries(remote)) {
+      if (!SYNC_PREFIX.some(p => k.startsWith(p)) || typeof r.v !== 'string') continue;
+      if (force || (r.t || 0) > (m.t[k] || 0)) { if (raw(k) !== r.v) { try { localStorage.setItem(k, r.v); ch = true; } catch (e) {} } m.t[k] = r.t || Date.now(); m.h[k] = hash(r.v); }
+    }
+    ls.set(META_K, m); return ch;
+  }
+  async function startSync() {
+    // この端末で「同期する」と決めたときだけ（勝手に上書きしないため）
+    if (syncOn || !ls.get(META_K, {}).on || !(await B.on()) || !B.canSync || !B.canSync()) return;
+    syncOn = true;
+    try {
+      const ch = await pull(false);
+      // ゲームの画面で、ほかの端末のほうが新しかったら読みこみ直す（ゲーム一覧の画面はそのまま）
+      if (ch && !document.getElementById('accDlg')) { location.reload(); return; }
+    } catch (e) { console.warn('sync pull', e); }
+    scan(false); push();
+    setInterval(() => { scan(false); push(); }, 5000);
+    addEventListener('pagehide', () => { scan(false); push(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { scan(false); push(); } });
+  }
+  // 合言葉を決めた直後：このPCのセーブを全部クラウドへ
+  const turnOn = () => { const m = ls.get(META_K, { t: {}, h: {} }); m.on = true; ls.set(META_K, m); };
+  async function syncNow() { if (!(await B.on()) || !B.canSync()) return false; turnOn(); scan(true); syncOn = false; await startSync(); scan(true); await push(); return true; }
+  // ログインした直後：クラウドのセーブで、このPCのセーブを上書きする
+  async function syncTakeCloud() { if (!(await B.on()) || !B.canSync()) return false; await pull(true); turnOn(); await startSync(); return true; }
+  const syncing = () => !!ls.get(META_K, {}).on;
+  setTimeout(() => { startSync(); }, 1500);
+
+  window.GAMES_RANK = { syncNow, syncTakeCloud, syncing, setPass, login, hasPass: () => !!(B.hasPass && B.hasPass()), today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
 })();

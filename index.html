@@ -338,15 +338,32 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
   function msg(t, cls) { $('accMsg').textContent = t || ''; $('accMsg').className = 'accMsg' + (cls ? ' ' + cls : ''); }
   // ほかの端末でも使う（GitHub 版：合言葉）
   function multi() {
-    const box = $('accMulti'); if (!window.GAMES_RANK || GAMES_RANK.kind !== 'firebase') { box.hidden = true; return; }
+    const box = $('accMulti'); if (!window.GAMES_RANK) { box.hidden = true; return; }
+    if (GAMES_RANK.kind === 'claude') { // claude.ai：同じClaudeアカウントなら、セーブの同期をオンにするだけ
+      box.hidden = false;
+      box.innerHTML = GAMES_RANK.syncing() ? `<h3>☁ セーブの同期</h3><p class="ok">オン。ゲームのセーブは、同じClaudeアカウントのほかの端末と自動で同期されるよ。</p>`
+        : `<h3>☁ セーブの同期</h3><p>同じClaudeアカウントのほかの端末と、ゲームのセーブを同期できる。はじめに、どっちのセーブを使うか選んでね。</p><div class="r" style="flex-wrap:wrap;justify-content:flex-end"><button type="button" id="sgUp">このPCのセーブを使う</button><button type="button" id="sgDown">クラウドのセーブを持ってくる</button></div><div class="m" id="mlMsg"></div>`;
+      const up = $('sgUp'); if (up) up.onclick = async () => { $('mlMsg').textContent = '同期中…'; const ok = await GAMES_RANK.syncNow(); $('mlMsg').textContent = ok ? 'このPCのセーブをクラウドに入れたよ' : 'つながらなかった'; setTimeout(multi, 1500); };
+      const dn = $('sgDown'); if (dn) dn.onclick = async () => { $('mlMsg').textContent = '持ってきています…'; const ok = await GAMES_RANK.syncTakeCloud(); $('mlMsg').textContent = ok === false ? 'クラウドにまだセーブがないか、つながらなかった' : 'クラウドのセーブを持ってきたよ'; setTimeout(multi, 1500); };
+      return;
+    }
+    if (GAMES_RANK.kind !== 'firebase') { box.hidden = true; return; }
     box.hidden = false; const a = local(), has = GAMES_RANK.hasPass();
     box.innerHTML = `<h3>📱 ほかの端末でも使う</h3>` +
-      (a && a.name ? (has ? `<p class="ok">「${a.name.replace(/[<>&]/g, '')}」には合言葉が設定してあるよ。ほかの端末では下の「ログイン」から入れる。</p><div class="r"><input id="pwNew" type="password" placeholder="新しい合言葉（6文字以上）" autocomplete="new-password"><button type="button" id="pwSet">変える</button></div>`
-        : `<p>合言葉を決めると、ほかの端末でも同じ名前・同じランキングの記録で遊べる。</p><div class="r"><input id="pwNew" type="password" placeholder="合言葉（6文字以上）" autocomplete="new-password"><button type="button" id="pwSet">決める</button></div>`) : '') +
+      (a && a.name ? (has ? `<p class="ok">「${a.name.replace(/[<>&]/g, '')}」には合言葉が設定してあるよ。ゲームのセーブも自動でクラウドに同期中。ほかの端末では下の「ログイン」から入れる。</p><div class="r"><input id="pwNew" type="password" placeholder="新しい合言葉（6文字以上）" autocomplete="new-password"><button type="button" id="pwSet">変える</button></div>`
+        : `<p>合言葉を決めると、ほかの端末でも同じ名前・ランキングの記録・ゲームのセーブで続きから遊べる。</p><div class="r"><input id="pwNew" type="password" placeholder="合言葉（6文字以上）" autocomplete="new-password"><button type="button" id="pwSet">決める</button></div>`) : '') +
       `<p>前の端末で決めた名前で入る：</p><div class="r"><input id="lgName" placeholder="名前" autocomplete="off"><input id="lgPw" type="password" placeholder="合言葉" autocomplete="current-password"></div><div class="r" style="justify-content:flex-end"><button type="button" id="lgGo">ログイン</button></div><div class="m" id="mlMsg"></div>`;
     const m = t => { $('mlMsg').textContent = t; };
     const set = $('pwSet'); if (set) set.onclick = async () => { m('設定中…'); const r = await GAMES_RANK.setPass($('pwNew').value); if (r.ok) { m('合言葉を設定したよ！ 忘れないようにメモしておいてね'); setTimeout(multi, 1200); } else m(r.why); };
-    $('lgGo').onclick = async () => { m('ログイン中…'); const r = await GAMES_RANK.login($('lgName').value, $('lgPw').value); if (r.ok) { saveLocal({ name: r.name, key: norm(r.name), shared: true }); paint(); m(`「${r.name}」でログインしたよ！`); $('accIn').value = r.name; setTimeout(multi, 1200); } else m(r.why); };
+    $('lgGo').onclick = async () => {
+      m('ログイン中…'); const r = await GAMES_RANK.login($('lgName').value, $('lgPw').value);
+      if (!r.ok) { m(r.why); return; }
+      saveLocal({ name: r.name, key: norm(r.name), shared: true }); paint(); $('accIn').value = r.name;
+      // セーブを持ってくるか聞く
+      $('mlMsg').innerHTML = `「${r.name.replace(/[<>&]/g, '')}」でログインしたよ！<br>前の端末のゲームのセーブを、このPCに持ってくる？（このPCのセーブは上書きされる）<div class="r" style="justify-content:flex-end;margin-top:6px"><button type="button" id="sgNo">持ってこない</button><button type="button" id="sgYes" style="background:#8fd8ff;color:#111318">持ってくる</button></div>`;
+      $('sgNo').onclick = () => { GAMES_RANK.syncNow(); m('このPCのセーブを使うよ。これからは自動で同期される'); setTimeout(multi, 1500); };
+      $('sgYes').onclick = async () => { m('持ってきています…'); try { await GAMES_RANK.syncTakeCloud(); m('セーブを持ってきたよ！ これからは自動で同期される'); } catch (e) { m('持ってこれなかった（' + (e.code || e.message) + '）'); } setTimeout(multi, 2000); };
+    };
   }
   function open() { multi(); const a = local(); $('accIn').value = a ? a.name : ''; msg(db && uid || (window.GAMES_RANK && GAMES_RANK.kind === 'firebase') ? '' : 'この画面では名前はこの端末だけに保存されます'); $('accDlg').hidden = false; setTimeout(() => $('accIn').focus(), 30); }
   function close() { $('accDlg').hidden = true; }
