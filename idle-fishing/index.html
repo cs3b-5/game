@@ -194,7 +194,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 <div id="modal" class="modal" hidden></div>
 
 <script src="../rank.js"></script>
-<script src="core.js?v=20261112g"></script>
+<script src="core.js?v=20261113a"></script>
 <script>
 (function () {
 'use strict';
@@ -809,7 +809,7 @@ const RENDER = {
       F.BOSSES.forEach((B, i) => { const won = S.trophy[i], bf = bossFish(i); h += `<button data-b="${i}" class="${won ? 'gold' : 'no'}" style="--rc:${won ? '#b07aff' : '#2a3a50'}">${won ? '<span class="cr">🏆</span>' : ''}<img alt="" src="${fishIcon(bf, !!won)}"><span>${won ? esc(B.nm.replace(/^.*「|」$/g, '')) : '？？？'}</span></button>`; });
       h += '</div>';
     }
-    h += `<p class="note">運が高いほど、レアな魚が出やすくなります。<br>出やすさ（今の運 ${F.luck(S)}）：${(() => { const w = F.weights(S), s = w.reduce((a, b) => a + b, 0); return F.RORDER.filter(r => r !== 'ULT').map((r, i) => `${F.RAR[r].nm} ${(w[i] / s * 100).toFixed(w[i] / s < .01 ? 2 : 1)}%`).join('・'); })()}<br><span style="color:#ff6a6a">究極：1釣りごとに 1/${fmt(1 / F.ULT_CHANCE)}（運や強化では上がらない。その池でしか出ない）</span></p>`;
+    h += `<p class="note">運が高いほど、レアな魚が出やすくなります（高くなるほど効きめはゆるやかに。ノーマルもちゃんと出ます）。<br>出やすさ（今の運 ${F.luck(S)}・効きめ ${Math.round(F.luckEff(S))}/${F.LUCK_CAP}）：${(() => { const w = F.weights(S), s = w.reduce((a, b) => a + b, 0); return F.RORDER.filter(r => r !== 'ULT').map((r, i) => `${F.RAR[r].nm} ${(w[i] / s * 100).toFixed(w[i] / s < .01 ? 2 : 1)}%`).join('・'); })()}<br><span style="color:#ff6a6a">究極：1釣りごとに 1/${fmt(1 / F.ULT_CHANCE)}（運や強化では上がらない。その池でしか出ない）</span></p>`;
     sh.innerHTML = h;
     sh.querySelectorAll('[data-f]').forEach(b => b.onclick = () => fishModal(F.FISH.find(f => f.id === +b.dataset.f)));
     sh.querySelectorAll('[data-b]').forEach(b => b.onclick = () => bossInfo(+b.dataset.b));
@@ -822,7 +822,7 @@ const RENDER = {
       <button class="big gold" id="gAll" style="width:100%;margin-top:8px"></button>
       <div id="gout"></div>
       <table class="odds">${F.GACHA.map(g => `<tr><td><span style="color:${F.RAR[g.r].c}">●</span> ${esc(g.nm)}</td><td>${(g.w / sum * 100).toFixed(0)}%</td></tr>`).join('')}</table>
-      <p class="note">お守り：${S.charm}こ（運+${S.charm}）　帽子：${S.hat}こ（値段+${S.hat * 10}%）</p>`;
+      <p class="note">お守り：${S.charm}こ（運+${S.charm}）・かけら ${S.charmFrag || 0}/10　帽子：${S.hat}こ（値段+${S.hat * 10}%）</p>`;
     const go = n => {
       const res = []; for (let i = 0; i < n; i++) { const g = F.gacha(S, Math.random); if (!g) break; res.push(g); }
       if (!res.length) return;
@@ -839,7 +839,7 @@ const RENDER = {
     sh.querySelector('#g10').onclick = () => go(10);
     sh.querySelector('#gAll').onclick = () => go(Math.floor(S.pearls / F.GACHA_COST));
     refresh = () => { sh.querySelector('#g1').disabled = S.pearls < F.GACHA_COST; sh.querySelector('#g10').disabled = S.pearls < F.GACHA_COST * 10;
-      { const n = Math.floor(S.pearls / F.GACHA_COST), b = sh.querySelector('#gAll'); b.disabled = n < 1; b.textContent = n >= 1 ? `ぜんぶ引く（${fmt(n)}回・真珠${fmt(n * F.GACHA_COST)}こ）` : 'ぜんぶ引く'; } const n = sh.querySelectorAll('.note')[1]; if (n) n.textContent = `お守り：${S.charm}こ（運+${S.charm}）　帽子：${S.hat}こ（値段+${S.hat * 10}%）`; };
+      { const n = Math.floor(S.pearls / F.GACHA_COST), b = sh.querySelector('#gAll'); b.disabled = n < 1; b.textContent = n >= 1 ? `ぜんぶ引く（${fmt(n)}回・真珠${fmt(n * F.GACHA_COST)}こ）` : 'ぜんぶ引く'; } const n = sh.querySelectorAll('.note')[1]; if (n) n.textContent = `お守り：${S.charm}こ（運+${S.charm}）・かけら ${S.charmFrag || 0}/10　帽子：${S.hat}こ（値段+${S.hat * 10}%）`; };
     refresh();
   },
   omikuji(sh) {

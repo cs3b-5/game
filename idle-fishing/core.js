@@ -70,7 +70,7 @@ const BOSSES = [
 ];
 // 金色の魚：ゴールのあとだけ出る。はじめて釣った種類ごとに、ずっと値段+3%
 const GOLD_CHANCE = 1 / 500;
-function goldChance(S) { return S.cleared ? GOLD_CHANCE * (1 + luck(S) * .01) : 0; }
+function goldChance(S) { return S.cleared ? GOLD_CHANCE * (1 + luckEff(S) * .01) : 0; }
 const goldCount = S => Object.keys(S.gold || {}).length;
 
 // ---------------- 強化 ----------------
@@ -110,8 +110,11 @@ function luck(S) {
   const om = omikujiNow(S);
   return Math.max(0, S.lv.bait + S.charm + Object.keys(S.trophy || {}).length * 2 + buffSum(S, 'luck') + (om ? OMIKUJI.find(o => o.k === om).luck : 0));
 }
+// 運の効きめ：高くなるほどゆるやかに（ノーマルが出なくならないように。上限 LUCK_CAP に近づく）
+const LUCK_CAP = 80;
+function luckEff(S) { const L = luck(S); return LUCK_CAP * (1 - Math.exp(-L / LUCK_CAP)); }
 function weights(S) {
-  const L = luck(S);
+  const L = luckEff(S);
   return RORDER.map(r => RAR[r].w * (1 + L * RAR[r].k));
 }
 function rollRarity(S, rng) {
@@ -280,7 +283,7 @@ const GACHA = [
   { k: 'luck', r: 'R', nm: '運+8（10分）', w: 24 },
   { k: 'value', r: 'R', nm: '値段 ×1.5（10分）', w: 14 },
   { k: 'fever', r: 'SR', nm: 'すぐにフィーバー60秒', w: 9 },
-  { k: 'charm', r: 'UR', nm: 'お守りのかけら（ずっと運+1）', w: 3 },
+  { k: 'charm', r: 'UR', nm: 'お守りのかけら（10こでお守り：ずっと運+1）', w: 3 },
   { k: 'hat', r: 'LR', nm: '名人の帽子（ずっと値段+10%）', w: 1 },
 ];
 function gacha(S, rng) {
@@ -292,7 +295,7 @@ function gacha(S, rng) {
   if (g.k === 'luck') addBuff(S, 'luck', 8, 600);
   if (g.k === 'value') addBuff(S, 'value', .5, 600);
   if (g.k === 'fever') addBuff(S, 'fever', 1, 60);
-  if (g.k === 'charm') S.charm++;
+  if (g.k === 'charm') { S.charmFrag = (S.charmFrag || 0) + 1; if (S.charmFrag >= 10) { S.charmFrag -= 10; S.charm++; g = Object.assign({}, g, { nm: 'お守りのかけらが10こそろった！お守り（ずっと運+1）' }); } }
   if (g.k === 'hat') S.hat++;
   return g;
 }
@@ -357,7 +360,7 @@ function offline(S, secs, rng = Math.random) {
   return { secs, n, coins, pearls, best, got, deeper };
 }
 
-const API = { NFISH, ULT_CHANCE, DREAM, pondMult, depthNeed, BOSSES, bossOf, bossWin, goldChance, goldCount, nextPond, travel, GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
+const API = { LUCK_CAP, luckEff, NFISH, ULT_CHANCE, DREAM, pondMult, depthNeed, BOSSES, bossOf, bossWin, goldChance, goldCount, nextPond, travel, GOAL, RAR, RORDER, PONDS, FISH, UPS, upCost, newState, luck, weights, rollFish, fishValue, valueMult, waitMean, autoRate, fishers, catchesPerSec, avgValue, perSec,
   makeRun, canBuy, buy, WHEEL, spinWheel, spinAll, applyPrize, GACHA, GACHA_COST, gacha, OMIKUJI, drawOmikuji, omikujiNow, canMove, movePond, offline, fever, addBuff, today, CAST, REEL, WINDOW };
 if (typeof module !== 'undefined') module.exports = API; else root.Fish = API;
 })(this);
