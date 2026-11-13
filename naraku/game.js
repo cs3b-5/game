@@ -10,6 +10,21 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 document.body.classList.toggle('touch', isTouch);
 const rec = Object.assign({ best: 0, runs: 0, wins: 0, kills: 0, deaths: [] }, (() => { try { return JSON.parse(localStorage.getItem(REC) || '{}'); } catch (e) { return {}; } })());
 const saveRec = () => { try { localStorage.setItem(REC, JSON.stringify(rec)); } catch (e) {} };
+const META = 'naraku-meta';
+const meta = Object.assign({ souls: 0, up: {}, dex: { m: {}, i: {} }, daily: { date: '', done: false }, pad: false, spd: 1 }, (() => { try { return JSON.parse(localStorage.getItem(META) || '{}'); } catch (e) { return {}; } })());
+const saveMeta = () => { try { localStorage.setItem(META, JSON.stringify(meta)); } catch (e) {} };
+const UPG = [
+  { k: 'hp', ic: '❤️', nm: '体力', d: l => `最大HP +${l * 5}`, max: 10, cost: l => 15 + l * 15 },
+  { k: 'atk', ic: '🗡️', nm: '腕力', d: l => `攻撃 +${l}`, max: 5, cost: l => 40 + l * 45 },
+  { k: 'def', ic: '🛡️', nm: '守り', d: l => `防御 +${l}`, max: 5, cost: l => 40 + l * 45 },
+  { k: 'belly', ic: '🍞', nm: '胃袋', d: l => `お腹の最大 +${l * 10}%`, max: 5, cost: l => 25 + l * 25 },
+  { k: 'kit', ic: '🎒', nm: '持ちこみ', d: l => l ? '最初に持っている：' + KIT.slice(0, l).map(id => ITEMS[id].nm).join('・') : '最初の持ち物がふえる', max: 4, cost: l => 50 + l * 60 },
+  { k: 'soul', ic: '👻', nm: '魂の器', d: l => `もらえる魂 +${l * 10}%`, max: 5, cost: l => 60 + l * 70 },
+];
+const KIT = ['p_heal', 'knife', 's_teleport', 'p_bigheal'];
+const upLv = k => meta.up[k] || 0;
+const bonus = () => ({ hp: upLv('hp') * 5, atk: upLv('atk'), def: upLv('def'), belly: upLv('belly') * 10, kit: KIT.slice(0, upLv('kit')) });
+const today = () => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; };
 let GQ = +(localStorage.getItem('naraku-gq') ?? (isTouch ? 1 : 2)); if (Q.has('gq')) GQ = +Q.get('gq');
 
 // ---------- 画面 ----------
@@ -115,11 +130,12 @@ function doAct(a) {
   for (const e of ev) { if (e.t === 'move' || e.t === 'turn') moves.push(e); else { if (moves.length) { steps.push({ k: 'moves', list: moves }); moves = []; } steps.push({ k: 'one', e }); } }
   if (moves.length) steps.push({ k: 'moves', list: moves });
   animQ.push(...steps); busy = true;
-  afterTurn = () => { if (G.floor !== before.f) { buildFloor(); flash(0x000000, 0.6); } refreshFog(); syncEntities(false); hud(); save(); if (G.over) gameOver(); else if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && a.k === 'move' && !BOT) askStairs(); };
+  afterTurn = () => { if (G.floor !== before.f) { stopAuto(); buildFloor(); flash(0x000000, 0.6); saveMeta(); } for (const it of G.p.inv) if (C.isKnown(G, it)) meta.dex.i[it.id] = 1; refreshFog(); syncEntities(false); hud(); save(); if (G.over) gameOver(); else if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && a.k === 'move' && !BOT) askStairs(); };
 }
 let afterTurn = null;
 const T_MOVE = 0.11, T_ATK = 0.16;
 function playStep(dt) {
+  dt *= meta.spd * (auto ? 1.6 : 1);
   if (!anim) {
     if (!animQ.length) { if (busy) { busy = false; afterTurn && afterTurn(); afterTurn = null; if (pendingInput) { const a = pendingInput; pendingInput = null; doAct(a); } } return; }
     const s = animQ.shift(); anim = { s, t: 0, dur: 0 };
@@ -132,13 +148,13 @@ function playStep(dt) {
       const e = s.e; anim.e = e; anim.dur = 0;
       if (e.t === 'msg') log(e.text);
       else if (e.t === 'atk') { const a = e.id === 0 ? hero : monObj.get(e.id)?.g, b = e.tid === 0 ? hero : monObj.get(e.tid)?.g; if (a && b && (a.visible || b.visible)) { anim.dur = T_ATK; anim.a = a; anim.from = a.position.clone(); anim.dir = new THREE.Vector3().subVectors(b.position, a.position).setY(0).normalize(); a.rotation.y = Math.atan2(anim.dir.x, anim.dir.z); sfx.swing(); } if (e.miss && b) popNum(b.position, 'MISS', '#aab'); }
-      else if (e.t === 'hurt') { const o = e.id === 0 ? hero : monObj.get(e.id)?.g; if (o) { popNum(o.position, String(e.dmg), e.id === 0 ? '#ff5a5a' : '#fff'); sparks(o.position, e.id === 0 ? 0xff3030 : 0xffd0a0, 10); o.userData.hit = 0.2; if (e.id === 0) { shake = 0.25; flash(0x600000, 0.25); sfx.hurt(); } else sfx.hit(); } anim.dur = 0.05; }
+      else if (e.t === 'hurt') { const o = e.id === 0 ? hero : monObj.get(e.id)?.g; if (o) { popNum(o.position, String(e.dmg), e.id === 0 ? '#ff5a5a' : '#fff'); sparks(o.position, e.id === 0 ? 0xff3030 : 0xffd0a0, 10); o.userData.hit = 0.2; if (e.id === 0) { stopAuto(); shake = 0.25; flash(0x600000, 0.25); sfx.hurt(); } else sfx.hit(); } anim.dur = 0.05; }
       else if (e.t === 'die') { const o = monObj.get(e.id); if (o) { o.dying = 0.45; sparks(o.g.position, 0x9a6aff, 24); sfx.die(); } anim.dur = 0.08; }
-      else if (e.t === 'pick') { sfx.pick(); }
+      else if (e.t === 'pick') { sfx.pick(); if (auto && auto.k === 'go') stopAuto(); }
       else if (e.t === 'lvup') { sfx.lvup(); ring(hero.position, 0xffd060); popNum(hero.position, 'LEVEL UP!', '#ffd060'); }
       else if (e.t === 'proj') { const col = e.k === 'fire' ? 0xff7a2a : e.k === 'breath' ? 0xb040ff : e.k === 'wand' ? 0x80c0ff : 0xe0e0e0; anim.proj = projectile(e.fx, e.fy, e.x, e.y, col, e.k === 'breath' ? 0.5 : 0.15); anim.dur = 0.18 + Math.hypot(e.x - e.fx, e.y - e.fy) * 0.03; sfx.zap(); }
       else if (e.t === 'fx') { if (e.k === 'thunder') { flash(0xc0d0ff, 0.5); sfx.thunder(); shake = 0.4; } else flash(0x4040a0, 0.4); anim.dur = 0.25; }
-      else if (e.t === 'trap') { sfx.trap(); sparks(hero.position, 0xff3030, 14); anim.dur = 0.2; }
+      else if (e.t === 'trap') { stopAuto(); sfx.trap(); sparks(hero.position, 0xff3030, 14); anim.dur = 0.2; }
       else if (e.t === 'floor') { sfx.stairs(); }
       else if (e.t === 'warp') { hero.position.set(e.x, 0, e.y); camSnap = true; flash(0x8040ff, 0.4); }
       else if (e.t === 'reveal' || e.t === 'spawn') { syncEntities(true); refreshFog(); anim.dur = 0.1; }
@@ -210,6 +226,7 @@ function frame(dt) {
       for (const t of floorObjs.torches) { const f = t.o.getObjectByName('flame'); if (f) f.scale.set(1, 0.85 + Math.sin(tAll * 12 + t.ph) * 0.2, 1); }
       const dp = floorObjs.dust.geometry.attributes.position; for (let i = 0; i < dp.count; i++) { let y = dp.getY(i) + dt * 0.1; if (y > 3) y = 0; dp.setY(i, y); } dp.needsUpdate = true; floorObjs.dust.position.set(hero.position.x, 0, hero.position.z);
     }
+    if (marker.material.opacity > 0) marker.scale.setScalar(1 + Math.sin(tAll * 8) * 0.08);
     lantern.intensity = 32 + Math.sin(tAll * 7) * 1.5 + Math.sin(tAll * 17) * 0.8;
     updateCam(dt);
   }
@@ -219,6 +236,7 @@ function frame(dt) {
   renderer.render(scene, camera);
   // 長押しで連続
   if (G && !busy && !anim && heldDir() != null && !stairsAsk && modalClosed()) { const d = heldDir(); repT += dt; if (repT > 0) { repT = 0; if (turnOnly()) doAct({ k: 'turn', d }); else doAct({ k: 'move', d }); } }
+  if (auto && G && !busy && !anim && !G.over && !stairsAsk && modalClosed()) autoStep();
   if (BOT && G && !busy && !G.over) botStep();
 }
 let repT = 0;
@@ -233,9 +251,9 @@ const heldDir = () => { if (padDir != null) return padDir; const ks = Object.key
   const v = [0, 0]; for (const k of ks) { const [dx, dy] = DIRS[KEYMAP[k]]; v[0] += dx; v[1] += dy; } v[0] = Math.sign(v[0]); v[1] = Math.sign(v[1]); if (!v[0] && !v[1]) return null; return DIRS.findIndex(([a, b]) => a === v[0] && b === v[1]); };
 const turnOnly = () => !!(keys.ShiftLeft || keys.ShiftRight) || $('bTurn').classList.contains('on');
 const keyHeld = () => heldDir() != null;
-const modalClosed = () => $('inv').hidden && $('menu').hidden && $('title').hidden && $('over').hidden && $('help').hidden;
+const modalClosed = () => $('inv').hidden && $('menu').hidden && $('title').hidden && $('over').hidden && $('help').hidden && $('camp').hidden && $('dex').hidden;
 addEventListener('keydown', e => {
-  ac();
+  ac(); if (auto && !e.repeat) { stopAuto(); if (!(e.code in KEYMAP)) return; }
   if (!$('title').hidden || !$('over').hidden) return;
   if (stairsAsk) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyY') { e.preventDefault(); $('sYes').click(); } if (e.code === 'Escape' || e.code === 'KeyN') $('sNo').click(); return; }
   if (!$('inv').hidden) { invKey(e); return; }
@@ -243,6 +261,8 @@ addEventListener('keydown', e => {
   if (e.code in KEYMAP) { e.preventDefault(); keys[e.code] = true; if (!e.repeat) { const d = heldDir(); if (d != null) { doAct(turnOnly() ? { k: 'turn', d } : { k: 'move', d }); repT = -0.22; } } return; }
   if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (G.stairs && G.p.x === G.stairs.x && G.p.y === G.stairs.y && e.code === 'Enter') askStairs(); else doAct({ k: 'attack' }); }
   if (e.code === 'KeyR' || e.code === 'Numpad5' || e.code === 'Period') doAct({ k: 'wait' });
+  if (e.code === 'KeyV') startExplore();
+  if (e.code === 'KeyB') cycleSpd();
   if (e.code === 'KeyF' || e.code === 'KeyG') footMenu();
   if (e.code === 'KeyI' || e.code === 'Tab') { e.preventDefault(); openInv(); }
   if (e.code === 'Escape') openMenu();
@@ -257,11 +277,88 @@ document.querySelectorAll('#pad button').forEach(b => {
   const up = () => { if (d !== 'c' && padDir === +d) padDir = null; b.classList.remove('on'); };
   b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up); b.addEventListener('contextmenu', e => e.preventDefault());
 });
-$('bAtk').onclick = () => { ac(); doAct({ k: 'attack' }); };
+$('bAtk').onclick = () => { ac(); stopAuto(); doAct({ k: 'attack' }); };
 $('bInv').onclick = () => openInv();
-$('bWait').onclick = () => doAct({ k: 'wait' });
+$('bWait').onclick = () => { stopAuto(); doAct({ k: 'wait' }); };
+$('bFoot').onclick = () => { stopAuto(); footMenu(); };
+$('bExp').onclick = () => { ac(); if (auto) stopAuto(); else startExplore(); };
+$('bSpd').onclick = () => cycleSpd();
 $('bTurn').onclick = () => $('bTurn').classList.toggle('on');
 $('bMenu').onclick = () => openMenu();
+
+// ---------- タップ操作・自動移動 ----------
+let auto = null;
+const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitP = new THREE.Vector3();
+const marker = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.42, 32), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.3, 0.5), transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
+marker.rotation.x = -Math.PI / 2; marker.position.y = 0.03; scene.add(marker);
+const visMons = () => G.mons.filter(m => C.visible(G, m.x, m.y) && G.seen[m.y * W + m.x] && !(MONS[m.mid].ab === 'phase' && !G.t[m.y * W + m.x]) && !m.disguise);
+function stopAuto(why) { if (!auto) return; auto = null; $('bExp').classList.remove('on'); marker.material.opacity = 0; if (why) log(why); }
+function setAuto(a) { auto = Object.assign(a, { seen: new Set(visMons().map(m => m.id)), hp: G.p.hp }); $('bExp').classList.toggle('on', a.k === 'explore'); }
+function startExplore() { if (!G || G.over || busy) return; if (G.p.hp < G.p.mhp * 0.3) log('HPが少ない…気をつけて'); setAuto({ k: 'explore' }); }
+function cycleSpd() { meta.spd = meta.spd >= 3 ? 1 : meta.spd + 1; saveMeta(); $('bSpd').textContent = '▶'.repeat(meta.spd) + ` x${meta.spd}`; }
+const diagOk = (x, y, dx, dy) => !(dx && dy && (!C.walk(G, x + dx, y) || !C.walk(G, x, y + dy)));
+function pathDir(goal, through) {
+  const sx = G.p.x, sy = G.p.y, prev = new Int32Array(W * H).fill(-1), s0 = sy * W + sx, q = [s0]; prev[s0] = s0;
+  for (let qi = 0; qi < q.length; qi++) {
+    const c = q[qi], x = c % W, y = (c / W) | 0;
+    if (c !== s0 && goal(x, y)) { let cur = c; while (prev[cur] !== s0) cur = prev[cur]; return DIRS.findIndex(([dx, dy]) => dx === cur % W - sx && dy === ((cur / W) | 0) - sy); }
+    for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (!C.walk(G, nx, ny) || !diagOk(x, y, dx, dy)) continue; const ni = ny * W + nx; if (prev[ni] >= 0) continue; if (!through(nx, ny)) continue; const m = C.monAt(G, nx, ny); if (m && !goal(nx, ny)) continue; prev[ni] = c; q.push(ni); }
+  }
+  return -1;
+}
+function autoStep() {
+  const p = G.p;
+  const vm = visMons();
+  if (vm.some(m => !auto.seen.has(m.id))) { const m = vm.find(m => !auto.seen.has(m.id)); stopAuto(`${MONS[m.mid].nm}があらわれた！`); return; }
+  if (p.hp < auto.hp) { stopAuto(); return; }
+  if (auto.k === 'explore' && vm.some(m => Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) <= 2)) { stopAuto('敵が近い！'); return; }
+  auto.hp = p.hp;
+  if (auto.k === 'go') {
+    const { tx, ty } = auto;
+    const m = C.monAt(G, tx, ty);
+    if (m && Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) === 1 && diagOk(p.x, p.y, m.x - p.x, m.y - p.y)) { stopAuto(); doAct({ k: 'move', d: DIRS.findIndex(([a, b]) => a === m.x - p.x && b === m.y - p.y) }); return; }
+    if (p.x === tx && p.y === ty) { stopAuto(); if (G.stairs && tx === G.stairs.x && ty === G.stairs.y) askStairs(); return; }
+    const d = pathDir((x, y) => x === tx && y === ty, (x, y) => !!G.seen[y * W + x]);
+    if (d < 0) { stopAuto('そこへは行けない'); return; }
+    doAct({ k: 'move', d });
+    return;
+  }
+  // 探索
+  const full = p.inv.length >= 18;
+  const itemAt = (x, y) => !full && G.items.some(i => i.x === x && i.y === y && G.seen[y * W + x] && (C.visible(G, x, y) || G.mapRead || G.sightAll)) && !(x === p.x && y === p.y);
+  let d = pathDir((x, y) => itemAt(x, y) || (!G.seen[y * W + x] && C.walk(G, x, y)), () => true);
+  if (d < 0 && G.stairs && G.seen[G.stairs.y * W + G.stairs.x]) {
+    if (p.x === G.stairs.x && p.y === G.stairs.y) { stopAuto('探索しつくした'); askStairs(); return; }
+    d = pathDir((x, y) => x === G.stairs.x && y === G.stairs.y, (x, y) => !!G.seen[y * W + x]);
+  }
+  if (d < 0) { stopAuto(G.stairs ? '行ける所がない' : 'この階は探索しつくした'); return; }
+  doAct({ k: 'move', d });
+}
+function tapAt(cx, cy) {
+  if (!G || G.over || stairsAsk || !modalClosed()) return;
+  ac();
+  if (auto) { stopAuto(); return; }
+  ray.setFromCamera(new THREE.Vector2(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1), camera);
+  if (!ray.ray.intersectPlane(plane, hitP)) return;
+  const tx = Math.round(hitP.x), ty = Math.round(hitP.z);
+  if (tx < 0 || ty < 0 || tx >= W || ty >= H) return;
+  const p = G.p;
+  if (tx === p.x && ty === p.y) { footMenu(); return; }
+  const m = C.monAt(G, tx, ty);
+  const cheb = Math.max(Math.abs(tx - p.x), Math.abs(ty - p.y));
+  if (m && cheb === 1) { doAct({ k: 'move', d: DIRS.findIndex(([a, b]) => a === tx - p.x && b === ty - p.y) }); return; }
+  if (!G.seen[ty * W + tx] || !C.walk(G, tx, ty)) return;
+  if (cheb === 1 && !m) { doAct({ k: 'move', d: DIRS.findIndex(([a, b]) => a === tx - p.x && b === ty - p.y) }); return; }
+  marker.position.x = tx; marker.position.z = ty; marker.material.opacity = 0.9;
+  setAuto({ k: 'go', tx, ty });
+  if (!busy) autoStep();
+}
+// タップとピンチ
+const ptrs = new Map(); let pinch0 = 0, zoom0 = 1;
+canvas.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: performance.now() }); if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); zoom0 = zoom; } });
+canvas.addEventListener('pointermove', e => { const q = ptrs.get(e.pointerId); if (!q) return; q.x = e.clientX; q.y = e.clientY; if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()]; zoom = Math.max(0.7, Math.min(1.8, zoom0 * pinch0 / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)))); } });
+const ptrEnd = e => { const q = ptrs.get(e.pointerId); if (!q) return; const multi = ptrs.size > 1 || pinch0; ptrs.delete(e.pointerId); if (!ptrs.size) { if (!multi && e.type === 'pointerup' && Math.hypot(q.x - q.x0, q.y - q.y0) < 14 && performance.now() - q.t < 500) tapAt(e.clientX, e.clientY); pinch0 = 0; } };
+canvas.addEventListener('pointerup', ptrEnd); canvas.addEventListener('pointercancel', ptrEnd);
 
 // ---------- HUD・ログ・ミニマップ ----------
 function hud() {
@@ -342,19 +439,33 @@ function gameOver() {
   rec.runs++; rec.kills += G.stats.kills; if (G.win) rec.wins++; const fl = G.win ? C.FLOORS : G.floor; if (fl > rec.best) rec.best = fl;
   rec.deaths.unshift({ f: fl, lv: G.p.lv, cause: G.win ? '制覇' : G.cause, d: Date.now() }); rec.deaths = rec.deaths.slice(0, 10); saveRec();
   if (window.GAMES_RANK) GAMES_RANK.report('naraku', rec.best);
+  stopAuto();
+  // 魂
+  let newM = 0; for (const [mid, n] of Object.entries(G.stats.killsBy || {})) { if (!meta.dex.m[mid]) newM++; meta.dex.m[mid] = (meta.dex.m[mid] || 0) + n; }
+  for (const it of G.p.inv) if (C.isKnown(G, it)) meta.dex.i[it.id] = 1;
+  const parts = [['到達', G.stats.maxFloor * 8], ['たおした敵', G.stats.kills * 2]];
+  if (G.stats.maxFloor > 10) parts.push(['骸骨王', 60]); if (G.win) parts.push(['制覇', 300]); if (newM) parts.push([`新しい敵 ${newM}種`, newM * 10]);
+  let souls = parts.reduce((a, b) => a + b[1], 0); souls = Math.round(souls * (1 + upLv('soul') * 0.1));
+  const dailyBonus = G.daily && meta.daily.date === today() && !meta.daily.done; if (G.daily && meta.daily.date === today()) meta.daily.done = true; if (dailyBonus) souls *= 2;
+  meta.souls += souls; saveMeta();
+  const soulTxt = `👻 魂 +${souls}${dailyBonus ? '（今日の奈落 2倍！）' : ''}`;
   setTimeout(() => {
     $('over').hidden = false; $('ovTitle').textContent = G.win ? '奈落を制した！' : 'あなたは力つきた…';
-    $('ovBody').innerHTML = [['到達', `地下${G.floor}階`], ['原因', G.win ? '奈落の主をたおした' : G.cause], ['レベル', G.p.lv], ['たおした敵', G.stats.kills], ['ターン', G.stats.turns], ['最高記録', `地下${rec.best}階`]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('');
+    $('ovBody').innerHTML = [['到達', `地下${G.floor}階`], ['原因', G.win ? '奈落の主をたおした' : G.cause], ['レベル', G.p.lv], ['たおした敵', G.stats.kills], ['ターン', G.stats.turns], ['最高記録', `地下${rec.best}階`]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('') + `<span></span><b></b><span style="grid-column:span 2;color:#c8a0ff;font-size:18px;opacity:1;text-align:center">${soulTxt}<br><small style="opacity:.7;font-size:12px">${parts.map(([a, b]) => a + ' ' + b).join('　')}${upLv('soul') ? `　×${(1 + upLv('soul') * 0.1).toFixed(1)}` : ''}</small><br><small style="font-size:13px">篝火で強くなれる（手持ち ${meta.souls}）</small></span>`;
   }, 900);
 }
-function newRun(load) {
+function newRun(load, daily) {
   if (load) { try { G = C.deserialize(localStorage.getItem(SAVE)); } catch (e) { G = null; } }
-  if (!G) G = C.newGame();
-  lastFloor = 0; $('title').hidden = true; $('over').hidden = true; $('hud').hidden = false; $('log').innerHTML = '';
-  buildFloor(); hud(); log(load ? `地下${G.floor}階から再開` : '奈落の迷宮に足をふみいれた…');
+  if (!G) { if (daily) { meta.daily = { date: today(), done: false }; saveMeta(); } G = C.newGame(daily ? +today() * 7919 % 2147483647 : undefined, Object.assign(bonus(), { daily: !!daily })); }
+  lastFloor = 0; document.body.classList.add('playing'); $('title').hidden = true; $('over').hidden = true; $('hud').hidden = false; $('log').innerHTML = '';
+  buildFloor(); hud(); log(load ? `地下${G.floor}階から再開` : daily ? '今日の奈落に足をふみいれた…（みんな同じマップ）' : '奈落の迷宮に足をふみいれた…');
+  if (!load && isTouch) log('行きたい場所をタップで移動、🔍で自動探索');
   if (!load) log('目標：地下20階の「奈落の主」をたおすこと');
 }
-function openMenu() { $('menu').hidden = false; $('mStat').innerHTML = [['攻撃', C.pAtk(G)], ['防御', C.pDef(G)], ['経験', `${G.p.xp}/${C.xpNeed(G.p.lv)}`], ['お腹の最大', G.p.mbelly + '%'], ['たおした敵', G.stats.kills], ['ターン', G.stats.turns]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join(''); $('mMute').textContent = muted ? '🔇 音：なし' : '🔊 音：あり'; }
+function openMenu() { $('menu').hidden = false; $('mStat').innerHTML = [['攻撃', C.pAtk(G)], ['防御', C.pDef(G)], ['経験', `${G.p.xp}/${C.xpNeed(G.p.lv)}`], ['お腹の最大', G.p.mbelly + '%'], ['たおした敵', G.stats.kills], ['ターン', G.stats.turns]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join(''); $('mMute').textContent = muted ? '🔇 音：なし' : '🔊 音：あり'; $('mPad').textContent = meta.pad ? '✚ 十字キー：あり' : '✚ 十字キー：なし'; }
+$('mPad').onclick = () => { meta.pad = !meta.pad; saveMeta(); applyPad(); openMenu(); };
+function applyPad() { document.body.classList.toggle('pad', !!meta.pad); }
+applyPad(); cycleSpd(); cycleSpd(); cycleSpd();
 $('mBack').onclick = () => closeModals();
 $('mHelp').onclick = () => { $('menu').hidden = true; $('help').hidden = false; };
 $('hBack').onclick = () => closeModals();
@@ -363,8 +474,25 @@ $('mTitle').onclick = () => { if (G && !G.over) try { localStorage.setItem(SAVE,
 $('mGiveup').onclick = () => { if (!confirm('この冒険をあきらめる？（記録は残る）')) return; closeModals(); G.over = true; G.cause = 'あきらめた'; save(); gameOver(); };
 document.querySelectorAll('#gfx button').forEach(b => { b.classList.toggle('on', +b.dataset.g === GQ); b.onclick = () => { localStorage.setItem('naraku-gq', b.dataset.g); if (G && !G.over) try { localStorage.setItem(SAVE, C.serialize(G)); } catch (e) {} location.reload(); }; });
 $('ovNew').onclick = () => { G = null; newRun(false); };
+$('ovCamp').onclick = () => { toTitle(); openCamp(); };
 $('ovTitle2').onclick = () => toTitle();
-function toTitle() { $('hud').hidden = true; $('over').hidden = true; $('title').hidden = false; const has = !!localStorage.getItem(SAVE); $('tCont').hidden = !has; $('tRec').innerHTML = `最高記録 地下${rec.best}階　冒険 ${rec.runs}回　制覇 ${rec.wins}回` + (rec.deaths.length ? '<br><span style="opacity:.7">' + rec.deaths.slice(0, 3).map(d => `B${d.f}F Lv${d.lv}「${d.cause}」`).join('　') + '</span>' : ''); }
+function openCamp() {
+  $('camp').hidden = false; $('cSouls').textContent = meta.souls;
+  $('cList').innerHTML = UPG.map(u => { const l = upLv(u.k), mx = l >= u.max, c = u.cost(l); return `<div class="up"><span class="ic">${u.ic}</span><div><b>${u.nm}</b> <small>Lv${l}/${u.max}</small><br><small>${mx ? u.d(l) : `次：${u.d(l + 1)}`}</small></div><button data-k="${u.k}" ${mx || meta.souls < c ? 'disabled' : ''}>${mx ? '最大' : `👻${c}`}</button></div>`; }).join('');
+  $('cList').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => { const u = UPG.find(x => x.k === b.dataset.k), l = upLv(u.k), c = u.cost(l); if (meta.souls < c || l >= u.max) return; meta.souls -= c; meta.up[u.k] = l + 1; saveMeta(); sfx.lvup(); openCamp(); toTitle(); });
+}
+function openDex() {
+  $('dex').hidden = false;
+  const ms = Object.entries(MONS), its = Object.entries(ITEMS);
+  const nm = ms.filter(([k]) => meta.dex.m[k]).length, ni = its.filter(([k]) => meta.dex.i[k]).length;
+  $('dRate').textContent = `敵 ${nm}/${ms.length}　道具 ${ni}/${its.length}`;
+  $('dMon').innerHTML = ms.map(([k, d]) => meta.dex.m[k] ? `<div class="dc"><b>${d.nm}</b><small>HP${d.hp} 攻${d.atk}　たおした ${meta.dex.m[k]}</small></div>` : `<div class="dc no"><b>？？？</b><small>${d.boss ? 'ボス' : `地下${d.f ? d.f[0] : '?'}階〜`}</small></div>`).join('');
+  $('dIt').innerHTML = its.map(([k, d]) => meta.dex.i[k] ? `<div class="dc"><b>${KIND_IC[d.k]} ${d.nm}</b></div>` : `<div class="dc no"><b>${KIND_IC[d.k]} ？？？</b></div>`).join('');
+}
+$('tCamp').onclick = () => openCamp(); $('cBack').onclick = () => { $('camp').hidden = true; };
+$('tDex').onclick = () => openDex(); $('dBack').onclick = () => { $('dex').hidden = true; };
+$('tDaily').onclick = () => { ac(); if (meta.daily.date === today() && meta.daily.done) return; if (localStorage.getItem(SAVE) && !confirm('いまの冒険は消えます。今日の奈落に潜る？')) return; localStorage.removeItem(SAVE); G = null; newRun(false, true); };
+function toTitle() { document.body.classList.remove('playing'); stopAuto(); $('hud').hidden = true; $('over').hidden = true; $('title').hidden = false; const has = !!localStorage.getItem(SAVE); $('tCont').hidden = !has; const dd = meta.daily.date === today() && meta.daily.done; $('tDaily').disabled = dd; $('tDaily').innerHTML = dd ? '📅 今日の奈落：挑戦ずみ（また明日）' : '📅 今日の奈落 <small>魂2倍・1日1回</small>'; $('tSouls').textContent = `👻 ${meta.souls}`; $('tRec').innerHTML = `最高記録 地下${rec.best}階　冒険 ${rec.runs}回　制覇 ${rec.wins}回` + (rec.deaths.length ? '<br><span style="opacity:.7">' + rec.deaths.slice(0, 3).map(d => `B${d.f}F Lv${d.lv}「${d.cause}」`).join('　') + '</span>' : ''); }
 $('tNew').onclick = () => { ac(); if (localStorage.getItem(SAVE) && !confirm('いまの冒険は消えます。新しく潜る？')) return; localStorage.removeItem(SAVE); G = null; newRun(false); };
 $('tCont').onclick = () => { ac(); newRun(true); };
 $('tHelp').onclick = () => { $('help').hidden = false; };
@@ -389,4 +517,4 @@ requestAnimationFrame(loop);
 if (window.__loadDone) window.__loadDone();
 if (window.GAMES_RANK) { GAMES_RANK.mount('naraku', { right: 'max(10px, env(safe-area-inset-right))', bottom: 'max(10px, env(safe-area-inset-bottom))' }, () => $('title').hidden); if (rec.best) GAMES_RANK.report('naraku', rec.best); }
 if (BOT) newRun(false);
-window.NARAKU = { get G() { return G; }, doAct };
+window.NARAKU = { get G() { return G; }, doAct, proj: (x, y) => { const v = new THREE.Vector3(x, 0, y).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; } };

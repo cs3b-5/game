@@ -38,19 +38,44 @@ small.k { opacity: .6; font-size: 11px; margin-right: 3px; }
 #log div.old { opacity: .45; }
 
 /* スマホ操作 */
-#ctrl { display: none; }
-body.touch #ctrl { display: block; }
-body.touch #log { bottom: 210px; left: 10px; font-size: 13px; max-width: 70vw; }
+#pad { display: none !important; }
+body.pad #pad { display: grid !important; }
+#bTurn { display: none; }
+body.pad #bTurn { display: block; }
+body.touch #log { bottom: 96px; left: 10px; font-size: 13px; max-width: 70vw; }
 body.touch #mini { width: 156px; height: 108px; top: calc(max(8px, env(safe-area-inset-top)) + 64px); }
 body.touch #hMain { font-size: 13px; gap: 8px; }
 #pad { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 3px; }
 #pad button, .ab { background: #1a1224cc; border: 1px solid #5a4a6a; border-radius: 12px; font-size: 22px; touch-action: none; }
 #pad button.on, .ab:active, #bTurn.on { background: #5a3a80; }
 #pad button[data-d="c"] { font-size: 13px; }
-#acts { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: 64px 64px; gap: 8px; }
-.ab { height: 56px; font-size: 13px; white-space: nowrap; font-weight: 700; }
-#bAtk { grid-column: span 2; height: 72px; font-size: 18px; background: #5a1a22cc; border-color: #a04050; }
-#pcKeys { position: fixed; right: 12px; bottom: 10px; font: 12px/1.5 system-ui, sans-serif; opacity: .5; text-align: right; pointer-events: none; }
+#acts { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); display: flex; gap: 6px; justify-content: center; align-items: flex-end; pointer-events: none; }
+#acts > * { pointer-events: auto; }
+.ab { width: 58px; height: 58px; font-size: 10px; white-space: nowrap; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.1; }
+.ab i { font-style: normal; font-size: 22px; }
+#bAtk { width: 76px; height: 76px; border-radius: 50%; background: radial-gradient(#8a2a36, #4a1018); border-color: #d06070; font-size: 12px; }
+#bAtk i { font-size: 28px; }
+#bExp.on { background: #2a6a4a; border-color: #6ae0a0; animation: pulse 1s infinite; }
+body.pad #acts { left: auto; flex-wrap: wrap; width: 196px; justify-content: flex-end; }
+body.pad #log { bottom: 230px; }
+body:not(.touch) #acts { left: auto; right: 14px; bottom: 56px; }
+body:not(.touch) #acts .ab:not(#bExp):not(#bSpd) { display: none; }
+#bSpd { font-size: 12px; }
+body:not(.playing) #ctrl, body:not(.playing) #mini, body:not(.playing) #pcKeys, body:not(.playing) #log { display: none !important; }
+#spdTop { display: none; }
+.up { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 10px; border-radius: 10px; background: #ffffff08; margin-bottom: 6px; }
+.up .ic { font-size: 26px; text-align: center; }
+.up small { opacity: .75; }
+.up button { padding: 10px 12px; border-radius: 8px; background: #5a2a7a; border: 1px solid #b080e0; font-size: 15px; min-width: 76px; }
+.up button:disabled { opacity: .4; background: #ffffff10; border-color: #555; }
+.dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; text-align: left; margin-bottom: 12px; }
+.dc { background: #ffffff0a; border-radius: 8px; padding: 7px 9px; font-size: 13px; display: flex; flex-direction: column; }
+.dc small { opacity: .65; font-size: 11px; }
+.dc.no { opacity: .45; }
+#tSouls { font-size: 20px; color: #c8a0ff; font-weight: 700; }
+.btn small { font-size: 12px; opacity: .8; }
+.btn:disabled { opacity: .45; }
+#pcKeys { position: fixed; right: 12px; bottom: 6px; font: 12px/1.5 system-ui, sans-serif; opacity: .5; text-align: right; pointer-events: none; }
 body.touch #pcKeys { display: none; }
 
 /* 画面 */
@@ -104,7 +129,7 @@ body.touch #pcKeys { display: none; }
 </div>
 <canvas id="mini" width="416" height="288"></canvas>
 <div id="log"></div>
-<div id="pcKeys">移動：矢印/WASD（斜め QEZC・テンキー）　Shift＋方向：向きだけ変える<br>Space：攻撃　R：足ぶみ　F：拾う/階段　I：持ち物　Esc：メニュー　ホイール：ズーム</div>
+<div id="pcKeys">移動：矢印/WASD（斜め QEZC・テンキー）　Shift＋方向：向きだけ変える<br>クリック：その場所へ移動　Space：攻撃　R：足ぶみ　F：拾う/階段　I：持ち物　V：自動探索　B：早送り　Esc：メニュー</div>
 
 <div id="ctrl">
   <div id="pad">
@@ -113,11 +138,14 @@ body.touch #pcKeys { display: none; }
     <button data-d="5">↙</button><button data-d="4">↓</button><button data-d="3">↘</button>
   </div>
   <div id="acts">
-    <button class="ab" id="bAtk">⚔ 攻撃</button>
-    <button class="ab" id="bInv">🎒 道具</button>
-    <button class="ab" id="bWait">⏳ 足ぶみ</button>
-    <button class="ab" id="bTurn">↻ 向き</button>
-    <button class="ab" id="bMenu">☰ メニュー</button>
+    <button class="ab" id="bInv"><i>🎒</i>道具</button>
+    <button class="ab" id="bFoot"><i>👣</i>足元</button>
+    <button class="ab" id="bAtk"><i>⚔</i>攻撃</button>
+    <button class="ab" id="bExp"><i>🔍</i>探索</button>
+    <button class="ab" id="bWait"><i>⏳</i>足ぶみ</button>
+    <button class="ab" id="bTurn"><i>↻</i>向き</button>
+    <button class="ab" id="bSpd">▶ x1</button>
+    <button class="ab" id="bMenu"><i>☰</i>メニュー</button>
   </div>
 </div>
 
@@ -138,7 +166,7 @@ body.touch #pcKeys { display: none; }
   <div class="grid2" id="mStat"></div>
   <div style="font-size:13px;opacity:.7">画質（変えると読みこみなおし・冒険は続きから）</div>
   <div class="row" id="gfx"><button data-g="0">低</button><button data-g="1">中</button><button data-g="2">高</button></div>
-  <div class="row"><button id="mMute">音</button><button id="mHelp">遊び方</button></div>
+  <div class="row"><button id="mMute">音</button><button id="mPad">十字キー</button><button id="mHelp">遊び方</button></div>
   <div class="row"><button id="mTitle">中断してタイトルへ</button><button id="mGiveup" style="border-color:#a04050">あきらめる</button></div>
   <div class="row"><button id="mBack" style="min-width:140px">もどる</button></div>
 </div></div>
@@ -159,7 +187,9 @@ body.touch #pcKeys { display: none; }
   <h3>そうさ（PC）</h3>
   矢印/WASD で移動（2つ同時押しで斜め・QEZC・テンキーでも斜め）、Shift＋方向で向きだけ変える。Space：攻撃　R：足ぶみ　F：拾う・階段　I：持ち物　Esc：メニュー
   <h3>そうさ（スマホ）</h3>
-  左の十字で移動（長押しで歩きつづける）、まん中「足元」で拾う・階段。「向き」をONにすると向きだけ変えられる。
+  行きたい場所をタップすると自動で歩く（敵が見えたら止まる）。となりの敵をタップで攻撃、自分をタップで足元。🔍探索で自動で歩きまわる（敵・罠・ダメージで止まる）。▶で早送り。2本指でズーム。メニューで十字キーも出せる。
+  <h3>周回</h3>
+  力つきると「魂」がもらえる。🔥篝火で体力・腕力・守り・持ちこみなどを強化すると、次の冒険が楽になる。📅今日の奈落はみんな同じマップで、1日1回だけ魂2倍。
   <div class="row"><button id="hBack">もどる</button></div>
 </div></div>
 
@@ -168,18 +198,33 @@ body.touch #pcKeys { display: none; }
     <h1 class="logo">奈落の迷宮<small>NARAKU · 地下二十階のローグライク</small></h1>
     <button class="btn" id="tCont" hidden>▶ 続きから</button>
     <button class="btn" id="tNew">⚔ 新しく潜る</button>
-    <button class="btn ghost" id="tHelp">遊び方</button>
+    <button class="btn" id="tDaily" style="background:linear-gradient(#2a5a7a,#123048);border-color:#70b0e0">📅 今日の奈落</button>
+    <div id="tSouls">👻 0</div>
+    <div class="row" style="margin:0"><button class="btn ghost" id="tCamp" style="min-width:110px">🔥 篝火</button><button class="btn ghost" id="tDex" style="min-width:110px">📖 図鑑</button><button class="btn ghost" id="tHelp" style="min-width:110px">遊び方</button></div>
     <div class="recs" id="tRec"></div>
     <a href="../" style="color:#a090c0;font-size:13px">← ゲーム一覧</a>
   </div>
 </div>
+
+<div class="scr" id="camp" hidden style="z-index:12"><div class="panel">
+  <h2>🔥 篝火　<span style="color:#c8a0ff">👻 <span id="cSouls">0</span></span></h2>
+  <p style="font-size:13px;opacity:.75;margin:0 0 10px;text-align:left">力つきても「魂」は残る。魂をささげて、次の冒険を有利にしよう。<br>（深く潜る・敵をたおす・新しい敵をたおすほど魂がもらえる）</p>
+  <div id="cList"></div>
+  <div class="row"><button id="cBack">もどる</button></div>
+</div></div>
+<div class="scr" id="dex" hidden style="z-index:12"><div class="panel">
+  <h2>📖 図鑑　<small id="dRate" style="font-size:14px;color:#ccc"></small></h2>
+  <h3 style="font-size:15px;margin:6px 0;text-align:left">敵（たおすと登録）</h3><div class="dgrid" id="dMon"></div>
+  <h3 style="font-size:15px;margin:6px 0;text-align:left">道具（正体がわかった物を登録）</h3><div class="dgrid" id="dIt"></div>
+  <div class="row"><button id="dBack">もどる</button></div>
+</div></div>
 
 <div class="scr" id="over" hidden>
   <div class="panel" style="text-align:center">
     <h2 id="ovTitle" style="font-size:26px">あなたは力つきた…</h2>
     <div class="grid2" id="ovBody" style="max-width:320px;margin:10px auto 16px"></div>
     <div class="row"><button class="btn" id="ovNew">もう一度潜る</button></div>
-    <div class="row"><button class="btn ghost" id="ovTitle2">タイトルへ</button></div>
+    <div class="row"><button class="btn ghost" id="ovCamp" style="min-width:110px">🔥 篝火で強化</button><button class="btn ghost" id="ovTitle2" style="min-width:110px">タイトルへ</button></div>
   </div>
 </div>
 
@@ -205,6 +250,6 @@ body.touch #pcKeys { display: none; }
 </script>
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
-<script type="module" src="game.js?v=1"></script>
+<script type="module" src="game.js?v=2"></script>
 </body>
 </html>

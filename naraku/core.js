@@ -11,21 +11,23 @@ function rngMake(seed) { let s = seed >>> 0; const f = () => { s = (s + 0x6D2B79
 const shuffle = (a, r) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pickW = (list, r) => { let s = 0; for (const x of list) s += x.w; let v = r() * s; for (const x of list) { v -= x.w; if (v <= 0) return x; } return list[list.length - 1]; };
 
-export function newGame(seed = (Math.random() * 2 ** 31) | 0) {
+export function newGame(seed = (Math.random() * 2 ** 31) | 0, bonus = {}) {
   const r = rngMake(seed);
   const pl = shuffle([...POTION_LOOKS], r), sl = shuffle([...SCROLL_LOOKS], r), wl = shuffle([...WAND_LOOKS], r);
   const looks = {}; let pi = 0, si = 0, wi = 0;
   for (const [id, it] of Object.entries(ITEMS)) { if (it.k === 'potion') looks[id] = pl[pi++]; if (it.k === 'scroll') looks[id] = sl[si++]; if (it.k === 'wand') looks[id] = wl[wi++]; }
   const G = {
     v: 1, seed, rs: 0, floor: 0, turn: 0, uid: 1, looks, known: {}, over: false, win: false, cause: '',
-    p: { id: 0, x: 0, y: 0, dir: 4, hp: 30, mhp: 30, lv: 1, xp: 0, str: 0, belly: 100, mbelly: 100, inv: [], eq: { weapon: null, shield: null, ring: null }, st: {}, regen: 0, kills: 0, bellyT: 0 },
-    stats: { kills: 0, turns: 0, items: 0, maxFloor: 0 }, log: [],
+    p: { id: 0, x: 0, y: 0, dir: 4, hp: 30, mhp: 30, lv: 1, xp: 0, str: 0, belly: 100, mbelly: 100, inv: [], eq: { weapon: null, shield: null, ring: null }, st: {}, regen: 0, kills: 0, bellyT: 0, batk: bonus.atk || 0, bdef: bonus.def || 0 },
+    stats: { kills: 0, turns: 0, items: 0, maxFloor: 0, killsBy: {}, seenIt: {} }, log: [], daily: !!bonus.daily,
   };
   G._r = r;
   // 最初の持ち物
   G.p.inv.push(mkItem(G, 'rusty', 0), mkItem(G, 'woodshield', 0), mkItem(G, 'bread', 0), mkItem(G, 'p_heal', 0));
   G.p.eq.weapon = G.p.inv[0].uid; G.p.eq.shield = G.p.inv[1].uid; G.p.inv[0].known = G.p.inv[1].known = true;
   G.known.p_heal = true;
+  G.p.mhp = G.p.hp = 30 + (bonus.hp || 0); G.p.mbelly = G.p.belly = 100 + (bonus.belly || 0);
+  for (const id of bonus.kit || []) { const it = mkItem(G, id, 0); it.cursed = false; if (it.plus < 0) it.plus = 0; if (it.k === 'potion' || it.k === 'scroll' || it.k === 'wand') G.known[id] = true; G.p.inv.push(it); }
   newFloor(G, 1);
   return G;
 }
@@ -143,8 +145,8 @@ export function reveal(G) {
 
 // ---------- 計算 ----------
 const eqItem = (G, slot) => G.p.inv.find(i => i.uid === G.p.eq[slot]);
-export function pAtk(G) { const w = eqItem(G, 'weapon'), rg = eqItem(G, 'ring'); return Math.max(1, 3 + G.p.lv + G.p.str + (w ? ITEMS[w.id].v + w.plus : 0) + (rg && ITEMS[rg.id].eff === 'atk3' ? 3 : 0)); }
-export function pDef(G) { const s = eqItem(G, 'shield'), rg = eqItem(G, 'ring'); return Math.max(0, (s ? ITEMS[s.id].v + s.plus : 0) + (rg && ITEMS[rg.id].eff === 'def3' ? 3 : 0) + Math.floor(G.p.lv / 4)); }
+export function pAtk(G) { const w = eqItem(G, 'weapon'), rg = eqItem(G, 'ring'); return Math.max(1, 3 + (G.p.batk || 0) + G.p.lv + G.p.str + (w ? ITEMS[w.id].v + w.plus : 0) + (rg && ITEMS[rg.id].eff === 'atk3' ? 3 : 0)); }
+export function pDef(G) { const s = eqItem(G, 'shield'), rg = eqItem(G, 'ring'); return Math.max(0, (G.p.bdef || 0) + (s ? ITEMS[s.id].v + s.plus : 0) + (rg && ITEMS[rg.id].eff === 'def3' ? 3 : 0) + Math.floor(G.p.lv / 4)); }
 export const ringEff = G => { const rg = eqItem(G, 'ring'); return rg ? ITEMS[rg.id].eff : null; };
 const dmgCalc = (G, atk, def) => Math.max(1, Math.round((atk - def * 0.55) * (0.85 + rng(G)() * 0.3)));
 export const xpNeed = lv => Math.round(10 * Math.pow(lv, 1.6));
@@ -192,7 +194,7 @@ function hurtMon(G, ev, m, d, how) {
   if (m.hp <= 0) killMon(G, ev, m);
 }
 function killMon(G, ev, m) {
-  const D = MONS[m.mid]; G.mons = G.mons.filter(x => x !== m); G.p.kills++; G.stats.kills++;
+  const D = MONS[m.mid]; G.mons = G.mons.filter(x => x !== m); G.p.kills++; G.stats.kills++; const kb = (G.stats.killsBy ||= {}); kb[m.mid] = (kb[m.mid] || 0) + 1;
   ev.push({ t: 'die', id: m.id }); msg(G, ev, `${D.nm}をたおした（経験 +${D.xp}）`);
   gainXp(G, ev, D.xp);
   // ドロップ
