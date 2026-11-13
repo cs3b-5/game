@@ -28,7 +28,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .caps { display: flex; gap: 4px; justify-content: center; margin-top: 5px; min-height: 18px; }
 .caps b { width: 14px; height: 18px; border-radius: 5px; border: 2px solid rgba(255,255,255,.45); background: rgba(0,0,0,.4); }
 .caps b.on { background: linear-gradient(180deg, #fff, #c9d9e8); border-color: #fff; }
-@media (max-width: 640px) { .tc { left: auto; right: max(10px, env(safe-area-inset-right)); transform: none; top: calc(max(10px, env(safe-area-inset-top)) + 54px); width: 46vw; } .chip { max-width: 48vw; font-size: .74rem; } #arrow { top: calc(max(10px, env(safe-area-inset-top)) + 150px); } #hint { font-size: .76rem; } }
+@media (max-width: 640px) { .ib { width: 40px; height: 40px; font-size: 1.1rem; } .tr { gap: 6px; } .tc { left: auto; right: max(10px, env(safe-area-inset-right)); transform: none; top: calc(max(10px, env(safe-area-inset-top)) + 54px); width: 46vw; } .chip { max-width: 48vw; font-size: .74rem; } #arrow { top: calc(max(10px, env(safe-area-inset-top)) + 150px); } #hint { font-size: .76rem; } }
 #hint { margin-top: 6px; font-weight: 900; font-size: .85rem; text-shadow: 0 1px 3px #000; min-height: 1.2em; }
 #arrow { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 92px); width: 46px; height: 46px; margin-left: -23px; display: grid; place-items: center; font-size: 30px; color: var(--o); filter: drop-shadow(0 2px 2px #000); }
 #arrow small { position: absolute; top: 44px; font-size: .7rem; font-weight: 900; color: #fff; white-space: nowrap; }
@@ -86,12 +86,25 @@ body.touch .keys { display: none; }
 .stat { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: .84rem; }
 .stat b { text-align: right; }
 .menu { display: grid; gap: 10px; }
+.row3 { display: flex; gap: 6px; margin-top: 6px; } .row3 button { flex: 1; padding: 9px; border-radius: 10px; background: rgba(255,255,255,.08); font-weight: 900; } .row3 button.on { background: #ffe27a; color: #2a1a00; }
+#visor { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: none;
+  background: radial-gradient(ellipse 78% 82% at 50% 48%, rgba(0,0,0,0) 62%, rgba(10,16,30,.35) 80%, rgba(4,6,12,.92) 100%); }
+#visor::before { content: ""; position: absolute; inset: -6% -4%; border-radius: 50% / 46%; box-shadow: inset 0 0 0 3px rgba(255,255,255,.06), inset 0 0 80px rgba(120,170,255,.10); }
+#visor::after { content: ""; position: absolute; left: 8%; top: 6%; width: 34%; height: 22%; border-radius: 50%; background: radial-gradient(ellipse at 40% 40%, rgba(255,255,255,.07), rgba(255,255,255,0) 70%); transform: rotate(-14deg); }
+#visor i { position: absolute; right: 10%; bottom: 12%; width: 18%; height: 8%; border-radius: 50%; background: radial-gradient(ellipse, rgba(200,220,255,.05), rgba(255,255,255,0) 70%); transform: rotate(-20deg); }
+body.fp #visor { display: block; }
+#aim { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(140,230,255,.7); box-shadow: 0 0 6px rgba(140,230,255,.8); display: none; }
+body.fp #aim, body.incar #aim { display: block; }
+body.fp .chip, body.fp .gauge { background: rgba(0,30,50,.35); border-color: rgba(120,210,255,.35); }
+body.fp .money { color: #9fe8ff; text-shadow: 0 0 10px rgba(80,200,255,.6), 0 2px 0 rgba(0,0,0,.5); }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
+<div id="visor"><i></i></div>
 <div id="hud" hidden>
+  <div id="aim"></div>
   <div class="tl">
     <div class="money" id="money">$0</div>
     <div class="chip" id="secChip"><span id="secTxt">—</span><i><u id="secBar" style="width:0"></u></i></div>
@@ -104,6 +117,7 @@ body.touch .keys { display: none; }
   </div>
   <div id="arrow" hidden>▲<small id="arrowTxt"></small></div>
   <div class="tr">
+    <button class="ib" id="bView" aria-label="視点きりかえ">👁️</button>
     <button class="ib" id="bMap" aria-label="マップ">🗺️</button>
     <button class="ib" id="bShop" aria-label="ショップ">🛒</button>
     <button class="ib" id="bMenu" aria-label="メニュー">☰</button>
@@ -114,7 +128,7 @@ body.touch .keys { display: none; }
     <button class="ab" id="bJump">⤴️<small>ジャンプ</small><kbd>␣</kbd></button>
     <button class="ab" id="bPack">📦<small>パック</small><kbd>Q</kbd></button>
   </div>
-  <div class="keys">WASD/矢印：移動　ドラッグ：カメラ　ホイール：ズーム<br>Q：パック　F：ブラシ上げ下げ　E：乗る/降りる　M：マップ　B：ショップ</div>
+  <div class="keys">WASD：移動　クリック：マウスで見回す（Escで解除）　V：一人称/三人称<br>車：W/S 前後・A/D ハンドル　L：ライト　Q：パック　F：ブラシ上げ下げ　E：乗る/降りる　M：マップ　B：ショップ</div>
   <div id="stick" hidden><i></i></div>
 </div>
 <div id="toast"></div>
@@ -157,6 +171,7 @@ body.touch .keys { display: none; }
     <h2>☰ メニュー<span class="sp"></span><button class="x" data-close>✕</button></h2>
     <div class="menu">
       <div class="card stat" id="statBox"></div>
+      <div class="card"><b>画質</b>（変えると読みこみ直し）<div class="row3" id="gfxRow"><button data-g="0">ひくい</button><button data-g="1">ふつう</button><button data-g="2">たかい</button></div><div style="font-size:.72rem;opacity:.7;margin-top:4px">スマホで重いときは「ひくい」に</div></div>
       <button class="btn ghost" id="mHelp">あそびかた</button>
       <button class="btn ghost" id="mTitle">タイトルへ（セーブして）</button>
     </div>
@@ -172,6 +187,7 @@ body.touch .keys { display: none; }
 
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
+<script type="importmap">{ "imports": { "three": "../upa/vendor/three.module.min.js" } }</script>
 <script type="module" src="game.js"></script>
 </body>
 </html>
