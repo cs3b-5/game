@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>奈落の迷宮</title>
+<script src="../perf.js"></script>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #050308; color: #e8e0f0; font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 55%, transparent 45%, rgba(0,0,0,.75) 100%); }
+#flash { position: fixed; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: screen; }
+#nums { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.num { position: absolute; left: 0; top: 0; font: 900 20px/1 system-ui, sans-serif; text-shadow: 0 2px 0 #000, 0 0 8px #000; white-space: nowrap; }
+[hidden] { display: none !important; }
+button { font-family: inherit; color: inherit; cursor: pointer; }
+
+/* HUD */
+#hud { position: fixed; left: 0; right: 0; top: 0; padding: max(8px, env(safe-area-inset-top)) 12px 0; pointer-events: none; display: flex; gap: 12px; align-items: flex-start; }
+.hb { background: linear-gradient(#1a1222e8, #0c0812e8); border: 1px solid #4a3a5a; border-radius: 8px; padding: 6px 10px; box-shadow: 0 4px 14px #0008; }
+#hMain { display: flex; gap: 14px; align-items: center; font-size: 15px; flex-wrap: wrap; }
+#hFloor { font-size: 20px; font-weight: 900; color: #d8b0ff; letter-spacing: .05em; }
+#hLv { color: #ffd060; font-weight: 700; }
+.hpw { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
+.bar { height: 7px; background: #2a1a2a; border-radius: 4px; overflow: hidden; }
+#hpBar { height: 100%; background: linear-gradient(90deg, #3ac060, #8af090); transition: width .2s; }
+#hpBar.low { background: linear-gradient(90deg, #c02020, #ff6060); animation: pulse 0.8s infinite; }
+#xpBar { height: 100%; background: #c0a040; }
+.xpb { height: 3px; }
+@keyframes pulse { 50% { opacity: .55; } }
+.belly.low { color: #ff7a5a; animation: pulse 1s infinite; }
+#hSt { color: #ff9ad0; font-size: 13px; }
+small.k { opacity: .6; font-size: 11px; margin-right: 3px; }
+#mini { position: fixed; right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); width: 208px; height: 144px; opacity: .85; pointer-events: none; border-radius: 6px; background: #0006; }
+#log { position: fixed; left: 12px; bottom: 14px; max-width: min(520px, 60vw); font-size: 14px; line-height: 1.5; pointer-events: none; text-shadow: 0 1px 0 #000, 0 0 6px #000; }
+#log div { transition: opacity 1s; }
+#log div.old { opacity: .45; }
+
+/* スマホ操作 */
+#ctrl { display: none; }
+body.touch #ctrl { display: block; }
+body.touch #log { bottom: 210px; left: 10px; font-size: 13px; max-width: 70vw; }
+body.touch #mini { width: 156px; height: 108px; top: calc(max(8px, env(safe-area-inset-top)) + 64px); }
+body.touch #hMain { font-size: 13px; gap: 8px; }
+#pad { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 3px; }
+#pad button, .ab { background: #1a1224cc; border: 1px solid #5a4a6a; border-radius: 12px; font-size: 22px; touch-action: none; }
+#pad button.on, .ab:active, #bTurn.on { background: #5a3a80; }
+#pad button[data-d="c"] { font-size: 13px; }
+#acts { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: 64px 64px; gap: 8px; }
+.ab { height: 56px; font-size: 13px; white-space: nowrap; font-weight: 700; }
+#bAtk { grid-column: span 2; height: 72px; font-size: 18px; background: #5a1a22cc; border-color: #a04050; }
+#pcKeys { position: fixed; right: 12px; bottom: 10px; font: 12px/1.5 system-ui, sans-serif; opacity: .5; text-align: right; pointer-events: none; }
+body.touch #pcKeys { display: none; }
+
+/* 画面 */
+.scr { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: radial-gradient(900px 700px at 50% 35%, #1c0f2acc, #000e 75%); z-index: 10; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 520px; width: 100%; text-align: center; }
+.logo { margin: 0; font-size: clamp(40px, 11vw, 72px); letter-spacing: .12em; color: #e8d0ff; text-shadow: 0 0 24px #8a40ff, 0 4px 0 #000; font-weight: 900; }
+.logo small { display: block; font-size: 15px; letter-spacing: .3em; color: #a090b8; text-shadow: none; margin-top: 6px; }
+.btn { min-width: 230px; padding: 13px 22px; font-size: 18px; font-weight: 700; border-radius: 10px; background: linear-gradient(#6a2a8a, #3a1450); border: 1px solid #b080e0; box-shadow: 0 4px 18px #6a20a060; }
+.btn.ghost { background: #ffffff10; border-color: #6a5a7a; box-shadow: none; font-size: 15px; }
+.btn.red { background: linear-gradient(#7a2028, #401014); border-color: #c05060; }
+.recs { font-size: 13px; opacity: .85; line-height: 1.8; }
+.panel { background: linear-gradient(#1c1424f4, #0e0a14f4); border: 1px solid #5a4a6a; border-radius: 14px; padding: 16px; width: min(560px, 100%); max-height: 88vh; overflow: auto; box-shadow: 0 10px 40px #000c; }
+.panel h2 { margin: 0 0 10px; font-size: 20px; color: #d8b0ff; }
+.grid2 { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; text-align: left; font-size: 15px; margin: 6px 0 12px; }
+.grid2 span { opacity: .7; }
+#invList { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow: auto; text-align: left; }
+.ii { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; background: #ffffff08; border: 1px solid transparent; font-size: 15px; text-align: left; }
+.ii.sel { background: #5a3a8040; border-color: #a080d0; }
+.ii b { font-weight: 500; flex: 1; }
+.ii em { font-style: normal; font-size: 12px; background: #c0a040; color: #000; padding: 1px 6px; border-radius: 4px; }
+#invDesc { min-height: 2.6em; margin: 10px 0; font-size: 14px; opacity: .85; text-align: left; }
+#invActs { display: flex; gap: 8px; flex-wrap: wrap; }
+#invActs button, .row button { padding: 10px 16px; border-radius: 8px; background: #ffffff12; border: 1px solid #6a5a7a; font-size: 15px; }
+#invActs button.pri { background: #5a2a7a; border-color: #b080e0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
+#gfx button.on { background: #5a2a7a; border-color: #b080e0; }
+.help { text-align: left; font-size: 14px; line-height: 1.75; }
+.help h3 { margin: 12px 0 4px; font-size: 15px; color: #ffd060; }
+#stairsAsk { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); z-index: 8; text-align: center; }
+#load { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: radial-gradient(900px 700px at 50% 30%, #1c0f2a, #000 70%); transition: opacity .45s; }
+#load.done { opacity: 0; pointer-events: none; }
+.lbar { width: 240px; height: 6px; background: #2a1a3a; border-radius: 3px; overflow: hidden; }
+.lbar u { display: block; height: 100%; width: 10%; background: #a060ff; transition: width .3s; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vig"></div>
+<div id="flash"></div>
+<div id="nums"></div>
+
+<div id="hud" hidden>
+  <div class="hb" id="hMain">
+    <span id="hFloor">B1F</span>
+    <span id="hLv">Lv1</span>
+    <div class="hpw"><span><small class="k">HP</small><b id="hHp">15/15</b></span><div class="bar"><div id="hpBar"></div></div><div class="bar xpb"><div id="xpBar"></div></div></div>
+    <span class="belly"><small class="k">お腹</small><b id="hBelly">100%</b></span>
+    <span><small class="k">攻</small><b id="hAtk">0</b> <small class="k">防</small><b id="hDef">0</b></span>
+    <span id="hSt"></span>
+  </div>
+</div>
+<canvas id="mini" width="416" height="288"></canvas>
+<div id="log"></div>
+<div id="pcKeys">移動：矢印/WASD（斜め QEZC・テンキー）　Shift＋方向：向きだけ変える<br>Space：攻撃　R：足ぶみ　F：拾う/階段　I：持ち物　Esc：メニュー　ホイール：ズーム</div>
+
+<div id="ctrl">
+  <div id="pad">
+    <button data-d="7">↖</button><button data-d="0">↑</button><button data-d="1">↗</button>
+    <button data-d="6">←</button><button data-d="c">足元</button><button data-d="2">→</button>
+    <button data-d="5">↙</button><button data-d="4">↓</button><button data-d="3">↘</button>
+  </div>
+  <div id="acts">
+    <button class="ab" id="bAtk">⚔ 攻撃</button>
+    <button class="ab" id="bInv">🎒 道具</button>
+    <button class="ab" id="bWait">⏳ 足ぶみ</button>
+    <button class="ab" id="bTurn">↻ 向き</button>
+    <button class="ab" id="bMenu">☰ メニュー</button>
+  </div>
+</div>
+
+<div id="stairsAsk" class="panel" hidden style="width:auto">
+  <div style="margin-bottom:10px">階段がある。下りる？</div>
+  <div class="row"><button id="sYes">下りる（Enter）</button><button id="sNo">やめる</button></div>
+</div>
+
+<div class="scr" id="inv" hidden><div class="panel">
+  <h2 id="invTitle">持ち物</h2>
+  <div id="invList"></div>
+  <div id="invDesc"></div>
+  <div id="invActs"></div>
+</div></div>
+
+<div class="scr" id="menu" hidden><div class="panel" style="text-align:center">
+  <h2>メニュー</h2>
+  <div class="grid2" id="mStat"></div>
+  <div style="font-size:13px;opacity:.7">画質（変えると読みこみなおし・冒険は続きから）</div>
+  <div class="row" id="gfx"><button data-g="0">低</button><button data-g="1">中</button><button data-g="2">高</button></div>
+  <div class="row"><button id="mMute">音</button><button id="mHelp">遊び方</button></div>
+  <div class="row"><button id="mTitle">中断してタイトルへ</button><button id="mGiveup" style="border-color:#a04050">あきらめる</button></div>
+  <div class="row"><button id="mBack" style="min-width:140px">もどる</button></div>
+</div></div>
+
+<div class="scr" id="help" hidden><div class="panel help">
+  <h2>遊び方</h2>
+  <p>入るたびに形がかわるダンジョン「奈落」。地下20階にいる <b>奈落の主</b> をたおせばクリア。<b>力つきたら持ち物もレベルもぜんぶ失って最初から。</b></p>
+  <h3>ターン制</h3>
+  あなたが1歩動くか1回攻撃すると、敵も1回動く。あせらず、1手ずつ考えよう。通路で戦えば囲まれにくい。
+  <h3>お腹</h3>
+  歩くとお腹がへる。0%になるとHPがへりつづける。パンや干し肉を拾っておこう。
+  <h3>未識別アイテム</h3>
+  薬・巻物・杖は、使うまで正体がわからない（「赤い薬」など）。一度使えば同じ種類は全部わかる。武器や盾の強さ（+−）も装備するまでわからない。呪われた装備は外せない。
+  <h3>罠</h3>
+  見えない罠がある。踏むと見えるようになる。
+  <h3>ボス</h3>
+  地下10階と地下20階には強いボスがいる。たおすと下り階段があらわれる。
+  <h3>そうさ（PC）</h3>
+  矢印/WASD で移動（2つ同時押しで斜め・QEZC・テンキーでも斜め）、Shift＋方向で向きだけ変える。Space：攻撃　R：足ぶみ　F：拾う・階段　I：持ち物　Esc：メニュー
+  <h3>そうさ（スマホ）</h3>
+  左の十字で移動（長押しで歩きつづける）、まん中「足元」で拾う・階段。「向き」をONにすると向きだけ変えられる。
+  <div class="row"><button id="hBack">もどる</button></div>
+</div></div>
+
+<div class="scr" id="title" hidden>
+  <div class="col">
+    <h1 class="logo">奈落の迷宮<small>NARAKU · 地下二十階のローグライク</small></h1>
+    <button class="btn" id="tCont" hidden>▶ 続きから</button>
+    <button class="btn" id="tNew">⚔ 新しく潜る</button>
+    <button class="btn ghost" id="tHelp">遊び方</button>
+    <div class="recs" id="tRec"></div>
+    <a href="../" style="color:#a090c0;font-size:13px">← ゲーム一覧</a>
+  </div>
+</div>
+
+<div class="scr" id="over" hidden>
+  <div class="panel" style="text-align:center">
+    <h2 id="ovTitle" style="font-size:26px">あなたは力つきた…</h2>
+    <div class="grid2" id="ovBody" style="max-width:320px;margin:10px auto 16px"></div>
+    <div class="row"><button class="btn" id="ovNew">もう一度潜る</button></div>
+    <div class="row"><button class="btn ghost" id="ovTitle2">タイトルへ</button></div>
+  </div>
+</div>
+
+<div id="load">
+  <div class="col">
+    <h1 class="logo">奈落の迷宮</h1>
+    <div class="lbar"><u id="loadBar"></u></div>
+    <div id="loadTxt">よみこみ中…</div>
+    <button class="btn ghost" id="loadRe" hidden onclick="location.reload()">読みこみなおす</button>
+  </div>
+</div>
+<script>
+(function () {
+  window.__loadDone = function () { var l = document.getElementById('load'); if (l) { l.classList.add('done'); setTimeout(function () { if (l.parentNode) l.remove(); }, 500); } };
+  var b = document.getElementById('loadBar'), p = 10, iv0 = setInterval(function () { p = Math.min(90, p + 8); if (b) b.style.width = p + '%'; }, 200);
+  function fail(msg) { var x = document.getElementById('loadTxt'), r = document.getElementById('loadRe'); if (!x || !document.getElementById('load')) return; x.innerHTML = '読みこみに失敗しました…<br><small style="opacity:.7">' + String(msg).replace(/[<>&]/g, '') + '</small>'; x.style.color = '#ffb0a0'; if (r) r.hidden = false; clearInterval(iv0); }
+  var mine = function (u) { return /naraku|three|upa\/vendor/.test(String(u || '')); };
+  addEventListener('error', function (e) { var t = e.target; if (t && t.tagName === 'SCRIPT') return fail('ファイルが読めない：' + t.src); if (e.message && (mine(e.filename) || !e.filename)) fail(e.message); }, true);
+  addEventListener('unhandledrejection', function (e) { var r = e.reason; if (r && mine(r.stack)) fail(r.message || r); });
+  setTimeout(function () { var c = document.createElement('canvas'); if (!(c.getContext('webgl2') || c.getContext('webgl'))) fail('このブラウザでは3D（WebGL）が使えないみたい'); }, 0);
+  var iv = setInterval(function () { if (!document.getElementById('load')) return clearInterval(iv); if (window.NARAKU) { clearInterval(iv); window.__loadDone(); } }, 300);
+})();
+</script>
+<script src="../account.js"></script>
+<script src="../rank.js"></script>
+<script type="module" src="game.js?v=1"></script>
+</body>
+</html>
