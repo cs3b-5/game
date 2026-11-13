@@ -9,7 +9,7 @@
 (function () {
   if (window.GAMES_RANK) return;
   const META = {
-    uparun: { t: 'ウパラン', unit: '点' },
+    uparun: { t: 'ウパラン', unit: '点', daily: true },
     fish: { t: 'ほったらかし釣り堀', unit: '%', sub: '図鑑コンプリート率', dec: 1 },
     pachinko: { t: '夜祭り金魚', unit: '連', sub: '最大連チャン' },
     digger: { t: 'コア・ディガー', unit: '', sub: 'クリアタイム', order: 'asc', time: true },
@@ -35,6 +35,8 @@
   const cleanName = s => (s || '').normalize('NFKC').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10);
   const okName = s => /^[\p{L}\p{N}_\-・ー〜!?！？☆★♪.]+$/u.test(s.replace(/\s/g, ''));
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // 日本時間の日付（デイリーランキング用）：20261113 の形
+  const today = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '');
   const better = (g, a, b) => (META[g] && META[g].order === 'asc') ? a < b : a > b; // a が b より良いか
 
   // ---------- つなぎ先：claude.ai ----------
@@ -50,7 +52,7 @@
         db = d; uid = id; return true;
       } catch (e) { why = 'E'; return false; }
     }
-    const col = g => 'rk_' + g;
+    const col = (g, d) => 'rk_' + g + (d ? '_day' : '');
     return {
       kind: 'claude', get uid() { return uid; }, get why() { return why; },
       on: async () => { if (db) return true; if (!ready) ready = init().then(ok => { if (!ok) ready = null; return ok; }); return ready; },
@@ -64,11 +66,13 @@
         await db.doc('accounts/' + uid).set({ name, key, at: Date.now() });
         return { ok: true };
       },
-      async getMine(g) { const r = await db.doc(`${col(g)}/${uid}`).get(); return r.exists ? r.data() : null; },
-      async put(g, v) { await db.doc(`${col(g)}/${uid}`).set(v); },
-      async list(g) {
-        const q = await db.collection(col(g)).orderBy('score', META[g] && META[g].order === 'asc' ? 'asc' : 'desc').limit(60).get();
-        return q.docs.map(d => ({ id: d.id, ...d.data() }));
+      async getMine(g, d) { const r = await db.doc(`${col(g, d)}/${uid}`).get(); if (!r.exists) return null; const v = r.data(); return d && v.day !== d ? null : v; },
+      async put(g, v, d) { await db.doc(`${col(g, d)}/${uid}`).set(d ? { ...v, day: d } : v); },
+      async list(g, d) {
+        const asc = META[g] && META[g].order === 'asc';
+        if (d) { const q = await db.collection(col(g, d)).where('day', '==', d).get(); return q.docs.map(x => ({ id: x.id, ...x.data() })).sort((a, b) => asc ? a.score - b.score : b.score - a.score).slice(0, 60); }
+        const q = await db.collection(col(g)).orderBy('score', asc ? 'asc' : 'desc').limit(60).get();
+        return q.docs.map(x => ({ id: x.id, ...x.data() }));
       },
     };
   }
@@ -85,7 +89,7 @@
         uid = auth.currentUser.uid; return true;
       } catch (e) { why = 'F'; console.warn('rank', e); return false; }
     }
-    const runs = g => F.collection(fs, 'ranks', g, 'runs');
+    const runs = (g, d) => F.collection(fs, 'ranks', d ? `${g}_d${d}` : g, 'runs');
     return {
       kind: 'firebase', get uid() { return uid; }, get why() { return why; },
       on: async () => { if (uid) return true; if (!ready) ready = init().then(ok => { if (!ok) ready = null; return ok; }); return ready; },
@@ -100,10 +104,10 @@
         await F.setDoc(F.doc(fs, 'accounts', uid), { name });
         return { ok: true };
       },
-      async getMine(g) { const r = await F.getDoc(F.doc(runs(g), uid)); return r.exists() ? r.data() : null; },
-      async put(g, v) { await F.setDoc(F.doc(runs(g), uid), v); },
-      async list(g) {
-        const q = await F.getDocs(F.query(runs(g), F.orderBy('score', META[g] && META[g].order === 'asc' ? 'asc' : 'desc'), F.limit(60)));
+      async getMine(g, d) { const r = await F.getDoc(F.doc(runs(g, d), uid)); return r.exists() ? r.data() : null; },
+      async put(g, v, d) { await F.setDoc(F.doc(runs(g, d), uid), v); },
+      async list(g, d) {
+        const q = await F.getDocs(F.query(runs(g, d), F.orderBy('score', META[g] && META[g].order === 'asc' ? 'asc' : 'desc'), F.limit(60)));
         return q.docs.map(d => ({ id: d.id, ...d.data() }));
       },
     };
@@ -139,16 +143,21 @@
   const queue = {}; let timer = 0, sending = false;
   // 自己ベストを超えていれば送る。sub は2つ目の数字（ないなら省略）
   // 自己ベストを更新したら true
-  function report(g, score, sub) {
+  // opt.old：前に出した記録を送り直すだけ（今日の記録にはしない）
+  function report(g, score, sub, opt) {
     if (!META[g] || !Number.isFinite(+score)) return false;
     score = +score;
     const best = ls.get(BEST, {});
-    const prev = best[g]; let up = false;
-    if (prev && !better(g, score, prev.score)) {
-      if (prev.sent) return false; // 自己ベストは変わらず、もう送ってある
-    } else { best[g] = { score, sub: sub ?? null, sent: false }; up = true; }
+    const prev = best[g]; let up = false, any = false;
+    if (prev && !better(g, score, prev.score)) { if (!prev.sent) any = true; }
+    else { best[g] = { score, sub: sub ?? null, sent: false }; up = true; any = true; }
+    if (META[g].daily && !(opt && opt.old)) { // 今日のベスト
+      const d = today(), k = g + '@', p = best[k];
+      if (!p || p.day !== d || better(g, score, p.score)) { best[k] = { day: d, score, sub: sub ?? null, sent: false }; any = true; }
+      else if (!p.sent) any = true;
+    }
     ls.set(BEST, best);
-    queue[g] = 1; clearTimeout(timer); timer = setTimeout(flush, 1500);
+    if (any) { queue[g] = 1; clearTimeout(timer); timer = setTimeout(flush, 1500); }
     return up;
   }
   // すぐ送って、順位を返す（ゲームオーバー画面など用）
@@ -157,9 +166,11 @@
     if (!(await B.on())) return { ok: false, why: 'off' };
     await flush();
     const name = await myName(); if (!name) return { ok: false, why: 'noname' };
+    const rankIn = (rows, s) => { const i = rows.findIndex(r => r.id === B.uid); return i >= 0 ? i + 1 : rows.filter(r => better(g, r.score, s)).length + 1; };
     const rows = await list(g) || [], b = ls.get(BEST, {})[g] || { score };
-    const i = rows.findIndex(r => r.id === B.uid);
-    return { ok: true, rank: i >= 0 ? i + 1 : rows.filter(r => better(g, r.score, b.score)).length + 1, best: b.score, newBest: up };
+    const out = { ok: true, rank: rankIn(rows, b.score), best: b.score, newBest: up };
+    if (META[g].daily) { const dr = await list(g, true) || [], db2 = ls.get(BEST, {})[g + '@'] || { score }; out.dayRank = rankIn(dr, db2.score); out.dayBest = db2.score; }
+    return out;
   }
   async function flush() {
     if (sending) { timer = setTimeout(flush, 1500); return; }
@@ -167,15 +178,20 @@
     try {
       const name = await myName(); if (!name) return; // 名前がないうちは送らない（決めたら送る）
       for (const g of gs) {
-        const best = ls.get(BEST, {}), b = best[g]; if (!b) { delete queue[g]; continue; }
         try {
-          const mine = await B.getMine(g);
-          if (!mine || better(g, b.score, mine.score) || mine.name !== name) {
-            const v = { name, score: b.score, at: Date.now() }; if (Number.isFinite(b.sub)) v.sub = b.sub;
-            if (mine && !better(g, b.score, mine.score)) { v.score = mine.score; if (Number.isFinite(mine.sub)) v.sub = mine.sub; else delete v.sub; }
-            await B.put(g, v);
+          for (const k of META[g] && META[g].daily ? [g, g + '@'] : [g]) {
+            const b = ls.get(BEST, {})[k]; if (!b || b.sent) continue;
+            const d = k.endsWith('@') ? b.day : null;
+            if (d && d !== today()) { b.sent = true; ls.set(BEST, { ...ls.get(BEST, {}), [k]: b }); continue; } // 昨日の分はもう送らない
+            const mine = await B.getMine(g, d);
+            if (!mine || better(g, b.score, mine.score) || mine.name !== name) {
+              const v = { name, score: b.score, at: Date.now() }; if (Number.isFinite(b.sub)) v.sub = b.sub;
+              if (mine && !better(g, b.score, mine.score)) { v.score = mine.score; if (Number.isFinite(mine.sub)) v.sub = mine.sub; else delete v.sub; }
+              await B.put(g, v, d);
+            }
+            b.sent = true; ls.set(BEST, { ...ls.get(BEST, {}), [k]: b });
           }
-          b.sent = true; ls.set(BEST, { ...ls.get(BEST, {}), [g]: b }); delete queue[g];
+          delete queue[g];
         } catch (e) { console.warn('rank send', g, e); }
       }
     } finally { sending = false; }
@@ -188,9 +204,10 @@
     if (m.money) { const units = [[1e16, '京'], [1e12, '兆'], [1e8, '億'], [1e4, '万']]; for (const [u, n] of units) if (v >= u) return `${(v / u).toFixed(v / u < 100 ? 1 : 0)}${n}円`; return `${Math.floor(v)}円`; }
     return (m.dec ? (+v).toFixed(m.dec) : Math.floor(v).toLocaleString()) + (m.unit || '');
   }
-  async function list(g) {
+  // daily が true なら今日のランキング
+  async function list(g, daily) {
     if (!(await B.on())) return null;
-    const rows = await B.list(g);
+    const rows = await B.list(g, daily ? today() : null);
     return rows.filter(r => r && typeof r.name === 'string' && Number.isFinite(r.score)).slice(0, 50);
   }
   let css = false;
@@ -259,5 +276,5 @@
   }
   // 名前がないまま記録がたまっていたら、名前が決まったときにまとめて送る
   addEventListener('load', () => setTimeout(() => { const b = ls.get(BEST, {}); for (const g in b) if (!b[g].sent) queue[g] = 1; if (Object.keys(queue).length) flush(); }, 2500));
-  window.GAMES_RANK = { META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
+  window.GAMES_RANK = { today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
 })();

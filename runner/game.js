@@ -429,13 +429,13 @@ function bot() {
 const NET = {
   on: () => GAMES_RANK.on(),
   submit: run => GAMES_RANK.submit('uparun', run.s, run.d),
-  list: () => GAMES_RANK.list('uparun'),
+  list: daily => GAMES_RANK.list('uparun', daily),
   claim: n => GAMES_RANK.claim(n),
   get uid() { return GAMES_RANK.uid; }, get why() { return GAMES_RANK.why; },
 };
 NET.on();
 // 前の版で出した記録（この端末のハイスコア）も送る
-if (SV.best > 0) GAMES_RANK.report('uparun', Math.floor(SV.best), (SV.runs.find(r => r.s === Math.floor(SV.best)) || {}).d);
+if (SV.best > 0) GAMES_RANK.report('uparun', Math.floor(SV.best), (SV.runs.find(r => r.s === Math.floor(SV.best)) || {}).d, { old: true });
 
 // ================= 画面の切りかえ =================
 const SCR = ['title', 'help', 'shop', 'rank', 'paused', 'over'];
@@ -462,7 +462,7 @@ function showOver() {
   NET.submit({ s: sc, d: Math.floor(G.dist), c: G.drops }).then(r => {
     if (!r.ok && r.why === 'noname') askName(el, { s: sc, d: Math.floor(G.dist), c: G.drops });
     else if (!r.ok) el.innerHTML = `オンラインランキングにつながらなかった（コード ${NET.why || '?'}）`;
-    else el.innerHTML = `オンライン <b>${r.rank}位</b>${r.newBest ? '（自己ベスト更新！）' : `（自己ベスト ${r.best.toLocaleString()}）`}`;
+    else el.innerHTML = `今日 <b>${r.dayRank || '-'}位</b>・全期間 <b>${r.rank}位</b>${r.newBest ? '（自己ベスト更新！）' : ''}`;
   }).catch(e => { el.textContent = `ランキングに送れなかった（${String(e && e.message || e).slice(0, 60)}）`; });
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -476,7 +476,7 @@ function askName(el, run) {
       const c = await NET.claim($('nmIn').value);
       if (!c.ok) { $('nmMsg').textContent = c.why; busy = false; return; }
       const r = await NET.submit(run);
-      el.innerHTML = r.ok ? `「${esc(c.name)}」で登録したよ！ オンライン <b>${r.rank}位</b>` : 'ランキングに送れなかった';
+      el.innerHTML = r.ok ? `「${esc(c.name)}」で登録したよ！ 今日 <b>${r.dayRank || '-'}位</b>・全期間 <b>${r.rank}位</b>` : 'ランキングに送れなかった';
     } catch (err) { $('nmMsg').textContent = '登録できなかった（' + String(err && err.message || err).slice(0, 40) + '）'; busy = false; }
   };
 }
@@ -492,16 +492,18 @@ $('resume').onclick = togglePause; $('pause').onclick = togglePause;
 $('toHelp').onclick = () => show('help'); $('toRank').onclick = () => { renderRank(); show('rank'); };
 document.querySelectorAll('#rankTabs button').forEach(b => b.onclick = () => { rankTab = b.dataset.t; renderRank(); }); $('toShop').onclick = () => { renderShop(); show('shop'); };
 $('sndBtn').onclick = () => { SND.on = !SND.on; title(); };
-let rankTab = 'all';
+let rankTab = 'day';
 async function renderRank() {
   document.querySelectorAll('#rankTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === rankTab));
-  if (rankTab === 'all') {
+  if (rankTab === 'all' || rankTab === 'day') {
+    const tab = rankTab;
     $('rankList').innerHTML = '<p class="note" style="text-align:center">読みこみ中…</p>';
-    let list = null; try { list = await Promise.race([NET.list(), new Promise(r => setTimeout(() => r('timeout'), 12000))]); } catch (e) { list = 'err'; NET.err = String(e && e.message || e); }
-    if (rankTab !== 'all') return;
+    let list = null; try { list = await Promise.race([NET.list(tab === 'day'), new Promise(r => setTimeout(() => r('timeout'), 12000))]); } catch (e) { list = 'err'; NET.err = String(e && e.message || e); }
+    if (rankTab !== tab) return;
     if (list === null) { $('rankList').innerHTML = `<p class="note" style="text-align:center">オンラインランキングにつながらなかった（コード ${NET.why || '?'}）<br>ネットにつながっているか確かめて、もう一度ためしてね</p>`; return; }
     if (!Array.isArray(list)) { $('rankList').innerHTML = `<p class="note" style="text-align:center">読みこめなかった（コード ${list === 'timeout' ? 'T' : 'X'}）。あとでもう一度ためしてね</p>`; return; }
-    $('rankList').innerHTML = list.length ? list.map((r, i) => `<div class="${r.id === NET.uid ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}位`}　${esc(r.name)} ${r.sub ? `<small>${Math.floor(r.sub).toLocaleString()}m</small>` : ""}</span><b>${Math.floor(r.score).toLocaleString()}</b></div>`).join('') : '<p class="note" style="text-align:center">まだだれも記録がないよ。一番乗りしよう！</p>';
+    $('rankList').innerHTML = list.length ? list.map((r, i) => `<div class="${r.id === NET.uid ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}位`}　${esc(r.name)} ${r.sub ? `<small>${Math.floor(r.sub).toLocaleString()}m</small>` : ""}</span><b>${Math.floor(r.score).toLocaleString()}</b></div>`).join('') : (tab === 'day' ? '<p class="note" style="text-align:center">今日はまだだれも走ってないよ。今日の1位をねらおう！</p>' : '<p class="note" style="text-align:center">まだだれも記録がないよ。一番乗りしよう！</p>');
+    if (tab === 'day') $('rankList').insertAdjacentHTML('afterbegin', '<p class="note" style="text-align:center;opacity:.7">毎日0時（日本時間）にリセット</p>');
     return;
   }
   $('rankList').innerHTML = SV.runs.length ? SV.runs.map((r, i) => `<div><span>${i + 1}位　${r.at}${r.who ? '　' + esc(r.who) : ''}</span><b>${r.s.toLocaleString()}</b></div>`).join('') : '<p class="note" style="text-align:center">まだ記録がないよ。走ってみよう！</p>';
