@@ -23,6 +23,7 @@
     upa: { t: 'うぱるぱスピリッツ', unit: '勝', sub: 'CPU戦の勝利数' },
     fighter: { t: '嵐拳', unit: '勝', sub: 'オンライン対戦の勝利数' },
     moon: { t: '月面おそうじ局', unit: '%', sub: '月面清掃率', dec: 2 },
+    kart: { t: 'うぱカートGP', unit: '', sub: 'タイムアタック（サーキット）', order: 'asc', ms: true },
     shushae: { t: '出社できない', unit: 'm', sub: 'エンドレス出社の最高距離', dec: 1 },
   };
   const IN_CLAUDE = /(^|\.)claudeusercontent\.com$|(^|\.)claude\.ai$/.test(location.hostname);
@@ -238,6 +239,7 @@
   // ---------- 表示 ----------
   function fmt(g, v) {
     const m = META[g] || {};
+    if (m.ms) { const mi = Math.floor(v / 60), se = v - mi * 60; return `${mi}'${se.toFixed(2).padStart(5, '0')}"`; }
     if (m.time) { const s = Math.max(0, Math.round(v)), h = Math.floor(s / 3600), mi = Math.floor(s / 60) % 60, se = s % 60; return (h ? `${h}時間` : '') + `${mi}分${String(se).padStart(2, '0')}秒`; }
     if (m.money) { const units = [[1e16, '京'], [1e12, '兆'], [1e8, '億'], [1e4, '万']]; for (const [u, n] of units) if (v >= u) return `${(v / u).toFixed(v / u < 100 ? 1 : 0)}${n}円`; return `${Math.floor(v)}円`; }
     return (m.dec ? (+v).toFixed(m.dec) : Math.floor(v).toLocaleString()) + (m.unit || '');
