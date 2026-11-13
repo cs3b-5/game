@@ -86,6 +86,11 @@ body.touch .keys { display: none; }
 .stat { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: .84rem; }
 .stat b { text-align: right; }
 .menu { display: grid; gap: 10px; }
+#load { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: radial-gradient(900px 700px at 50% 30%, #121a3a, #000 70%); transition: opacity .45s; }
+#load.done { opacity: 0; pointer-events: none; }
+.lbar { width: min(320px, 80vw); height: 12px; border-radius: 6px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); overflow: hidden; }
+.lbar u { display: block; height: 100%; width: 4%; background: linear-gradient(90deg, #ff9a3c, #ffe27a); transition: width .3s; }
+#loadTxt { font-weight: 900; font-size: .9rem; text-align: center; line-height: 1.6; min-height: 1.6em; }
 .row3 { display: flex; gap: 6px; margin-top: 6px; } .row3 button { flex: 1; padding: 9px; border-radius: 10px; background: rgba(255,255,255,.08); font-weight: 900; } .row3 button.on { background: #ffe27a; color: #2a1a00; }
 #visor { position: fixed; inset: 0; z-index: 4; pointer-events: none; display: none;
   background: radial-gradient(ellipse 78% 82% at 50% 48%, rgba(0,0,0,0) 62%, rgba(10,16,30,.35) 80%, rgba(4,6,12,.92) 100%); }
@@ -137,7 +142,29 @@ body.fp .money { color: #9fe8ff; text-shadow: 0 0 10px rgba(80,200,255,.6), 0 2p
 <div id="toast"></div>
 <div id="log"></div>
 
-<div class="scr" id="title">
+<div id="load">
+  <div class="col">
+    <h1 class="logo"><span>月面おそうじ局</span><small>月面管理局（LSD）清掃課</small></h1>
+    <div class="lbar"><u id="loadBar"></u></div>
+    <div id="loadTxt">よみこみ中…</div>
+    <button class="btn ghost" id="loadRe" hidden onclick="location.reload()">読みこみなおす</button>
+  </div>
+</div>
+<script>
+(function () {
+  var t0 = Date.now();
+  window.__loadSet = function (txt, p) { var b = document.getElementById('loadBar'), x = document.getElementById('loadTxt'); if (b) b.style.width = p + '%'; if (x) x.textContent = txt; };
+  window.__loadDone = function () { var l = document.getElementById('load'); if (l) { l.classList.add('done'); setTimeout(function () { l.remove(); }, 500); } };
+  function fail(msg) { var x = document.getElementById('loadTxt'), r = document.getElementById('loadRe'); if (!x || !document.getElementById('load')) return; x.innerHTML = '読みこみに失敗しました…<br><small style="opacity:.7">' + String(msg).replace(/[<>&]/g, '') + '</small>'; x.style.color = '#ffb0a0'; if (r) r.hidden = false; }
+  var mine = function (u) { return /tsuki|three|upa\/vendor/.test(String(u || '')); };
+  addEventListener('error', function (e) { var t = e.target; if (t && t.tagName === 'SCRIPT') return fail('ファイルが読めない：' + t.src); if (e.message && (mine(e.filename) || !e.filename)) fail(e.message); }, true);
+  addEventListener('unhandledrejection', function (e) { var r = e.reason; if (r && mine(r.stack)) fail(r.message || r); });
+  setTimeout(function () { var c = document.createElement('canvas'); if (!(c.getContext('webgl2') || c.getContext('webgl'))) fail('このブラウザでは3D（WebGL）が使えないみたい'); }, 0);
+  setTimeout(function () { if (document.getElementById('load') && !document.getElementById('load').classList.contains('done')) { var x = document.getElementById('loadTxt'); if (x && !/失敗/.test(x.textContent)) x.textContent += '（時間がかかっています…）'; } }, 25000);
+})();
+</script>
+
+<div class="scr" id="title" hidden>
   <div class="col">
     <h1 class="logo"><span>月面おそうじ局</span><small>月面管理局（LSD）清掃課</small></h1>
     <div class="card" id="tStat" hidden></div>

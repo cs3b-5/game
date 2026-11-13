@@ -50,6 +50,10 @@ const INTAKE = { x: 0, z: 7 }, PAD = { x: 11, z: 4 };
 const fresh = () => ({ v: 1, money: 0, tool: 0, tools: [0], up: { tank: 0, belt: 0, wide: 0, boots: 0, auto: 0, appr: 0 }, garage: false, cars: [], car: null, robots: [], depots: [], found: [], done: [], dust: '', p: { x: 0, z: 13, yaw: Math.PI }, g: { kg: 0, val: 0 }, caps: [], st: { kg: 0, earn: 0, time: 0, trips: 0 }, t: Date.now(), intro: false });
 let S = fresh();
 try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && o.v === 1) S = Object.assign(fresh(), o, { up: Object.assign(fresh().up, o.up || {}) }); } catch (e) {}
+// ---------- ロード画面 ----------
+const LD = document.getElementById('load');
+const step = async (txt, p) => { if (window.__loadSet) window.__loadSet(txt, p); await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); };
+await step('月のホコリを数えています…', 12);
 const D = W.makeDust();
 if (S.dust) D.load(S.dust);
 
@@ -101,6 +105,7 @@ addEventListener('resize', resize); resize();
 const SH = o => { o.traverse(m => { if (m.isMesh && !m.material.transparent) { m.castShadow = true; m.receiveShadow = true; } }); return o; };
 const rnd = (() => { let s = 99173; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; })();
 
+await step('地球と星を描いています…', 30);
 // 星・天の川・地球・太陽
 {
   const n = GQ === 0 ? 2500 : 6000, p = new Float32Array(n * 3), c = new Float32Array(n * 3);
@@ -185,6 +190,7 @@ const groundMat = (tex, ox, oz, outer) => {
   m.customProgramCacheKey = () => 'moonground';
   return m;
 };
+await step('地面をつくっています…', 48);
 const texs = [], tileMat = [];
 const SEG = [40, 72, 96][GQ];
 for (let t = 0; t < 16; t++) {
@@ -219,6 +225,7 @@ for (let t = 0; t < 16; t++) {
   for (let s = -HALF; s <= HALF; s += 16) for (const [x, z] of [[s, -HALF], [s, HALF], [-HALF, s], [HALF, s]]) { const a = new THREE.Mesh(pg, pm); a.position.set(x, 0.7, z); scene.add(a); const b = new THREE.Mesh(lg, lm); b.position.set(x, 1.45, z); scene.add(b); }
 }
 
+await step('岩をならべています…', 64);
 // 岩（インスタンス）
 const BOULDERS = [];
 {
@@ -266,6 +273,7 @@ const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color:
 const glow = (r, g, b) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), toneMapped: false });
 const metal = (c, r = 0.35) => std(c, { metalness: 0.85, roughness: r });
 
+await step('基地を建てています…', 76);
 // 基地
 const ringMat = c => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(1.8), transparent: true, opacity: 0.9, toneMapped: false });
 function ringMesh(r, c) { const g = new THREE.Group(); const t = new THREE.Mesh(new THREE.TorusGeometry(r, 0.08, 8, 48), ringMat(c)); t.rotation.x = Math.PI / 2; t.position.y = 0.1; g.add(t); const d = new THREE.Mesh(new THREE.CircleGeometry(r, 48), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.13, depthWrite: false })); d.rotation.x = -Math.PI / 2; d.position.y = 0.06; g.add(d); const col = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 3, 48, 1, true), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, uniforms: { c: { value: new THREE.Color(c) } }, vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }', fragmentShader: 'uniform vec3 c; varying vec2 vU; void main(){ gl_FragColor = vec4(c * pow(1.0 - vU.y, 3.0) * 0.22, 1.0); }' })); col.position.y = 1.5; g.add(col); return g; }
@@ -844,6 +852,10 @@ function start() {
   $('title').hidden = true; $('hud').hidden = false; playing = true; offline(); hud();
   if (!S.intro) { S.intro = true; talk(`ようこそ、新人清掃員くん。月面管理局（LSD）清掃課へ！<br>支給品は……<b>歯ブラシ1本</b>だ。すまんな。<br><br>月のホコリを掃いて集めて、基地の<b>回収口</b>（オレンジの輪）に持ってくれば買い取るぞ。<br>稼いだお金で道具をそろえて、この一帯 16地区 をピカピカにしてくれたまえ！`); save(); }
 }
+await step('シェーダーを準備しています…（少し止まるかも）', 88);
+try { renderer.compile(scene, camera); } catch (e) { console.warn(e); }
+await step('じゅんび完了！', 100);
+if (window.__loadDone) window.__loadDone();
 showTitle();
 if (window.GAMES_RANK) { GAMES_RANK.mount('moon', { left: 'max(10px, env(safe-area-inset-left))', bottom: 'max(10px, env(safe-area-inset-bottom))' }, () => playing); if (S.st.time > 5) GAMES_RANK.report('moon', Math.floor(D.pct() * 100) / 100, undefined, { old: true }); }
 
