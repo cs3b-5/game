@@ -79,12 +79,14 @@
   // ---------- つなぎ先：Firebase ----------
   function fbBackend() {
     const BASE = 'https://www.gstatic.com/firebasejs/10.12.2/';
-    let F = null, fs = null, uid = null, ready = null, why = '';
+    let F = null, fs = null, uid = null, ready = null, why = '', A = null, auth = null;
     async function init() {
       try {
         const [app, au, st] = await Promise.all([import(BASE + 'firebase-app.js'), import(BASE + 'firebase-auth.js'), import(BASE + 'firebase-firestore.js')]);
         const a = app.getApps().length ? app.getApp() : app.initializeApp(FB_CONFIG);
-        const auth = au.getAuth(a); F = st; fs = st.getFirestore(a);
+        auth = au.getAuth(a); A = au; F = st; fs = st.getFirestore(a);
+        await au.setPersistence(auth, au.browserLocalPersistence).catch(() => {});
+        await new Promise(r => { const off = au.onAuthStateChanged(auth, () => { off(); r(); }); });
         if (!auth.currentUser) await au.signInAnonymously(auth);
         uid = auth.currentUser.uid; return true;
       } catch (e) { why = 'F'; console.warn('rank', e); return false; }
@@ -96,13 +98,37 @@
       async getName() { try { const a = await F.getDoc(F.doc(fs, 'accounts', uid)); if (a.exists()) return a.data().name; } catch (e) {} return ''; },
       async claim(name) {
         const key = hex(norm(name)), ref = F.doc(fs, 'names', key);
+        const accRef = F.doc(fs, 'accounts', uid), accOld = await F.getDoc(accRef), keep = accOld.exists() ? accOld.data() : {};
         const cur = await F.getDoc(ref);
         if (cur.exists() && cur.data().uid !== uid) return { ok: false, why: 'その名前はもう使われています' };
         if (!cur.exists()) { try { await F.setDoc(ref, { uid, name }); } catch (e) { return { ok: false, why: 'その名前はもう使われています' }; } }
         const old = await this.getName();
         if (old && norm(old) !== norm(name)) { try { await F.deleteDoc(F.doc(fs, 'names', hex(norm(old)))); } catch (e) {} }
-        await F.setDoc(F.doc(fs, 'accounts', uid), { name });
+        await F.setDoc(accRef, { ...keep, name });
         return { ok: true };
+      },
+      // ---- 合言葉（ほかの端末でも同じ名前を使う） ----
+      // 本物のメールは使わない。中で作った住所（ID@players.shima-games.invalid）と合言葉で、同じアカウントに入れるようにする
+      hasPass() { return !!(auth && auth.currentUser && !auth.currentUser.isAnonymous); },
+      async setPass(pass) {
+        const u = auth.currentUser, mail = u.email || `${uid.toLowerCase()}@players.shima-games.invalid`;
+        if (u.isAnonymous) await A.linkWithCredential(u, A.EmailAuthProvider.credential(mail, pass));
+        else await A.updatePassword(u, pass);
+        const acc = await F.getDoc(F.doc(fs, 'accounts', uid));
+        await F.setDoc(F.doc(fs, 'accounts', uid), { ...(acc.exists() ? acc.data() : {}), mail });
+      },
+      async login(name, pass) {
+        const n = await F.getDoc(F.doc(fs, 'names', hex(norm(name))));
+        if (!n.exists()) return { ok: false, why: 'その名前は見つからなかった' };
+        const acc = await F.getDoc(F.doc(fs, 'accounts', n.data().uid));
+        const mail = acc.exists() && acc.data().mail;
+        if (!mail) return { ok: false, why: 'その名前には、まだ合言葉が設定されていないよ（前の端末で設定してね）' };
+        // 今の端末の仮の名前の予約は消しておく（合言葉なしの名前なら）
+        const cur = auth.currentUser;
+        if (cur && cur.isAnonymous) { try { const a = await F.getDoc(F.doc(fs, 'accounts', cur.uid)); if (a.exists() && norm(a.data().name) !== norm(name)) await F.deleteDoc(F.doc(fs, 'names', hex(norm(a.data().name)))); } catch (e) {} }
+        try { await A.signInWithEmailAndPassword(auth, mail, pass); }
+        catch (e) { return { ok: false, why: /too-many/.test(e.code || '') ? '何回もまちがえたので、少し待ってからためしてね' : '合言葉がちがうみたい' }; }
+        uid = auth.currentUser.uid; return { ok: true, name: n.data().name };
       },
       async getMine(g, d) { const r = await F.getDoc(F.doc(runs(g, d), uid)); return r.exists() ? r.data() : null; },
       async put(g, v, d) { await F.setDoc(F.doc(runs(g, d), uid), v); },
@@ -276,5 +302,23 @@
   }
   // 名前がないまま記録がたまっていたら、名前が決まったときにまとめて送る
   addEventListener('load', () => setTimeout(() => { const b = ls.get(BEST, {}); for (const g in b) if (!b[g].sent) queue[g] = 1; if (Object.keys(queue).length) flush(); }, 2500));
-  window.GAMES_RANK = { today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
+  // 合言葉（Firebase のときだけ）
+  async function setPass(p) {
+    if (B.kind !== 'firebase') return { ok: false, why: 'claude.ai では自動で同じ名前になるよ' };
+    if (!(await B.on())) return { ok: false, why: 'つながっていません' };
+    if (!(await myName())) return { ok: false, why: '先に名前を決めてね' };
+    if (!p || p.length < 6) return { ok: false, why: '合言葉は6文字以上にしてね' };
+    try { await B.setPass(p); return { ok: true }; }
+    catch (e) { return { ok: false, why: /operation-not-allowed/.test(e.code || '') ? 'Firebase の「メール/パスワード」がまだオフみたい' : /weak-password/.test(e.code || '') ? '合言葉が短すぎるよ' : /requires-recent-login/.test(e.code || '') ? 'もう一度ログインしなおしてから変えてね' : '設定できなかった（' + (e.code || e.message) + '）' }; }
+  }
+  async function login(name, p) {
+    if (B.kind !== 'firebase') return { ok: false, why: 'claude.ai では自動で同じ名前になるよ' };
+    if (!(await B.on())) return { ok: false, why: 'つながっていません' };
+    const r = await B.login(cleanName(name), p || ''); if (!r.ok) return r;
+    nameCache = r.name; ls.set(ACC, { name: r.name, key: norm(r.name), shared: true });
+    // この端末の自己ベストも、ログインした名前の記録として送る（よいほうが残る）
+    const b = ls.get(BEST, {}); for (const k in b) { b[k].sent = false; queue[k.replace('@', '')] = 1; } ls.set(BEST, b); flush();
+    return r;
+  }
+  window.GAMES_RANK = { setPass, login, hasPass: () => !!(B.hasPass && B.hasPass()), today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
 })();
