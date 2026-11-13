@@ -155,23 +155,30 @@ const groundMat = (tex, ox, oz, outer) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + GROUND_PARS)
       .replace('#include <map_fragment>', `
-        float dust = outer > 0.5 ? 0.62 : texture2D(dustMap, (vW.xz - org) / ${TILE_M.toFixed(1)}).r;
+        vec2 uvT = (vW.xz - org) / ${TILE_M.toFixed(1)};
+        float dust = 0.62; if (outer < 0.5) { const float h = 0.6 / 256.0; dust = texture2D(dustMap, uvT).r * 0.4 + (texture2D(dustMap, uvT + vec2(h, h)).r + texture2D(dustMap, uvT + vec2(-h, h)).r + texture2D(dustMap, uvT + vec2(h, -h)).r + texture2D(dustMap, uvT + vec2(-h, -h)).r) * 0.15; }
         float camD = length(vViewPosition);
+        // ホコリの「層」の厚さ（0〜1）。掃くとうすくなって、下の地面が見える
+        float layer = smoothstep(0.015, 0.09, dust) * (0.35 + 0.65 * clamp(dust * 1.5, 0.0, 1.0));
+        float avgN = layer;
+        if (outer < 0.5) { const float o = 2.0 / 256.0; float s4 = 0.0; s4 += texture2D(dustMap, uvT + vec2(o, 0.0)).r; s4 += texture2D(dustMap, uvT - vec2(o, 0.0)).r; s4 += texture2D(dustMap, uvT + vec2(0.0, o)).r; s4 += texture2D(dustMap, uvT - vec2(0.0, o)).r; s4 *= 0.25; avgN = smoothstep(0.015, 0.09, s4) * (0.35 + 0.65 * clamp(s4 * 1.5, 0.0, 1.0)); }
+        float ao = clamp((avgN - layer) * 2.2, 0.0, 1.0); // 掃いたところのふち（ホコリの壁のかげ）
         float gN = vn(vW.xz * 2.7) * 0.45 + vn(vW.xz * 9.0) * 0.3 + vn(vW.xz * 0.5) * 0.25;
-        vec3 rock = mix(vec3(0.075, 0.078, 0.085), vec3(0.17, 0.172, 0.18), gN);
+        vec3 rock = mix(vec3(0.2, 0.205, 0.23), vec3(0.32, 0.325, 0.35), gN);
         rock *= 0.85 + 0.3 * vn(vW.xz * 31.0);
-        vec3 dcol = mix(vec3(0.27, 0.262, 0.245), vec3(0.4, 0.388, 0.36), vn(vW.xz * 3.5 + 3.0) * 0.6 + vn(vW.xz * 17.0) * 0.4);
-        float dustA = smoothstep(0.02, 0.4, dust);
-        diffuseColor.rgb = mix(rock, dcol, dustA);
-        float spk = step(0.992, hash2(floor(vW.xz * 22.0))) * (1.0 - dustA) * smoothstep(25.0, 4.0, camD);
+        float fl = vn(vW.xz * 2.0 + 3.0) * 0.6 + vn(vW.xz * 8.0) * 0.4;
+        vec3 dcol = mix(vec3(0.66, 0.645, 0.665), vec3(0.76, 0.745, 0.765), fl);
+        float dustA = smoothstep(0.0, 0.18, layer);
+        diffuseColor.rgb = mix(rock, dcol * (0.8 + 0.2 * layer), dustA) * (1.0 - ao * 0.45);
+        float spk = 0.4 * step(0.994, hash2(floor(vW.xz * 22.0))) * (1.0 - dustA) * smoothstep(25.0, 4.0, camD) * max(0.0, 0.6 + 0.4 * sin(vW.x * 3.0 + vW.z * 2.0));
         diffuseColor.rgb += hl * vec3(0.0, 0.015, 0.03) * (1.0 - dustA);`)
-      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(0.62, 0.98, dustA);')
+      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(0.5, 1.0, dustA);')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         float near1 = smoothstep(60.0, 8.0, camD), near2 = smoothstep(14.0, 2.0, camD);
-        float bh = vn(vW.xz * 1.3) * 0.05 + pits(vW.xz * 0.9) * 0.05 * near1 + pits(vW.xz * 3.7) * 0.018 * near2 + vn(vW.xz * 26.0) * 0.005 * near2;
-        bh *= mix(1.0, 0.55, dustA);
+        float bh = vn(vW.xz * 1.3) * 0.05 + (pits(vW.xz * 0.9) * 0.05 * near1 + pits(vW.xz * 3.7) * 0.018 * near2 + vn(vW.xz * 26.0) * 0.005 * near2) * mix(1.0, 0.12, dustA);
+        bh += layer * 0.13 * smoothstep(90.0, 20.0, camD) + vn(vW.xz * 4.0) * 0.006 * dustA;
         float pxs = max(max(length(dFdx(vW)), length(dFdy(vW))), 0.0008);
-        vec2 dh = clamp(vec2(dFdx(bh), dFdy(bh)) / pxs, -1.2, 1.2);
+        vec2 dh = clamp(vec2(dFdx(bh), dFdy(bh)) / pxs, -1.4, 1.4);
         normal = pnArb(-vViewPosition, normal, dh, faceDirection);`)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += spk * vec3(0.9, 1.1, 1.4);');
   };
@@ -430,6 +437,32 @@ for (let i = 0; i < PN; i++) pPos[i * 3 + 1] = -99;
 function puff(x, y, z, n, spread) { for (let j = 0; j < n; j++) { const i = pI = (pI + 1) % PN; pPos[i * 3] = x + (Math.random() - 0.5) * spread; pPos[i * 3 + 1] = y + 0.04; pPos[i * 3 + 2] = z + (Math.random() - 0.5) * 0.3; pVel[i * 3] = (Math.random() - 0.5) * 0.9; pVel[i * 3 + 1] = 0.4 + Math.random() * 1.1; pVel[i * 3 + 2] = (Math.random() - 0.5) * 0.9; pLife[i] = 1.8 + Math.random() * 1.2; } }
 function stepParticles(dt) { for (let i = 0; i < PN; i++) { if (pLife[i] <= 0) continue; pLife[i] -= dt; pVel[i * 3 + 1] -= 1.62 * dt; pPos[i * 3] += pVel[i * 3] * dt; pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt; pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt; if (pLife[i] <= 0 || pPos[i * 3 + 1] < height(pPos[i * 3], pPos[i * 3 + 2]) - 0.1) { pLife[i] = 0; pPos[i * 3 + 1] = -99; } } pGeo.attributes.position.needsUpdate = true; }
 
+// ホコリのかたまり（近くだけ。掃除すると消える）
+const FUZ_R = [7, 10, 13][GQ], FUZ_S = 0.3, FUZ_N = Math.ceil((FUZ_R * 2 / FUZ_S) ** 2);
+const fuzGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 2); const p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 0.85 + 0.2 * Math.sin(v.x * 9 + v.z * 7 + v.y * 5); v.multiplyScalar(k); v.y = Math.max(v.y, -0.1) * 0.38; p.setXYZ(i, v.x, v.y, v.z); } g.computeVertexNormals(); return g; })();
+const fuz = new THREE.InstancedMesh(fuzGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0 }), FUZ_N);
+fuz.instanceMatrix.setUsage(THREE.DynamicDrawUsage); fuz.frustumCulled = false; fuz.receiveShadow = GQ > 0; fuz.castShadow = false; fuz.visible = false;
+fuz.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(FUZ_N * 3), 3);
+const _o = new THREE.Object3D(), _c = new THREE.Color();
+const fh = (i, j, k) => { const t = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return t - Math.floor(t); };
+function updateFuzz() {
+  const cx = Math.round(P.x / FUZ_S), cz = Math.round(P.z / FUZ_S), n = Math.ceil(FUZ_R / FUZ_S); let m = 0;
+  for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+    if (m >= FUZ_N) break;
+    const gi = cx + i, gj = cz + j; const x = (gi + fh(gi, gj, 1) - 0.5) * FUZ_S, z = (gj + fh(gi, gj, 2) - 0.5) * FUZ_S;
+    const dd = Math.hypot(x - P.x, z - P.z); if (dd > FUZ_R) continue;
+    if (Math.abs(x) > HALF - 0.3 || Math.abs(z) > HALF - 0.3) continue;
+    const v = D.at(x, z) / 255; const r = fh(gi, gj, 3);
+    if (v < 0.1 + r * 0.45) continue; // うすいところは少なく
+    const s = (0.02 + 0.045 * Math.min(1, v * 1.3)) * (0.6 + fh(gi, gj, 4) * 0.9) * Math.min(1, (FUZ_R - dd) / 2.5);
+    _o.position.set(x, height(x, z) + s * 0.05, z); _o.rotation.set(0, fh(gi, gj, 5) * 6.28, 0); _o.scale.set(s * (1 + fh(gi, gj, 6) * 0.6), s, s); _o.updateMatrix();
+    fuz.setMatrixAt(m, _o.matrix);
+    const b = 0.42 + v * 0.18 + fh(gi, gj, 7) * 0.1; _c.setRGB(b, b * 0.93, b * 0.8); fuz.setColorAt(m, _c); m++;
+  }
+  fuz.count = m; fuz.instanceMatrix.needsUpdate = true; fuz.instanceColor.needsUpdate = true;
+}
+let fuzT = 9;
+
 // ---------- 入力 ----------
 const keys = {}; const stick = { x: 0, y: 0, id: null, ox: 0, oy: 0 };
 let camYaw = S.p.yaw, camPitch = 0.42, camDist = 6, camDrag = null, fpPitch = -0.45, carLook = 0;
@@ -685,6 +718,7 @@ function hud() {
   else if (!P.brush) hint = 'ブラシをあげている（掃除しない）';
   else if (S.st.trips === 0 && totalCarry() < 0.02) hint = '歩くとブラシで掃除できる';
   $('hint').textContent = hint;
+  { const yaw = P.inCar && S.car ? S.car.yaw : P.yaw, ahead = P.inCar && S.car ? 1.2 + S.car.k * 0.4 : 1.15; const v = D.at(P.x + Math.sin(yaw) * ahead, P.z + Math.cos(yaw) * ahead) / 255; const lv = v < 0.05 ? 'ピカピカ✨' : v < 0.2 ? 'ほんの少し' : v < 0.45 ? 'すこし' : v < 0.7 ? 'ふつう' : 'たっぷり！'; $('dmTxt').textContent = 'ブラシの下のホコリ：' + lv; $('dmBar').style.width = Math.min(100, v * 110) + '%'; $('dm').hidden = !P.brush && !P.inCar; }
   const pb = $('bPack'); pb.classList.toggle('hot', !P.inCar && full && S.caps.length < slots()); pb.classList.toggle('off', P.inCar || S.g.kg < 0.01 || S.caps.length >= slots()); pb.hidden = P.inCar;
   $('bBrush').classList.toggle('off', !P.brush); $('bBrush').hidden = P.inCar; $('bBrush').firstChild.textContent = TOOLS[S.tool].ic;
   $('bJump').hidden = P.inCar;

@@ -95,6 +95,8 @@ body.touch .keys { display: none; }
 body.fp #visor { display: block; }
 #aim { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(140,230,255,.7); box-shadow: 0 0 6px rgba(140,230,255,.8); display: none; }
 body.fp #aim, body.incar #aim { display: block; }
+#dm { position: absolute; left: 50%; top: calc(50% + 70px); transform: translateX(-50%); text-align: center; font-weight: 900; font-size: .78rem; text-shadow: 0 1px 3px #000; }
+#dm i { display: block; width: 110px; height: 7px; margin: 3px auto 0; border-radius: 4px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.3); overflow: hidden; } #dm u { display: block; height: 100%; background: linear-gradient(90deg, #c9b896, #f3e2bc); }
 body.fp .chip, body.fp .gauge { background: rgba(0,30,50,.35); border-color: rgba(120,210,255,.35); }
 body.fp .money { color: #9fe8ff; text-shadow: 0 0 10px rgba(80,200,255,.6), 0 2px 0 rgba(0,0,0,.5); }
 </style>
@@ -105,6 +107,7 @@ body.fp .money { color: #9fe8ff; text-shadow: 0 0 10px rgba(80,200,255,.6), 0 2p
 <div id="visor"><i></i></div>
 <div id="hud" hidden>
   <div id="aim"></div>
+  <div id="dm"><span id="dmTxt"></span><i><u id="dmBar"></u></i></div>
   <div class="tl">
     <div class="money" id="money">$0</div>
     <div class="chip" id="secChip"><span id="secTxt">—</span><i><u id="secBar" style="width:0"></u></i></div>
