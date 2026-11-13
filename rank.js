@@ -341,11 +341,11 @@
   const syncKeys = () => { const ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SYNC_PREFIX.some(p => k.startsWith(p))) ks.push(k); } } catch (e) {} return ks; };
   const raw = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const hash = v => { let h = 0; for (let i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) | 0; return v.length + ':' + h; };
-  let syncOn = false, dirty = {}, pushing = false;
+  let syncOn = false, dirty = {}, pushing = false; const lastRaw = {};
   // 変わったセーブをさがす（数秒ごと）
   function scan(markAll) {
     const m = ls.get(META_K, { t: {}, h: {} }); let ch = false;
-    for (const k of syncKeys()) { const v = raw(k); if (v === null) continue; const h = hash(v); if (markAll || m.h[k] !== h) { m.h[k] = h; m.t[k] = markAll && m.t[k] ? m.t[k] : Date.now(); dirty[k] = 1; ch = true; } }
+    for (const k of syncKeys()) { const v = raw(k); if (v === null) continue; if (!markAll && lastRaw[k] === v) continue; lastRaw[k] = v; const h = hash(v); if (markAll || m.h[k] !== h) { m.h[k] = h; m.t[k] = markAll && m.t[k] ? m.t[k] : Date.now(); dirty[k] = 1; ch = true; } }
     if (ch) ls.set(META_K, m);
   }
   async function push() {
@@ -372,7 +372,7 @@
       if (ch && !document.getElementById('accDlg')) { location.reload(); return; }
     } catch (e) { console.warn('sync pull', e); }
     scan(false); push();
-    setInterval(() => { scan(false); push(); }, 5000);
+    setInterval(() => { if (document.hidden) return; scan(false); push(); }, 5000); // 裏にいるときは見ない（裏に回る瞬間に保存はする）
     addEventListener('pagehide', () => { scan(false); push(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) { scan(false); push(); } });
   }

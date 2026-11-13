@@ -388,7 +388,7 @@ function loop(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
   const t0 = performance.now(); update(dt); const t1 = performance.now();
   fpsN++; fpsAcc += (now - lastFrame) / 1000; lastFrame = now;
-  if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsN = 0; fpsAcc = 0; $('fps').textContent = `${Math.round(fps)} fps　${(renderer.getPixelRatio() * 100).toFixed(0)}%`; if (mode === 'race' && !paused) { if (fps < 50 && pr > 0.55) { pr = Math.max(0.55, pr - 0.15); setPR(); } else if (fps > 58 && pr < prMax) { slowOk++; if (slowOk > 4) { pr = Math.min(prMax, pr + 0.1); setPR(); slowOk = 0; } } } }
+  if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsN = 0; fpsAcc = 0; $('fps').textContent = `${Math.round(fps)} fps　${(renderer.getPixelRatio() * 100).toFixed(0)}%`; if (mode === 'race' && !paused && document.hasFocus()) { if (fps < 50 && pr > 0.55) { pr = Math.max(0.55, pr - 0.15); setPR(); } else if (fps > 58 && pr < prMax) { slowOk++; if (slowOk > 4) { pr = Math.min(prMax, pr + 0.1); setPR(); slowOk = 0; } } } }
   if (composer) composer.render(dt); else renderer.render(scene, camera);
   const t2 = performance.now(); PROF.u += t1 - t0; PROF.r += t2 - t1; PROF.n++; PROF.calls = renderer.info.render.calls; PROF.tris = renderer.info.render.triangles;
 }
