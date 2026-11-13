@@ -123,7 +123,10 @@
         else await A.updatePassword(u, pass);
         const acc = await F.getDoc(F.doc(fs, 'accounts', uid));
         await F.setDoc(F.doc(fs, 'accounts', uid), { ...(acc.exists() ? acc.data() : {}), mail });
+        // 自分用の控え（セーブと同じ、自分しか読めない場所）
+        await F.setDoc(F.doc(fs, 'saves', uid, 'keys', 'pass-note'), { k: 'pass-note', v: pass, t: Date.now() });
       },
+      async passNote() { const r = await F.getDoc(F.doc(fs, 'saves', uid, 'keys', 'pass-note')); return r.exists() ? r.data().v : ''; },
       async login(name, pass) {
         const n = await F.getDoc(F.doc(fs, 'names', hex(norm(name))));
         if (!n.exists()) return { ok: false, why: 'その名前は見つからなかった' };
@@ -377,5 +380,6 @@
   const syncing = () => !!ls.get(META_K, {}).on;
   setTimeout(() => { startSync(); }, 1500);
 
-  window.GAMES_RANK = { syncNow, syncTakeCloud, syncing, setPass, login, hasPass: () => !!(B.hasPass && B.hasPass()), today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
+  async function passNote() { if (B.kind !== 'firebase' || !(await B.on()) || !B.hasPass()) return ''; try { return await B.passNote(); } catch (e) { return ''; } }
+  window.GAMES_RANK = { passNote, syncNow, syncTakeCloud, syncing, setPass, login, hasPass: () => !!(B.hasPass && B.hasPass()), today, META, mount, report, submit, show, list, top, claim, myName, fmt, on: () => B.on(), get kind() { return B.kind; }, get uid() { return B.uid; }, get why() { return B.why; } };
 })();

@@ -351,13 +351,18 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
     if (GAMES_RANK.kind !== 'firebase') { box.hidden = true; return; }
     box.hidden = false; const a = local(), has = GAMES_RANK.hasPass();
     box.innerHTML = `<h3>📱 ほかの端末でも使う</h3>` +
-      (a && a.name ? (has ? `<p class="ok">「${a.name.replace(/[<>&]/g, '')}」には合言葉が設定してあるよ。ゲームのセーブも自動でクラウドに同期中。ほかの端末では下の「ログイン」から入れる。</p><div class="r"><input id="pwNew" type="password" placeholder="新しい合言葉（6文字以上）" autocomplete="new-password"><button type="button" class="eye" data-eye="pwNew,pwNew2" aria-label="合言葉を表示">👁</button></div><div class="r"><input id="pwNew2" type="password" placeholder="もう一度（確認）" autocomplete="new-password"><button type="button" id="pwSet">変える</button></div><div class="m" id="pwMsg"></div>`
+      (a && a.name ? (has ? `<p class="ok">「${a.name.replace(/[<>&]/g, '')}」には合言葉が設定してあるよ。ゲームのセーブも自動でクラウドに同期中。ほかの端末では下の「ログイン」から入れる。</p><div class="r" style="align-items:center"><button type="button" id="pwShow">👁 今の合言葉を見る</button><span id="pwNote" style="font-weight:900;letter-spacing:.05em"></span></div><div class="r"><input id="pwNew" type="password" placeholder="新しい合言葉（6文字以上）" autocomplete="new-password"><button type="button" class="eye" data-eye="pwNew,pwNew2" aria-label="合言葉を表示">👁</button></div><div class="r"><input id="pwNew2" type="password" placeholder="もう一度（確認）" autocomplete="new-password"><button type="button" id="pwSet">変える</button></div><div class="m" id="pwMsg"></div>`
         : `<p>合言葉を決めると、ほかの端末でも同じ名前・ランキングの記録・ゲームのセーブで続きから遊べる。</p><div class="r"><input id="pwNew" type="password" placeholder="合言葉（6文字以上）" autocomplete="new-password"><button type="button" class="eye" data-eye="pwNew,pwNew2" aria-label="合言葉を表示">👁</button></div><div class="r"><input id="pwNew2" type="password" placeholder="もう一度（確認）" autocomplete="new-password"><button type="button" id="pwSet">決める</button></div><div class="m" id="pwMsg"></div>`) : '') +
       `<p>前の端末で決めた名前で入る：</p><div class="r"><input id="lgName" placeholder="名前" autocomplete="off"><input id="lgPw" type="password" placeholder="合言葉" autocomplete="current-password"><button type="button" class="eye" data-eye="lgPw" aria-label="合言葉を表示">👁</button></div><div class="r" style="justify-content:flex-end"><button type="button" id="lgGo">ログイン</button></div><div class="m" id="mlMsg"></div>`;
     const m = t => { $('mlMsg').textContent = t; };
     // 👁：押すと合言葉の文字が見える
     box.querySelectorAll('[data-eye]').forEach(b => b.onclick = () => { const ids = b.dataset.eye.split(','), show = $(ids[0]).type === 'password'; ids.forEach(i => { $(i).type = show ? 'text' : 'password'; }); b.textContent = show ? '🙈' : '👁'; });
     const pm = t => { $('pwMsg').textContent = t; };
+    const sh = $('pwShow'); if (sh) sh.onclick = async () => {
+      const el = $('pwNote'); if (el.textContent && el.dataset.on) { el.textContent = ''; el.dataset.on = ''; sh.textContent = '👁 今の合言葉を見る'; return; }
+      el.textContent = '…'; const p = await GAMES_RANK.passNote();
+      el.textContent = p || '（控えがない。前の版で決めた合言葉は、下で決めなおすと見られるようになるよ）'; el.dataset.on = '1'; sh.textContent = '🙈 かくす';
+    };
     const set = $('pwSet'); if (set) set.onclick = async () => {
       const p1 = $('pwNew').value, p2 = $('pwNew2').value;
       if (p1.length < 6) return pm('合言葉は6文字以上にしてね');
