@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>出社できない</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&family=Dela+Gothic+One&display=swap">
+<style>
+:root { --ink: #1b1f2a; --gold: #ffd23a; --red: #ff4d5a; color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe6ff; color: var(--ink); font-family: "M PLUS Rounded 1c", sans-serif; -webkit-user-select: none; user-select: none; overscroll-behavior: none; touch-action: none; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+#hud { position: fixed; left: 0; right: 0; top: 0; padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); display: flex; gap: 10px; align-items: flex-start; pointer-events: none; z-index: 5; }
+.pill { background: rgba(255,255,255,.88); border: 2px solid var(--ink); border-radius: 14px; padding: 4px 12px; font-weight: 900; box-shadow: 0 3px 0 var(--ink); }
+.dist { font-family: "Dela Gothic One"; font-size: clamp(22px, 5vw, 34px); line-height: 1.1; }
+.dist small { font: 900 .8rem "M PLUS Rounded 1c"; opacity: .7; }
+.sp { flex: 1; }
+#hud .ib { pointer-events: auto; width: 44px; height: 44px; border-radius: 12px; background: #fff; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); font-size: 1.1rem; }
+#stName { font-size: .8rem; }
+#keys { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; justify-content: space-between; padding: 0 max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom)); pointer-events: none; }
+#keys .grp { display: flex; gap: 10px; pointer-events: auto; }
+.k { width: clamp(68px, 19vw, 96px); height: clamp(68px, 19vw, 96px); border-radius: 20px; background: #fff; border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink); display: grid; place-items: center; align-content: center; gap: 2px; touch-action: none; }
+.k b { font-family: "Dela Gothic One"; font-size: clamp(26px, 7vw, 38px); line-height: 1; font-weight: 400; }
+.k small { font-size: .62rem; font-weight: 900; line-height: 1.2; text-align: center; }
+.k.on { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); background: var(--gold); }
+.k.q, .k.w { --c: #ff8a5c; } .k.o, .k.p { --c: #5cb8ff; }
+.k b { color: var(--c); -webkit-text-stroke: 1.5px var(--ink); }
+#msg { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) rotate(-4deg) scale(.6); z-index: 6; font-family: "Dela Gothic One"; font-size: clamp(30px, 9vw, 70px); color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); white-space: nowrap; opacity: 0; transition: opacity .15s, transform .3s cubic-bezier(.2,1.8,.4,1); pointer-events: none; text-align: center; }
+#msg.on { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+#msg small { display: block; font: 900 clamp(14px, 3.6vw, 20px) "M PLUS Rounded 1c"; -webkit-text-stroke: 0; color: var(--ink); text-shadow: none; background: #fff; border: 2px solid var(--ink); border-radius: 10px; padding: 4px 10px; margin-top: 10px; transform: rotate(4deg); }
+.scr { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; overflow: auto; background: rgba(20,30,50,.35); }
+.col { display: grid; gap: 12px; justify-items: center; width: min(460px, 100%); }
+.card { width: 100%; background: #fff; border: 3px solid var(--ink); border-radius: 20px; padding: 14px 16px; box-shadow: 0 6px 0 var(--ink); font-size: .9rem; line-height: 1.6; }
+.logo { margin: 0; text-align: center; line-height: 1; transform: rotate(-3deg); }
+.logo span { display: block; font-family: "Dela Gothic One"; font-weight: 400; font-size: clamp(50px, min(15vw, 13vh), 96px); color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 0 7px 0 var(--ink); white-space: nowrap; letter-spacing: -.02em; }
+.logo small { display: inline-block; margin-top: 14px; font: 900 .85rem "M PLUS Rounded 1c"; background: var(--gold); border: 2px solid var(--ink); padding: 4px 14px; border-radius: 999px; }
+.btn { width: 100%; padding: 14px 18px; border-radius: 16px; font-weight: 900; font-size: 1.1rem; background: var(--gold); border: 3px solid var(--ink); box-shadow: 0 5px 0 var(--ink); }
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.btn.w { background: #fff; }
+.btn small { display: block; font-size: .72rem; opacity: .75; }
+.row { display: flex; gap: 10px; width: 100%; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; width: 100%; }
+.st { text-align: left; padding: 10px; border-radius: 14px; background: #fff; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); font-weight: 900; font-size: .85rem; line-height: 1.35; }
+.st i { font-style: normal; display: block; font-size: .7rem; opacity: .7; }
+.st.clear { background: #e5ffe0; } .st.lock { opacity: .45; cursor: default; }
+h2 { margin: 0 0 6px; font-family: "Dela Gothic One"; font-weight: 400; font-size: 1.4rem; }
+.stat { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; } .stat b { text-align: right; }
+.back { color: var(--ink); opacity: .75; font-size: .85rem; font-weight: 900; }
+kbd { font: 900 .8rem monospace; background: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 0 5px; }
+.tip { background: #fff7d0; border-color: #b08000; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" hidden>
+  <div class="pill"><div class="dist" id="dist">0.0<small>m</small></div><div id="stName"></div></div>
+  <div class="pill" id="timer">0.0秒</div>
+  <div class="sp"></div>
+  <button class="ib" id="bRe" aria-label="やりなおし">↺</button>
+  <button class="ib" id="bMenu" aria-label="メニュー">☰</button>
+</div>
+<div id="keys" hidden>
+  <div class="grp"><button class="k q" data-k="q"><b>Q</b><small>ふともも<br>左前・右後</small></button><button class="k w" data-k="w"><b>W</b><small>ふともも<br>右前・左後</small></button></div>
+  <div class="grp"><button class="k o" data-k="o"><b>O</b><small>すね<br>左曲げ</small></button><button class="k p" data-k="p"><b>P</b><small>すね<br>右曲げ</small></button></div>
+</div>
+<div id="msg"></div>
+
+<div class="scr" id="title">
+  <div class="col">
+    <h1 class="logo"><span>出社できない</span><small>足がいうことをきかない会社員</small></h1>
+    <button class="btn" id="tGo">出社する<small id="tSub">家の前から</small></button>
+    <button class="btn w" id="tSel">ステージをえらぶ</button>
+    <div class="card">
+      <b>あそびかた</b>　会社まで歩くだけ。<br>
+      <kbd>Q</kbd><kbd>W</kbd> で<b>ふともも</b>、<kbd>O</kbd><kbd>P</kbd> で<b>すね</b>を動かす（スマホは下のボタン）。<br>
+      頭か体が地面についたら転んで<b>やりなおし</b>。全11ステージ。<br>
+      <span style="opacity:.7">※ふつうに歩けないのが仕様です</span>
+    </div>
+    <a class="back" href="../index.html">← GAMES にもどる</a>
+  </div>
+</div>
+
+<div class="scr" id="sel" hidden>
+  <div class="col" style="width:min(640px,100%)">
+    <div class="card"><h2>ステージ</h2><div class="grid" id="selGrid"></div></div>
+    <div class="card stat" id="stats"></div>
+    <button class="btn w" id="selBack">もどる</button>
+  </div>
+</div>
+
+<div class="scr" id="intro" hidden>
+  <div class="col">
+    <div class="card" style="text-align:center">
+      <div style="font-weight:900;opacity:.6" id="inNo"></div>
+      <h2 id="inName"></h2>
+      <div id="inDesc"></div>
+      <div style="margin-top:8px;font-weight:900" id="inGoal"></div>
+    </div>
+    <div class="card tip" id="inTip" hidden></div>
+    <button class="btn" id="inGo">スタート<small>キーかボタンを押しても始まる</small></button>
+  </div>
+</div>
+
+<div class="scr" id="clear" hidden>
+  <div class="col">
+    <h1 class="logo"><span style="font-size:clamp(40px,11vw,72px)">出社完了！</span></h1>
+    <div class="card stat" id="clStat"></div>
+    <button class="btn" id="clNext">つぎのステージ</button>
+    <div class="row"><button class="btn w" id="clRe">もう一回</button><button class="btn w" id="clSel">ステージ</button></div>
+  </div>
+</div>
+
+<div class="scr" id="menu" hidden>
+  <div class="col">
+    <div class="card stat" id="mStat"></div>
+    <button class="btn" id="mBack">つづける</button>
+    <button class="btn w" id="mSel">ステージをえらぶ</button>
+    <button class="btn w" id="mTitle">タイトルへ</button>
+  </div>
+</div>
+
+<script src="vendor/planck.min.js"></script>
+<script src="../account.js"></script>
+<script src="../rank.js"></script>
+<script type="module" src="game.js?v=1"></script>
+</body>
+</html>

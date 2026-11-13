@@ -23,6 +23,7 @@
     upa: { t: 'うぱるぱスピリッツ', unit: '勝', sub: 'CPU戦の勝利数' },
     fighter: { t: '嵐拳', unit: '勝', sub: 'オンライン対戦の勝利数' },
     moon: { t: '月面おそうじ局', unit: '%', sub: '月面清掃率', dec: 2 },
+    shusha: { t: '出社できない', unit: 'ステージ', sub: 'クリアしたステージ数' },
   };
   const IN_CLAUDE = /(^|\.)claudeusercontent\.com$|(^|\.)claude\.ai$/.test(location.hostname);
   const FB_CONFIG = {
@@ -333,7 +334,7 @@
   }
   // ================= セーブの同期（ほかの端末へ持っていく） =================
   // ゲームのセーブ（localStorage）のうち、下の名前で始まるものだけ。名前（games-account）は送らない
-  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'arashi-ken', 'tsuki-souji', 'games-rank-best'];
+  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'arashi-ken', 'tsuki-souji', 'shusha-dekinai', 'games-rank-best'];
   const META_K = 'games-sync';
   const syncKeys = () => { const ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SYNC_PREFIX.some(p => k.startsWith(p))) ks.push(k); } } catch (e) {} return ks; };
   const raw = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
