@@ -73,11 +73,12 @@ kbd { font: 900 .8rem monospace; background: #fff; border: 2px solid var(--ink);
   <div class="col">
     <h1 class="logo"><span>出社できない</span><small>足がいうことをきかない会社員</small></h1>
     <button class="btn" id="tGo">出社する<small id="tSub">家の前から</small></button>
+    <button class="btn" id="tEnd" hidden style="background:#fff0c8">∞ エンドレス出社<small id="tEndSub"></small></button>
     <button class="btn w" id="tSel">ステージをえらぶ</button>
     <div class="card">
       <b>あそびかた</b>　会社まで歩くだけ。<br>
       <kbd>Q</kbd><kbd>W</kbd> で<b>ふともも</b>、<kbd>O</kbd><kbd>P</kbd> で<b>すね</b>を動かす（スマホは下のボタン）。<br>
-      頭か体が地面についたら転んで<b>やりなおし</b>。全11ステージ。<br>
+      頭か体が地面についたら転んで<b>やりなおし</b>。全11ステージ。<br>全部クリアすると<b>エンドレス出社</b>（どこまで出世できるか）が出てくる。<br>
       <span style="opacity:.7">※ふつうに歩けないのが仕様です</span>
     </div>
     <a class="back" href="../index.html">← GAMES にもどる</a>
@@ -126,6 +127,6 @@ kbd { font: 900 .8rem monospace; background: #fff; border: 2px solid var(--ink);
 <script src="vendor/planck.min.js"></script>
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
-<script type="module" src="game.js?v=1"></script>
+<script type="module" src="game.js?v=2"></script>
 </body>
 </html>

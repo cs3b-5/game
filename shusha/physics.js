@@ -14,6 +14,38 @@ export const STAGES = [
   { id: 'banana', name: '社長室の前', desc: 'なぜか床にバナナの皮が。', len: 16, banana: [3, 5.5, 8, 10.5, 13] },
 ];
 
+// エンドレス出社（コースは毎回ちがう）
+export const ENDLESS = { id: 'endless', name: 'エンドレス出社', desc: 'ゴールはない。どこまで行けるか。進むほど出世する。', len: 1e9, endless: true };
+export const RANKS = [[0, '新入社員'], [8, '先輩'], [16, '主任'], [26, '係長'], [38, '課長補佐'], [52, '課長'], [70, '次長'], [92, '部長'], [120, '本部長'], [155, '取締役'], [200, '常務'], [260, '専務'], [340, '副社長'], [440, '社長'], [580, '会長'], [760, '伝説の会社員']];
+export const rankAt = d => { let r = RANKS[0][1]; for (const [m, n] of RANKS) if (d >= m) r = n; return r; };
+function genEndless(seed) {
+  let s = seed >>> 0; const R = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const pts = [[-20, 0], [0, 0]], zones = [], ice = [], belt = [], banana = [], hurdles = [], crowd = [], stairs = [];
+  let x = 0, y = 0; const add = (dx, dy) => { x += dx; y += dy; pts.push([x, y]); };
+  add(6, 0);
+  const kinds = ['curb', 'hill', 'ice', 'wind', 'hurdle', 'moon', 'belt', 'crowd', 'stairs', 'banana'];
+  let last = '';
+  while (x < 1600) {
+    const d = Math.min(1, x / 220);
+    let k; do { k = kinds[R() * kinds.length | 0]; } while (k === last); last = k;
+    const x0 = x;
+    if (k === 'curb') { for (let i = 0; i < 3; i++) { add(0, 0.06); add(2.2 - d * 0.6, 0); add(0, -0.06); add(1.6, 0); } }
+    else if (k === 'hill') { const h = 0.4 + d * 0.5 + R() * 0.3; add(4, h); add(1.5, 0); add(4, -h); }
+    else if (k === 'ice') { const l = 3 + d * 3; ice.push([x, x + l]); add(l, 0); }
+    else if (k === 'wind') { const l = 6 + d * 5; zones.push({ kind: 'wind', x1: x, x2: x + l }); add(l, 0); }
+    else if (k === 'hurdle') { const n = 1 + (R() * (1 + d * 2) | 0); for (let i = 0; i < n; i++) { add(1.6, 0); hurdles.push(x); add(2.2 - d * 0.5, 0); } }
+    else if (k === 'moon') { const l = 8 + d * 6; zones.push({ kind: 'moon', x1: x, x2: x + l }); add(l, 0); }
+    else if (k === 'belt') { const l = 4 + d * 5; belt.push([x, x + l, -(0.6 + d * 0.6)]); add(l, 0); }
+    else if (k === 'crowd') { const n = 1 + (R() * (1 + d * 2) | 0); for (let i = 0; i < n; i++) { add(2.4, 0); crowd.push(x); } add(2, 0); }
+    else if (k === 'stairs') { const n = 6 + (d * 6 | 0), h = 0.08, w = 0.5; stairs.push({ x0: x, n, h, w, y0: y }); add(n * w, n * h); add(2, 0); add(n * w * 1.6, -n * h); }
+    else if (k === 'banana') { const n = 2 + (R() * (1 + d * 3) | 0); for (let i = 0; i < n; i++) { add(1.4 + R() * 1.2, 0); banana.push(x); add(0.4, 0); } }
+    if (k !== 'stairs' && k !== 'hill') zones.push({ kind: 'theme', x1: x0, x2: x, theme: k });
+    else zones.push({ kind: 'theme', x1: x0, x2: x, theme: k });
+    add(Math.max(1.8, 5 - d * 3 + R() * 2.5), 0);
+  }
+  return { pts, zones, ice, belt, banana, hurdles, crowd, stairs, end: x };
+}
+
 export const KEYS = ['q', 'w', 'o', 'p'];
 export const TUNE = { HIP_SP: 4.2, KNEE_SP: 5.2, HIP_T: 160, KNEE_T: 120, IDLE_T: 6, UP_K: 120, UP_C: 24 };
 
@@ -25,11 +57,13 @@ export function makeWorld(planck, stage) {
   const fric = 0.9;
   // 地面の線
   const pts = [Vec2(-20, 0), Vec2(0, 0)];
-  const L = st.len + 25;
+  const L = st.endless ? 1700 : st.len + 25;
+  const EG = st.endless ? genEndless(st.seed || (Math.random() * 1e9) | 0) : null;
   const deco = []; // 描画用（段差・氷・ベルトなど）
   if (st.curbs) { let x = 0, y = 0; while (x < L) { x += 3; pts.push(Vec2(x, y)); y = y > 0 ? 0 : 0.06; pts.push(Vec2(x, y)); } }
   else if (st.hill) { pts.push(Vec2(4, 0), Vec2(9.5, 0.75), Vec2(11.5, 0.75), Vec2(16, 0), Vec2(L, 0)); }
   else if (st.stairs) { const [x0, n, h, w] = st.stairs; pts.push(Vec2(x0, 0), Vec2(x0 + n * w, n * h), Vec2(L, n * h)); deco.push({ kind: 'stairs', x0, n, h, w }); } // 当たりはなだらかな坂（見た目は階段）
+  else if (EG) { pts.length = 0; for (const [x, y] of EG.pts) pts.push(Vec2(x, y)); pts.push(Vec2(EG.end + 50, pts[pts.length - 1].y)); }
   else pts.push(Vec2(L, 0));
   const gf = ground.createFixture(Chain(pts, false), { friction: fric });
   gf.setUserData({ ground: true });
@@ -40,11 +74,19 @@ export function makeWorld(planck, stage) {
   if (st.ice) special(st.ice[0], st.ice[1], { kind: 'ice', fric: 0.04 });
   if (st.belt) special(st.belt[0], st.belt[1], { kind: 'belt', speed: st.belt[2] });
   if (st.banana) for (const x of st.banana) special(x, x + 0.35, { kind: 'banana', fric: 0.0 });
+  const zones = EG ? EG.zones : [];
+  if (EG) {
+    for (const [a, b] of EG.ice) special(a, b, { kind: 'ice', fric: 0.04 });
+    for (const [a, b, sp] of EG.belt) special(a, b, { kind: 'belt', speed: sp });
+    for (const x of EG.banana) special(x, x + 0.35, { kind: 'banana', fric: 0.0 });
+    for (const sd of EG.stairs) deco.push({ kind: 'stairs', x0: sd.x0, n: sd.n, h: sd.h, w: sd.w, y0: sd.y0 });
+  }
   const obst = [];
-  if (st.hurdles) for (const x of st.hurdles) { const b = world.createBody(); b.createFixture(Box(0.04, 0.06, Vec2(x, 0.06), 0), { friction: 0.6 }).setUserData({ ground: true, kind: 'bar' }); obst.push({ kind: 'bar', x, h: 0.12 }); }
-  if (st.crowd) for (const x of st.crowd) { const b = world.createDynamicBody({ position: Vec2(x, 0.85), fixedRotation: false, angularDamping: 2 }); b.createFixture(Box(0.22, 0.85), { density: 32, friction: 0.04 }).setUserData({ kind: 'person' }); obst.push({ kind: 'person', body: b }); }
+  for (const x of (EG ? EG.hurdles : st.hurdles || [])) { const b = world.createBody(); b.createFixture(Box(0.04, 0.06, Vec2(x, gy(x) + 0.06), 0), { friction: 0.6 }).setUserData({ ground: true, kind: 'bar' }); obst.push({ kind: 'bar', x, h: 0.12, y0: gy(x) }); }
+  for (const x of (EG ? EG.crowd : st.crowd || [])) { const b = world.createDynamicBody({ position: Vec2(x, gy(x) + 0.85), fixedRotation: false, angularDamping: 2 }); b.createFixture(Box(0.22, 0.85), { density: 32, friction: 0.04 }).setUserData({ kind: 'person' }); obst.push({ kind: 'person', body: b }); }
   // ゴールの旗（描画用）
-  const goalY = gy(st.len);
+  const goalY = st.endless ? 0 : gy(st.len);
+  const zoneAt = (x, kind) => zones.find(z => z.kind === kind && x >= z.x1 && x < z.x2);
 
   // ---- 人（ラグドール） ----
   const GROUP = -1; const parts = {};
@@ -84,7 +126,7 @@ export function makeWorld(planck, stage) {
   });
 
   const keys = { q: 0, w: 0, o: 0, p: 0 };
-  let t = 0, windT = 0, this_gust = 0;
+  let t = 0, windT = 0, this_gust = 0, inMoon = false;
   function applyKeys() {
     const hip = keys.q && !keys.w ? 1 : keys.w && !keys.q ? -1 : 0;
     const knee = keys.o && !keys.p ? 1 : keys.p && !keys.o ? -1 : 0;
@@ -97,11 +139,15 @@ export function makeWorld(planck, stage) {
   }
   function step(dt) {
     applyKeys();
-    if (st.wind) { windT += dt; const ph = windT % 5; const gust = ph > 3.8 ? 1 : 0; this_gust = gust; const f = -(gust ? 38 : 5) * st.wind; parts.torso.applyForceToCenter(Vec2(f, 0), true); parts.head.applyForceToCenter(Vec2(f * 0.3, 0), true); }
+    const tx = parts.torso.getPosition().x;
+    if (EG) { const mz = !!zoneAt(tx, 'moon'); if (mz !== inMoon) { inMoon = mz; world.setGravity(Vec2(0, mz ? -1.62 : -9.8)); } }
+    const windOn = st.wind || (EG && zoneAt(tx, 'wind'));
+    this_gust = 0;
+    if (windOn) { windT += dt; const ph = windT % 5; const gust = ph > 3.8 ? 1 : 0; this_gust = gust; const f = -(gust ? 38 : 5); parts.torso.applyForceToCenter(Vec2(f, 0), true); parts.head.applyForceToCenter(Vec2(f * 0.3, 0), true); }
     const tb = parts.torso; tb.applyTorque(-TUNE.UP_K * tb.getAngle() - TUNE.UP_C * tb.getAngularVelocity(), true);
     for (const o of obst) if (o.body) { const v = o.body.getLinearVelocity(); if (v.x < 0.3) o.body.applyForceToCenter(Vec2(60, 0), true); }
     world.step(dt, 10, 4); t += dt;
   }
   const dist = () => parts.torso.getPosition().x;
-  return { world, parts, joints: J, keys, step, dist, get fallen() { return fallen; }, get gust() { return this_gust; }, get windPhase() { return windT % 5; }, get t() { return t; }, st, groundPts, gy, deco, obst, goalY, planck };
+  return { world, parts, joints: J, keys, step, dist, get fallen() { return fallen; }, get gust() { return this_gust; }, get windPhase() { return windT % 5; }, get windOn() { return !!(st.wind || (EG && zoneAt(parts.torso.getPosition().x, 'wind'))); }, get inMoon() { return inMoon; }, zones, zoneAt, get t() { return t; }, st, groundPts, gy, deco, obst, goalY, planck };
 }

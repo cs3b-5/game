@@ -23,7 +23,7 @@
     upa: { t: 'うぱるぱスピリッツ', unit: '勝', sub: 'CPU戦の勝利数' },
     fighter: { t: '嵐拳', unit: '勝', sub: 'オンライン対戦の勝利数' },
     moon: { t: '月面おそうじ局', unit: '%', sub: '月面清掃率', dec: 2 },
-    shusha: { t: '出社できない', unit: 'ステージ', sub: 'クリアしたステージ数' },
+    shushae: { t: '出社できない', unit: 'm', sub: 'エンドレス出社の最高距離', dec: 1 },
   };
   const IN_CLAUDE = /(^|\.)claudeusercontent\.com$|(^|\.)claude\.ai$/.test(location.hostname);
   const FB_CONFIG = {

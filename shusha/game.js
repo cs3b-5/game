@@ -1,13 +1,15 @@
 // 出社できない — 本体（Canvas 2D + planck.js）
-import { makeWorld, STAGES } from './physics.js';
+import { makeWorld, STAGES, ENDLESS, rankAt } from './physics.js';
+const EI = STAGES.length; // エンドレスの番号
 const planck = window.planck;
 const $ = id => document.getElementById(id);
 const KEY = 'shusha-dekinai-v1';
-const SV = Object.assign({ unlocked: 1, best: {}, falls: 0, plays: 0, time: 0, fallsBy: {} }, (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } })());
+const SV = Object.assign({ unlocked: 1, best: {}, falls: 0, plays: 0, time: 0, fallsBy: {}, endBest: 0, endRuns: 0 }, (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } })());
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(SV)); } catch (e) {} rankReport(); };
 const cleared = () => STAGES.filter(s => SV.best[s.id] != null).length;
 const totalBest = () => STAGES.reduce((a, s) => a + (SV.best[s.id] || 0), 0);
-function rankReport(old) { if (window.GAMES_RANK && cleared() > 0) GAMES_RANK.report('shusha', cleared(), Math.round(totalBest() * 10) / 10, old ? { old: true } : undefined); }
+function rankReport(old) { if (window.GAMES_RANK && SV.endBest > 0) GAMES_RANK.report('shushae', Math.floor(SV.endBest * 10) / 10, undefined, old ? { old: true } : undefined); }
+const endOpen = () => cleared() >= STAGES.length;
 const fmtT = t => t >= 60 ? `${Math.floor(t / 60)}分${(t % 60).toFixed(1)}秒` : `${t.toFixed(1)}秒`;
 
 const TIPS = {
@@ -24,6 +26,9 @@ const TIPS = {
   banana: 'バナナの上では力を入れない。',
 };
 const FALL_MSG = ['遅刻確定', 'また転んだ', '今日は在宅で…', '有給つかおう', '社会がこわい', '足がいうことをきかない', '部長に電話しなきゃ', 'ひざが笑ってる', '会社が遠い', '地面とこんにちは'];
+const ZTHEME = { curb: 'town', hill: 'town', hurdle: 'town', ice: 'snow', wind: 'storm', moon: 'moon', belt: 'station', crowd: 'station', stairs: 'office', banana: 'office' };
+const themeNow = () => { if (!G) return 'town'; if (!G.st.endless) return THEME[G.st.id]; const z = G.zoneAt(camX, 'theme'); return z ? ZTHEME[z.theme] : 'town'; };
+let curRank = '';
 const THEME = { home: 'town', curb: 'town', hill: 'town', ice: 'snow', wind: 'storm', hurdle: 'town', moon: 'moon', belt: 'station', crowd: 'station', stairs: 'office', banana: 'office' };
 
 // ---------- 画面 ----------
@@ -44,14 +49,14 @@ const sndGoal = () => [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.18, '
 let SI = 0, G = null, state = 'title', tRun = 0, started = false, fallT = 0, goalT = 0, acc = 0, shake = 0, camX = 0, camY = 0, stageFalls = 0, particles = [];
 const keys = { q: 0, w: 0, o: 0, p: 0 };
 function newGame(i) {
-  SI = i; G = makeWorld(planck, i); tRun = 0; started = false; fallT = 0; goalT = 0; acc = 0; shake = 0; particles = [];
+  SI = i; G = makeWorld(planck, i === EI ? Object.assign({}, ENDLESS, { seed: (Math.random() * 1e9) | 0 }) : i); curRank = rankAt(0); tRun = 0; started = false; fallT = 0; goalT = 0; acc = 0; shake = 0; particles = [];
   camX = G.dist(); camY = G.parts.torso.getPosition().y - 1.2;
   G.world.on('begin-contact', c => {
     const a = c.getFixtureA().getUserData() || {}, b = c.getFixtureB().getUserData() || {};
     const p = a.part ? a : b.part ? b : null, o = a.part ? b : a;
-    if (p && o.ground && (p.part === 'footL' || p.part === 'footR') && state === 'play') { sndStep(); const fp = G.parts[p.part].getPosition(); for (let k = 0; k < 3; k++) particles.push({ x: fp.x, y: fp.y - 0.03, vx: (Math.random() - 0.5) * 1.2, vy: Math.random() * 0.8, life: 0.5, c: THEME[G.st.id] === 'moon' ? '#bbb' : '#c9c0b0' }); }
+    if (p && o.ground && (p.part === 'footL' || p.part === 'footR') && state === 'play') { sndStep(); const fp = G.parts[p.part].getPosition(); for (let k = 0; k < 3; k++) particles.push({ x: fp.x, y: fp.y - 0.03, vx: (Math.random() - 0.5) * 1.2, vy: Math.random() * 0.8, life: 0.5, c: themeNow() === 'moon' ? '#bbb' : '#c9c0b0' }); }
   });
-  $('stName').textContent = `${i + 1}. ${G.st.name}`;
+  $('stName').textContent = i === EI ? `∞ エンドレス出社（ベスト ${SV.endBest.toFixed(1)}m）` : `${i + 1}. ${G.st.name}`;
   state = 'play';
 }
 
@@ -79,26 +84,28 @@ cv.addEventListener('pointerdown', () => { if (state === 'fell' && fallT > 0.7) 
 
 // ---------- 画面の切りかえ ----------
 const show = (id, on = true) => { $(id).hidden = !on; };
-function showTitle() { state = 'title'; for (const id of ['sel', 'intro', 'clear', 'menu', 'hud', 'keys']) show(id, false); show('title'); const n = Math.min(SV.unlocked, STAGES.length) - 1; $('tSub').textContent = cleared() ? `つづき：${n + 1}. ${STAGES[n].name}` : '家の前から'; if (!G) { G = makeWorld(planck, 0); camX = 0; camY = 0; } }
+function showTitle() { state = 'title'; for (const id of ['sel', 'intro', 'clear', 'menu', 'hud', 'keys']) show(id, false); show('title'); const n = Math.min(SV.unlocked, STAGES.length) - 1; $('tSub').textContent = cleared() ? `つづき：${n + 1}. ${STAGES[n].name}` : '家の前から'; $('tEnd').hidden = !endOpen(); $('tEndSub').textContent = SV.endBest ? `ベスト ${SV.endBest.toFixed(1)}m（${rankAt(SV.endBest)}）` : 'どこまで出世できる？'; if (!G) { G = makeWorld(planck, 0); camX = 0; camY = 0; } }
 function showSel() {
   for (const id of ['title', 'intro', 'clear', 'menu']) show(id, false); show('sel'); state = state === 'play' ? 'menu' : state;
   $('selGrid').innerHTML = STAGES.map((s, i) => { const lock = i >= SV.unlocked, b = SV.best[s.id]; return `<button class="st ${b != null ? 'clear' : ''} ${lock ? 'lock' : ''}" data-i="${i}" ${lock ? 'disabled' : ''}>${i + 1}. ${lock ? '？？？' : s.name}<i>${lock ? 'まだ行けない' : b != null ? '🏁 ' + fmtT(b) : `${s.len}m`}</i></button>`; }).join('');
+  $('selGrid').innerHTML += `<button class="st ${endOpen() ? '' : 'lock'}" style="grid-column:1/-1;background:${endOpen() ? '#fff0c8' : '#fff'}" data-i="${EI}" ${endOpen() ? '' : 'disabled'}>∞ エンドレス出社<i>${endOpen() ? (SV.endBest ? `ベスト ${SV.endBest.toFixed(1)}m（${rankAt(SV.endBest)}）` : 'ゴールなし。どこまで行ける？') : '全ステージクリアで出てくる'}</i></button>`;
   $('selGrid').querySelectorAll('[data-i]').forEach(b => b.onclick = () => intro(+b.dataset.i));
-  $('stats').innerHTML = [['クリアしたステージ', `${cleared()} / ${STAGES.length}`], ['ベストタイム合計', cleared() ? fmtT(totalBest()) : '—'], ['転んだ回数（合計）', `${SV.falls}回`], ['プレイ時間', fmtT(SV.time)]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('');
+  $('stats').innerHTML = [['クリアしたステージ', `${cleared()} / ${STAGES.length}`], ['ベストタイム合計', cleared() ? fmtT(totalBest()) : '—'], ['エンドレス最高', SV.endBest ? `${SV.endBest.toFixed(1)}m（${rankAt(SV.endBest)}）` : '—'], ['転んだ回数（合計）', `${SV.falls}回`], ['プレイ時間', fmtT(SV.time)]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('');
 }
 function intro(i) {
   for (const id of ['title', 'sel', 'clear', 'menu']) show(id, false);
   newGame(i); state = 'intro'; show('hud'); show('keys'); show('intro');
-  const s = STAGES[i]; $('inNo').textContent = `STAGE ${i + 1} / ${STAGES.length}`; $('inName').textContent = s.name; $('inDesc').textContent = s.desc;
-  $('inGoal').textContent = `ゴールまで ${s.len}m` + (SV.best[s.id] != null ? `　ベスト ${fmtT(SV.best[s.id])}` : '');
-  const fb = SV.fallsBy[s.id] || 0; $('inTip').hidden = !(i === 0 || fb >= 5); $('inTip').innerHTML = '💡 ' + TIPS[s.id];
+  const s = i === EI ? ENDLESS : STAGES[i]; $('inNo').textContent = i === EI ? 'ENDLESS' : `STAGE ${i + 1} / ${STAGES.length}`; $('inName').textContent = s.name; $('inDesc').textContent = s.desc;
+  $('inGoal').textContent = i === EI ? (SV.endBest ? `ベスト ${SV.endBest.toFixed(1)}m（${rankAt(SV.endBest)}）` : '段差・氷・突風・月面…ぜんぶランダムに出てくる') : `ゴールまで ${s.len}m` + (SV.best[s.id] != null ? `　ベスト ${fmtT(SV.best[s.id])}` : '');
+  const fb = SV.fallsBy[s.id] || 0; $('inTip').hidden = i === EI || !(i === 0 || fb >= 5); $('inTip').innerHTML = '💡 ' + (TIPS[s.id] || '');
 }
 function goStage() { show('intro', false); state = 'play'; SV.plays++; }
-function restart() { const i = SI; newGame(i); hideMsg(); stageFalls = SV.fallsBy[G.st.id] || 0; if (stageFalls === 5) { intro(i); return; } }
-function openMenu() { if (state !== 'play' && state !== 'fell') return; const prev = state; state = 'menu'; show('menu'); $('mStat').innerHTML = [['ステージ', `${SI + 1}. ${G.st.name}`], ['このステージで転んだ', `${SV.fallsBy[G.st.id] || 0}回`], ['転んだ回数（合計）', `${SV.falls}回`]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join(''); $('mBack').onclick = () => { show('menu', false); state = prev; }; }
+function restart() { const i = SI; newGame(i); hideMsg(); stageFalls = SV.fallsBy[G.st.id] || 0; if (i !== EI && stageFalls === 5) { intro(i); return; } }
+function openMenu() { if (state !== 'play' && state !== 'fell') return; const prev = state; state = 'menu'; show('menu'); $('mStat').innerHTML = [['ステージ', SI === EI ? '∞ エンドレス出社' : `${SI + 1}. ${G.st.name}`], ['このステージで転んだ', `${SV.fallsBy[G.st.id] || 0}回`], ['転んだ回数（合計）', `${SV.falls}回`]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join(''); $('mBack').onclick = () => { show('menu', false); state = prev; }; }
 function closeMenu() { if (!$('menu').hidden) $('mBack').click(); }
 $('tGo').onclick = () => { ac(); intro(Math.min(SV.unlocked, STAGES.length) - 1); };
 $('tSel').onclick = () => showSel();
+$('tEnd').onclick = () => { ac(); intro(EI); };
 $('selBack').onclick = () => showTitle();
 $('inGo').onclick = () => goStage();
 $('bRe').onclick = () => { if (state === 'play' || state === 'fell') restart(); };
@@ -125,8 +132,14 @@ function update(dt) {
     if (state === 'play' && started) { tRun += dt; SV.time += dt; }
     if (state === 'play' && G.fallen) {
       state = 'fell'; fallT = 0; shake = 0.35; SV.falls++; SV.fallsBy[G.st.id] = (SV.fallsBy[G.st.id] || 0) + 1; save(); sndFall();
-      const m = FALL_MSG[Math.random() * FALL_MSG.length | 0];
-      msg(`${m}<small>${G.dist().toFixed(1)}m　タップ / キーでもう一回</small>`);
+      if (G.st.endless) {
+        const d = Math.max(0, G.dist()), nb = d > SV.endBest; SV.endRuns++; if (nb) SV.endBest = d; save();
+        msg(`最終役職：${rankAt(d)}<small>${d.toFixed(1)}m${nb ? '　🎉自己ベスト！' : `　（ベスト ${SV.endBest.toFixed(1)}m）`}<br>タップ / キーでもう一回</small>`);
+        $('stName').textContent = `∞ エンドレス出社（ベスト ${SV.endBest.toFixed(1)}m）`;
+      } else {
+        const m = FALL_MSG[Math.random() * FALL_MSG.length | 0];
+        msg(`${m}<small>${G.dist().toFixed(1)}m　タップ / キーでもう一回</small>`);
+      }
     }
     if (state === 'play' && G.dist() >= G.st.len) {
       state = 'goal'; goalT = 0; sndGoal();
@@ -139,16 +152,17 @@ function update(dt) {
         $('clNext').textContent = SI + 1 < STAGES.length ? 'つぎのステージ' : '🎊 全ステージ出社完了！';
       }, 1100);
     }
+    if (state === 'play' && G.st.endless) { const r = rankAt(G.dist()); if (r !== curRank) { curRank = r; msg(`🎉 ${r}に昇進！`, 1400); tone(660, 660, 0.12, 'triangle', 0.12); tone(880, 880, 0.2, 'triangle', 0.12, 0.12); } }
     if (state === 'fell') fallT += dt;
     if (state === 'goal') goalT += dt;
   }
-  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= (G && G.st.g || 9.8) * 0.3 * dt; p.life -= dt; }
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= (G && (G.st.g || (G.inMoon ? 1.62 : 9.8)) || 9.8) * 0.3 * dt; p.life -= dt; }
   particles = particles.filter(p => p.life > 0);
   if (shake > 0) shake -= dt;
   // カメラ
   if (G) { const tp = G.parts.torso.getPosition(); camX += (tp.x - camX) * Math.min(1, dt * 4); camY += (tp.y - 1.2 - camY) * Math.min(1, dt * 3); }
   // HUD
-  if (G && state !== 'title') { $('dist').innerHTML = `${Math.max(0, G.dist()).toFixed(1)}<small>m / ${G.st.len}m</small>`; $('timer').textContent = fmtT(tRun); }
+  if (G && state !== 'title') { $('dist').innerHTML = G.st.endless ? `${Math.max(0, G.dist()).toFixed(1)}<small>m　${rankAt(Math.max(0, G.dist()))}</small>` : `${Math.max(0, G.dist()).toFixed(1)}<small>m / ${G.st.len}m</small>`; $('timer').textContent = fmtT(tRun); }
 }
 
 // ---------- 描画 ----------
@@ -183,7 +197,7 @@ function drawBG(theme, t) {
 }
 const wx = x => (x - camX) * S + W * 0.38, wy = y => H * 0.66 - (y - camY - 1.2) * S;
 function drawWorld(t) {
-  const st = G.st, theme = THEME[st.id];
+  const st = G.st, theme = themeNow();
   // 地面
   const gp = G.groundPts; cx.beginPath(); cx.moveTo(wx(gp[0][0]), H + 10); for (const [x, y] of gp) cx.lineTo(wx(x), wy(y)); cx.lineTo(wx(gp[gp.length - 1][0]), H + 10); cx.closePath();
   cx.fillStyle = { town: '#7a7f88', snow: '#e8eef6', storm: '#5d636c', moon: '#8d8b86', station: '#b9b2a2', office: '#8a5a4a' }[theme]; cx.fill();
@@ -192,13 +206,13 @@ function drawWorld(t) {
   if (theme === 'moon') { cx.fillStyle = 'rgba(0,0,0,.12)'; for (let i = Math.floor(camX - 6); i < camX + 10; i++) { const r = 0.15 + ((i * 7.13) % 1) * 0.3; cx.beginPath(); cx.ellipse(wx(i + 0.5), wy(0) + 20 + (i % 3) * 14, r * S * 0.6, r * S * 0.12, 0, 0, 7); cx.fill(); } }
   // 階段の見た目
   for (const d of G.deco) {
-    if (d.kind === 'stairs') { cx.fillStyle = '#a06a52'; cx.strokeStyle = '#6b4232'; cx.lineWidth = 2; for (let i = 0; i < d.n; i++) { const x = d.x0 + i * d.w; cx.fillRect(wx(x), wy((i + 1) * d.h), d.w * S, (i + 1) * d.h * S + 10); cx.beginPath(); cx.moveTo(wx(x), wy((i + 1) * d.h)); cx.lineTo(wx(x + d.w), wy((i + 1) * d.h)); cx.stroke(); } }
-    if (d.kind === 'ice') { cx.fillStyle = 'rgba(160,220,255,.75)'; cx.fillRect(wx(d.x1), wy(G.gy(d.x1)) - 4, (d.x2 - d.x1) * S, 9); cx.fillStyle = 'rgba(255,255,255,.8)'; for (let x = d.x1; x < d.x2; x += 0.7) cx.fillRect(wx(x), wy(0) - 3, 14, 2); }
+    if (d.kind === 'stairs') { cx.fillStyle = '#a06a52'; cx.strokeStyle = '#6b4232'; cx.lineWidth = 2; for (let i = 0; i < d.n; i++) { const x = d.x0 + i * d.w, yy = (d.y0 || 0) + (i + 1) * d.h; cx.fillRect(wx(x), wy(yy), d.w * S, (i + 1) * d.h * S + 10); cx.beginPath(); cx.moveTo(wx(x), wy(yy)); cx.lineTo(wx(x + d.w), wy(yy)); cx.stroke(); } }
+    if (d.kind === 'ice') { cx.fillStyle = 'rgba(160,220,255,.75)'; cx.fillRect(wx(d.x1), wy(G.gy(d.x1)) - 4, (d.x2 - d.x1) * S, 9); cx.fillStyle = 'rgba(255,255,255,.8)'; for (let x = d.x1; x < d.x2; x += 0.7) cx.fillRect(wx(x), wy(G.gy(x)) - 3, 14, 2); }
     if (d.kind === 'belt') { const y = wy(G.gy(d.x1)); cx.fillStyle = '#3a3e46'; cx.fillRect(wx(d.x1), y - 5, (d.x2 - d.x1) * S, 12); cx.fillStyle = '#ffd23a'; const off = (t * -d.speed * S) % 30; for (let x = wx(d.x1) + off; x < wx(d.x2); x += 30) if (x > wx(d.x1)) cx.fillRect(x, y - 4, 12, 3); cx.fillStyle = '#fff'; cx.font = '900 14px sans-serif'; for (let x = d.x1 + 1; x < d.x2; x += 3) cx.fillText('◀◀', wx(x), y + 26); }
-    if (d.kind === 'banana') { const x = wx((d.x1 + d.x2) / 2), y = wy(0) - 4; cx.save(); cx.translate(x, y); cx.fillStyle = '#ffd84a'; cx.strokeStyle = '#7a5a00'; cx.lineWidth = 2; for (const a of [-0.8, 0, 0.8]) { cx.save(); cx.rotate(a); cx.beginPath(); cx.ellipse(0, -8, 5, 12, 0, 0, 7); cx.fill(); cx.stroke(); cx.restore(); } cx.restore(); }
+    if (d.kind === 'banana') { const x = wx((d.x1 + d.x2) / 2), y = wy(G.gy(d.x1)) - 4; cx.save(); cx.translate(x, y); cx.fillStyle = '#ffd84a'; cx.strokeStyle = '#7a5a00'; cx.lineWidth = 2; for (const a of [-0.8, 0, 0.8]) { cx.save(); cx.rotate(a); cx.beginPath(); cx.ellipse(0, -8, 5, 12, 0, 0, 7); cx.fill(); cx.stroke(); cx.restore(); } cx.restore(); }
   }
   for (const o of G.obst) {
-    if (o.kind === 'bar') { const x = wx(o.x); cx.fillStyle = '#222'; cx.fillRect(x - 6, wy(o.h) - 2, 12, o.h * S + 2); for (let k = 0; k < 4; k++) { cx.fillStyle = k % 2 ? '#222' : '#ffd23a'; cx.fillRect(x - 40 + k * 20, wy(o.h), 20, 8); } cx.fillStyle = '#ff6a3a'; cx.beginPath(); cx.moveTo(x - 50, wy(0)); cx.lineTo(x - 42, wy(0.3)); cx.lineTo(x - 34, wy(0)); cx.fill(); }
+    if (o.kind === 'bar') { const x = wx(o.x), b0 = o.y0 || 0; cx.fillStyle = '#222'; cx.fillRect(x - 6, wy(b0 + o.h) - 2, 12, o.h * S + 2); for (let k = 0; k < 4; k++) { cx.fillStyle = k % 2 ? '#222' : '#ffd23a'; cx.fillRect(x - 40 + k * 20, wy(b0 + o.h), 20, 8); } cx.fillStyle = '#ff6a3a'; cx.beginPath(); cx.moveTo(x - 50, wy(b0)); cx.lineTo(x - 42, wy(b0 + 0.3)); cx.lineTo(x - 34, wy(b0)); cx.fill(); }
     if (o.kind === 'person') { const p = o.body.getPosition(), a = o.body.getAngle(); cx.save(); cx.translate(wx(p.x), wy(p.y)); cx.rotate(-a); const s = S; cx.fillStyle = '#5a6272'; rr(-0.2 * s, -0.55 * s, 0.4 * s, 0.9 * s, 0.08 * s); cx.fill(); cx.fillStyle = '#3a3f4a'; cx.fillRect(-0.16 * s, 0.3 * s, 0.13 * s, 0.55 * s); cx.fillRect(0.03 * s, 0.3 * s, 0.13 * s, 0.55 * s); cx.fillStyle = '#f2c9a8'; cx.beginPath(); cx.arc(0, -0.7 * s, 0.14 * s, 0, 7); cx.fill(); cx.fillStyle = '#222'; cx.beginPath(); cx.arc(0, -0.75 * s, 0.14 * s, Math.PI, 0); cx.fill(); cx.fillStyle = '#fff'; cx.font = `900 ${0.12 * s}px sans-serif`; cx.textAlign = 'center'; cx.fillText('…', 0, -0.2 * s); cx.textAlign = 'start'; cx.restore(); }
   }
   // 距離の目もり
@@ -257,13 +271,13 @@ function drawMan() {
 function draw(t) {
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
   S = Math.max(60, Math.min(170, Math.min(H / 4.6, W / 5.2)));
-  const th = G ? THEME[G.st.id] : 'town';
+  const th = themeNow();
   if (shake > 0) cx.translate((Math.random() - 0.5) * 14 * shake, (Math.random() - 0.5) * 14 * shake);
   drawBG(th, t);
   if (G) { drawWorld(t); drawMan(); }
   // 突風の表示
-  if (G && G.st.wind && state === 'play') { const ph = G.windPhase; if (ph > 3.1) { cx.fillStyle = ph > 3.8 ? 'rgba(255,77,90,.9)' : 'rgba(255,200,60,.9)'; cx.font = `900 ${Math.max(18, S * 0.22)}px "M PLUS Rounded 1c"`; cx.textAlign = 'center'; cx.fillText(ph > 3.8 ? '🌀 突風！ ふんばれ！' : '⚠ 突風がくる…', W / 2, H * 0.24); cx.textAlign = 'start'; } }
-  if (G && G.st.wind) { cx.strokeStyle = 'rgba(255,255,255,.6)'; cx.lineWidth = 2; const k = G.gust ? 1 : 0.3; for (let i = 0; i < 18 * k + 4; i++) { const x = W - ((i * 151 + t * 700 * (k + 0.3)) % (W + 200)), y = (i * 89) % (H * 0.8); cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + 50 + k * 40, y + 2); cx.stroke(); } }
+  if (G && G.windOn && state === 'play') { const ph = G.windPhase; if (ph > 3.1) { cx.fillStyle = ph > 3.8 ? 'rgba(255,77,90,.9)' : 'rgba(255,200,60,.9)'; cx.font = `900 ${Math.max(18, S * 0.22)}px "M PLUS Rounded 1c"`; cx.textAlign = 'center'; cx.fillText(ph > 3.8 ? '🌀 突風！ ふんばれ！' : '⚠ 突風がくる…', W / 2, H * 0.24); cx.textAlign = 'start'; } }
+  if (G && G.windOn) { cx.strokeStyle = 'rgba(255,255,255,.6)'; cx.lineWidth = 2; const k = G.gust ? 1 : 0.3; for (let i = 0; i < 18 * k + 4; i++) { const x = W - ((i * 151 + t * 700 * (k + 0.3)) % (W + 200)), y = (i * 89) % (H * 0.8); cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + 50 + k * 40, y + 2); cx.stroke(); } }
 }
 
 // ---------- ループ ----------
@@ -276,5 +290,5 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 showTitle();
-if (window.GAMES_RANK) { GAMES_RANK.mount('shusha', { left: 'max(10px, env(safe-area-inset-left))', bottom: 'max(10px, env(safe-area-inset-bottom))' }, () => state !== 'title'); rankReport(true); }
+if (window.GAMES_RANK) { GAMES_RANK.mount('shushae', { left: 'max(10px, env(safe-area-inset-left))', bottom: 'max(10px, env(safe-area-inset-bottom))' }, () => state !== 'title'); rankReport(true); }
 window.SHUSHA = { SV, get G() { return G; }, keys, setKey, intro, goStage, get state() { return state; } };
