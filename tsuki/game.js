@@ -52,7 +52,7 @@ let S = fresh();
 try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && o.v === 1) S = Object.assign(fresh(), o, { up: Object.assign(fresh().up, o.up || {}) }); } catch (e) {}
 // ---------- ロード画面 ----------
 const LD = document.getElementById('load');
-const step = async (txt, p) => { if (window.__loadSet) window.__loadSet(txt, p); await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); };
+const step = async (txt, p) => { if (window.__loadSet) window.__loadSet(txt, p); await new Promise(r => { let d = false; const f = () => { if (!d) { d = true; setTimeout(r, 0); } }; requestAnimationFrame(f); setTimeout(f, 80); }); };
 await step('月のホコリを数えています…', 12);
 const D = W.makeDust();
 if (S.dust) D.load(S.dust);
