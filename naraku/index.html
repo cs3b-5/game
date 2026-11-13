@@ -126,6 +126,24 @@ body.touch #pcKeys { display: none; }
 .sum.lost { color: #ff8a8a; }
 #toast { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); background: #000c; border: 1px solid #a080d0; padding: 8px 16px; border-radius: 10px; z-index: 30; opacity: 0; transition: opacity .3s; pointer-events: none; }
 #toast.on { opacity: 1; }
+.dq { background: #000000e0; border: 3px solid #f4f4f4; border-radius: 10px; box-shadow: 0 0 0 2px #000, inset 0 0 0 2px #000; color: #fff; font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif; font-weight: 700; letter-spacing: .04em; }
+#battle { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+#battle .dq { pointer-events: auto; }
+#bStat { position: absolute; left: 50%; transform: translateX(-50%); top: max(10px, env(safe-area-inset-top)); padding: 8px 18px; display: flex; gap: 18px; align-items: baseline; font-size: 17px; white-space: nowrap; }
+#bStat i { font-style: normal; } #bStat i.low { color: #ffa040; }
+#bBottom { position: absolute; left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: stretch; pointer-events: none; max-width: 860px; margin: 0 auto; }
+#bMsg { flex: 1; min-height: 132px; padding: 12px 16px; font-size: 17px; line-height: 1.75; }
+#bMsg div:last-child { animation: typein .25s steps(10); }
+@keyframes typein { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+#bCmd, #bTgt { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; align-content: center; min-width: 230px; }
+#bTgt { grid-template-columns: 1fr; min-width: 200px; }
+#bCmd button, #bTgt button { background: none; border: 0; color: #fff; font: inherit; font-size: 18px; text-align: left; padding: 9px 8px 9px 26px; position: relative; border-radius: 6px; }
+#bCmd button.cur::before, #bTgt button.cur::before { content: '▶'; position: absolute; left: 6px; animation: blink .8s steps(1) infinite; }
+#bCmd button:hover, #bTgt button:hover { background: #ffffff14; }
+#bTgt .back { opacity: .7; font-size: 15px; }
+@keyframes blink { 50% { opacity: 0; } }
+body.inbattle #hud, body.inbattle #mini, body.inbattle #ctrl, body.inbattle #log, body.inbattle #pcKeys, body.inbattle #vig { display: none !important; }
+@media (max-width: 600px) { #bBottom { flex-direction: column-reverse; } #bCmd, #bTgt { min-width: 0; } #bMsg { min-height: 118px; font-size: 15px; } #bCmd button, #bTgt button { font-size: 19px; padding: 12px 8px 12px 28px; } }
 #load { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: radial-gradient(900px 700px at 50% 30%, #1c0f2a, #000 70%); transition: opacity .45s; }
 #load.done { opacity: 0; pointer-events: none; }
 .lbar { width: 240px; height: 6px; background: #2a1a3a; border-radius: 3px; overflow: hidden; }
@@ -171,6 +189,15 @@ body.touch #pcKeys { display: none; }
   </div>
 </div>
 
+<div id="battle" hidden>
+  <div id="bStat" class="dq"></div>
+  <div id="bBottom">
+    <div id="bCmd" class="dq" hidden></div>
+    <div id="bTgt" class="dq" hidden></div>
+    <div id="bMsg" class="dq"></div>
+  </div>
+</div>
+
 <div id="stairsAsk" class="panel" hidden style="width:auto">
   <div style="margin-bottom:10px" id="askTxt">階段がある。下りる？</div>
   <div class="row"><button id="sYes" style="background:#5a2a7a;border-color:#b080e0">下りる</button><button id="sNo">やめる</button></div>
@@ -203,8 +230,8 @@ body.touch #pcKeys { display: none; }
   <h3>ゴール</h3>
   地下10階に「骸骨王」、地下20階に「奈落の主」。主をたおせば制覇。
   
-<h3>ターン制</h3>
-  あなたが1歩動くか1回攻撃すると、敵も1回動く。あせらず、1手ずつ考えよう。通路で戦えば囲まれにくい。
+<h3>戦闘</h3>
+  歩いていると魔物があらわれる（ランダム）。たたかう・どうぐ・ぼうぎょ・にげる から選ぶコマンドバトル。ぼうぎょするとダメージ半分。ボスからは逃げられない。敵が複数いるときは、敵をタップしても狙える。
   <h3>お腹</h3>
   歩くとお腹がへる。0%になるとHPがへりつづける。パンや干し肉を拾っておこう。
   <h3>未識別アイテム</h3>
@@ -301,6 +328,6 @@ body.touch #pcKeys { display: none; }
 </script>
 <script src="../account.js"></script>
 <script src="../rank.js"></script>
-<script type="module" src="game.js?v=3"></script>
+<script type="module" src="game.js?v=4"></script>
 </body>
 </html>

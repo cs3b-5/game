@@ -18,7 +18,7 @@ export const MONS = {
   knight:   { nm: '堕ちた騎士',   hp: 70,  atk: 18, def: 12, xp: 60,  sp: 1,  f: [14, 20], col: 0x2a2a38 },
   wraith:   { nm: '死神',         hp: 60,  atk: 20, def: 8,  xp: 70,  sp: 1,  f: [16, 20], col: 0x1a1a24, ab: 'phase' },
   // ボス
-  boneking: { nm: '骸骨王ヴァルグ', hp: 220, atk: 18, def: 10, xp: 400, sp: 1, f: [0, 0], col: 0xe8dcc0, boss: 1, ab: 'summon' },
+  boneking: { nm: '骸骨王ヴァルグ', hp: 220, atk: 15, def: 10, xp: 400, sp: 1, f: [0, 0], col: 0xe8dcc0, boss: 1, ab: 'summon' },
   abyss:    { nm: '奈落の主',     hp: 520,  atk: 30, def: 18, xp: 1500, sp: 1, f: [0, 0], col: 0x3a0a4a, boss: 1, ab: 'breath' },
 };
 
