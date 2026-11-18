@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#fdf1f3">
+<title>ねこ爆弾</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23F6B8C4'/%3E%3Cpath d='M22 44 L28 16 L46 32 Z M78 44 L72 16 L54 32 Z' fill='%23fffaf3' stroke='%236d5866' stroke-width='5' stroke-linejoin='round'/%3E%3Cellipse cx='50' cy='60' rx='34' ry='28' fill='%23fffaf3' stroke='%236d5866' stroke-width='5'/%3E%3Cpath d='M33 60 Q38 54 43 60 M57 60 Q62 54 67 60' stroke='%236d5866' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<!-- ゲーム置き場共通：名前・ランキング・端末間セーブ同期 -->
+<script src="../account.js"></script>
+<script src="../rank.js"></script>
+<style>
+:root{--ink:#5d4b57;--ink2:#8f7d88;--line:#6d5866;--pink:#f4a7b9;--pinkd:#e4879f;--cream:#fffaf3;--sky:#dcecf8;--card:rgba(255,255,255,.82);--cell:40px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:"Hiragino Maru Gothic ProN","Zen Maru Gothic","M PLUS Rounded 1c","Yu Gothic UI","Meiryo",sans-serif;color:var(--ink);
+  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;overscroll-behavior:none}
+body{background:linear-gradient(180deg,#fdeef2 0%,#fff8ef 48%,#e6f1fa 100%)}
+body::before{content:"";position:fixed;left:0;right:0;bottom:0;height:34vh;pointer-events:none;opacity:.55;
+  background:radial-gradient(ellipse 60% 100% at 70% 100%,#cfe2f3 0 60%,transparent 61%),radial-gradient(ellipse 50% 80% at 15% 100%,#d9e9f5 0 60%,transparent 61%)}
+button{font-family:inherit;color:inherit;touch-action:manipulation}
+.hidden{display:none!important}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);z-index:1}
+.screen.active{display:flex}
+.scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
+.btn{border:none;border-radius:999px;padding:14px 22px;font-size:17px;font-weight:700;background:#fff;box-shadow:0 4px 0 #ead7de,0 6px 16px rgba(160,120,140,.15);cursor:pointer;transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #ead7de}
+.btn.pink{background:var(--pink);color:#fff;box-shadow:0 4px 0 var(--pinkd),0 6px 16px rgba(228,135,159,.3)}
+.btn.sky{background:#a9d1ef;color:#fff;box-shadow:0 4px 0 #86b6dc,0 6px 16px rgba(120,170,210,.3)}
+.btn.small{padding:9px 14px;font-size:14px}
+.btn:disabled{opacity:.45}
+.iconbtn{border:none;background:var(--card);width:42px;height:42px;border-radius:50%;font-size:20px;box-shadow:0 2px 8px rgba(160,120,140,.15);cursor:pointer;flex:none}
+.card{background:var(--card);border-radius:22px;box-shadow:0 6px 24px rgba(160,120,140,.14);padding:20px}
+/* 桜 */
+#sakura{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.petal{position:absolute;top:-20px;width:12px;height:10px;background:#f7c4d0;border-radius:12px 0 12px 0;opacity:.75;animation:fall linear infinite}
+@keyframes fall{0%{transform:translate(0,-20px) rotate(0)}50%{transform:translate(40px,50vh) rotate(180deg)}100%{transform:translate(-20px,105vh) rotate(360deg)}}
+/* タイトル */
+.title-wrap{width:100%;max-width:440px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+.logo{display:flex;align-items:flex-end;justify-content:center;gap:0;margin-bottom:2px}
+.logo svg{filter:drop-shadow(0 6px 10px rgba(110,80,100,.18))}
+h1{margin:0;font-size:46px;letter-spacing:.08em;color:var(--line);text-shadow:3px 3px 0 #fff,0 6px 14px rgba(244,167,185,.5)}
+.sub{color:var(--ink2);font-size:14px;margin-top:-6px}
+.menu{display:flex;flex-direction:column;gap:14px;width:100%;max-width:300px;margin-top:8px}
+.menu .btn{width:100%}
+.player{font-size:14px;color:var(--ink2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+.net{font-size:11px;padding:2px 8px;border-radius:99px;background:#d6efd9;color:#4f8a5c}
+.net.off{background:#eee;color:#999}
+.linkbtn{background:none;border:none;color:var(--ink2);text-decoration:underline;font-size:13px;cursor:pointer;padding:4px}
+.daily-status{font-size:13px;color:var(--ink2);text-align:center;min-height:1.3em}
+.stamp{display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;border-radius:50%;border:3px solid #e2627d;color:#e2627d;font-weight:800;font-size:13px;line-height:1.25;text-align:center;transform:rotate(-12deg);background:rgba(255,255,255,.6);box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 5px rgba(226,98,125,.5)}
+.stamp.mini{width:56px;height:56px;font-size:10px;border-width:2px}
+/* マップ */
+.topbar{width:100%;max-width:600px;display:flex;align-items:center;gap:10px;padding:10px 12px;flex:none}
+.topbar h2{margin:0;font-size:19px;flex:1}
+.map-info{font-size:13px;color:var(--ink2);text-align:right}
+#map-scroll{flex:1;width:100%;min-height:0}
+#map-list{position:relative;width:100%;max-width:520px;margin:0 auto}
+#map-path{position:absolute;inset:0;pointer-events:none}
+.node{position:absolute;transform:translate(-50%,-50%);width:66px;height:66px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:19px;cursor:default}
+.node small{font-size:10px;font-weight:600;opacity:.85}
+.node.done{background:#cfe9d4;color:#4d7f5a;box-shadow:0 4px 0 #b0d4b8}
+.node.done::after{content:"✓";position:absolute;right:-4px;top:-4px;width:24px;height:24px;border-radius:50%;background:#7cc08b;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.node.next{width:86px;height:86px;background:var(--pink);color:#fff;cursor:pointer;box-shadow:0 5px 0 var(--pinkd),0 0 0 8px rgba(244,167,185,.3);animation:pulse 1.6s ease-in-out infinite;font-size:22px}
+.node.locked{background:#ece6ea;color:#b5a9b0;box-shadow:0 4px 0 #ddd3d8;font-size:15px}
+@keyframes pulse{50%{box-shadow:0 5px 0 var(--pinkd),0 0 0 16px rgba(244,167,185,.12)}}
+.size-chip{position:absolute;transform:translate(-50%,0);font-size:11px;color:var(--ink2);background:rgba(255,255,255,.75);padding:1px 8px;border-radius:99px;white-space:nowrap}
+/* プレイ */
+.play-wrap{width:100%;max-width:640px;height:100%;display:flex;flex-direction:column;align-items:center;padding:8px 10px 10px;gap:8px}
+.hud{width:100%;display:flex;align-items:center;gap:8px;flex:none}
+.hud .lv{flex:1;min-width:0}
+.hud .lv b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .lv span{font-size:12px;color:var(--ink2)}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;background:var(--card);padding:8px 12px;border-radius:99px}
+.hearts{font-size:22px;letter-spacing:2px;background:var(--card);padding:4px 10px;border-radius:99px;white-space:nowrap}
+.hearts .h{color:#ef7f98;display:inline-block}
+.hearts .h.lost{color:#ddd;animation:lose .5s}
+@keyframes lose{0%{transform:scale(1.6);color:#ef7f98}100%{transform:scale(1)}}
+.board-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.board-box{position:relative}
+.board{display:grid;border-radius:12px;overflow:hidden;box-shadow:0 0 0 3px var(--line),0 10px 30px rgba(110,80,100,.2);touch-action:none;background:var(--line)}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;border:0 solid rgba(109,88,102,.18);cursor:pointer}
+.cell .x{font-size:calc(var(--cell)*.42);color:rgba(93,75,87,.5);font-weight:700;line-height:1;pointer-events:none}
+.cell .cat{width:86%;height:86%;pointer-events:none;animation:pop .35s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{0%{transform:scale(.2)}100%{transform:scale(1)}}
+.cell.hint{animation:glow 1s ease-in-out infinite;z-index:2}
+.cell.hint-area::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,.35);pointer-events:none}
+@keyframes glow{0%,100%{box-shadow:inset 0 0 0 3px #fff,0 0 0 2px #ffcf4d}50%{box-shadow:inset 0 0 0 3px #fff,0 0 10px 6px #ffcf4d}}
+.cell.boom{animation:boom .5s}
+@keyframes boom{0%,60%{background:#ff8c8c!important}100%{}}
+.shake{animation:shake .45s}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(5px)}30%,50%,70%{transform:translateX(-9px)}40%,60%{transform:translateX(9px)}}
+.win .cat{animation:hop .6s ease-in-out infinite alternate}
+@keyframes hop{to{transform:translateY(-12%)}}
+.msg{min-height:2.6em;font-size:13px;color:var(--ink2);text-align:center;flex:none;padding:0 8px;display:flex;align-items:center;justify-content:center;line-height:1.35}
+.bottom{width:100%;display:flex;gap:8px;flex:none;align-items:stretch}
+.modes{flex:1;display:flex;background:var(--card);border-radius:16px;padding:4px;gap:4px;box-shadow:0 2px 10px rgba(160,120,140,.12)}
+.modes button{flex:1;border:none;background:transparent;border-radius:12px;padding:10px 4px;font-size:14px;font-weight:700;color:var(--ink2);cursor:pointer;white-space:nowrap}
+.modes button.on{background:var(--pink);color:#fff}
+.hintbtn{border:none;border-radius:16px;background:#ffe9a8;color:#8a6a1e;font-weight:800;font-size:14px;padding:0 14px;box-shadow:0 3px 0 #efd27d;cursor:pointer;white-space:nowrap}
+.hintbtn:disabled{opacity:.45}
+/* エフェクト */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:50}
+.spark{position:absolute;width:10px;height:10px;border-radius:50%;animation:spark .6s ease-out forwards}
+@keyframes spark{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
+.bang{position:absolute;transform:translate(-50%,-50%);font-size:46px;animation:bang .6s ease-out forwards}
+@keyframes bang{0%{transform:translate(-50%,-50%) scale(.3)}40%{transform:translate(-50%,-50%) scale(1.3)}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+.flash{position:fixed;inset:0;background:rgba(255,120,120,.25);animation:fl .4s forwards;pointer-events:none;z-index:49}
+@keyframes fl{to{opacity:0}}
+/* モーダル */
+.modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(93,75,87,.28);padding:20px}
+.modal .card{width:100%;max-width:360px;text-align:center;animation:pop .3s cubic-bezier(.3,1.5,.5,1)}
+.modal h3{margin:4px 0 10px;font-size:22px}
+.modal p{margin:6px 0;font-size:14px;line-height:1.6;color:var(--ink2)}
+.modal .bigtime{font-size:38px;font-weight:800;color:var(--line);font-variant-numeric:tabular-nums}
+.modal .btns{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+#loading{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;background:rgba(255,248,240,.6);font-size:15px;color:var(--ink2)}
+#loading div{animation:pulse2 1s infinite alternate}
+@keyframes pulse2{to{opacity:.4}}
+@media (max-height:640px){h1{font-size:38px}.btn{padding:11px 20px}.hearts{font-size:18px}}
+</style>
+</head>
+<body>
+<div id="sakura"></div>
+
+<!-- タイトル -->
+<section id="scr-title" class="screen">
+  <div class="title-wrap">
+    <div class="logo" id="logo-title"></div>
+    <h1>ねこ爆弾</h1>
+    <div class="sub">色のエリアに、ねこを1匹ずつ</div>
+    <div class="menu">
+      <button class="btn pink" id="btn-stage">通常ステージ</button>
+      <button class="btn sky" id="btn-daily">デイリーパズル</button>
+      <button class="btn" id="btn-rank">デイリーランキング</button>
+    </div>
+    <div id="title-stamp" style="min-height:10px"></div>
+    <div class="daily-status" id="daily-status"></div>
+    <div class="player"><span id="player-name"></span></div>
+    <div><button class="linkbtn" id="btn-rules">あそびかた</button></div>
+  </div>
+</section>
+
+<!-- ステージマップ -->
+<section id="scr-map" class="screen">
+  <div class="topbar">
+    <button class="iconbtn" id="map-back">←</button>
+    <h2>ステージ</h2>
+    <div class="map-info" id="map-info"></div>
+  </div>
+  <div id="map-scroll" class="scroll"><div id="map-list"></div></div>
+</section>
+
+<!-- プレイ -->
+<section id="scr-play" class="screen">
+  <div class="play-wrap">
+    <div class="hud">
+      <button class="iconbtn" id="play-back">←</button>
+      <div class="lv"><b id="hud-lv"></b><span id="hud-size"></span></div>
+      <div class="timer" id="hud-time">00:00</div>
+      <div class="hearts" id="hud-hearts"></div>
+    </div>
+    <div class="board-area" id="board-area"><div class="board-box" id="board-box"><div class="board" id="board"></div></div></div>
+    <div class="msg" id="msg"></div>
+    <div class="bottom">
+      <div class="modes" id="modes">
+        <button data-m="normal" class="on">通常</button>
+        <button data-m="x">×モード</button>
+        <button data-m="cat">猫モード</button>
+      </div>
+      <button class="hintbtn" id="btn-hint">💡 3</button>
+    </div>
+  </div>
+</section>
+
+<div id="fx"></div>
+<div id="loading" class="hidden"><div>パズルを作っています…</div></div>
+<div id="modal" class="modal hidden"><div class="card" id="modal-card"></div></div>
+<script>
+// ===== GEN START =====
+function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^(a>>>15),1|a);t=t+Math.imul(t^(t>>>7),61|t)^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function makeRng(seedStr){return mulberry32(xmur3(seedStr)());}
+function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+function sizeForLevel(lv){return lv<=15?5:lv<=35?6:lv<=65?7:lv<=100?8:lv<=150?9:10;}
+function difficultyT(lv){
+  const b=[[1,15],[16,35],[36,65],[66,100],[101,150]];
+  for(const [s,e] of b) if(lv<=e) return (lv-s)/(e-s);
+  return Math.min(1,0.35+(lv-151)/200);
+}
+
+const GEO={};
+function geo(N){
+  if(GEO[N]) return GEO[N];
+  const NN=N*N, att=new Uint8Array(NN*NN), attList=[], rows=[], cols=[], nb4=[];
+  for(let r=0;r<N;r++){rows.push([]);cols.push([]);}
+  for(let i=0;i<NN;i++){
+    const r=(i/N)|0,c=i%N; rows[r].push(i); cols[c].push(i);
+    const L=[];
+    for(let j=0;j<NN;j++){ if(j===i) continue; const rj=(j/N)|0,cj=j%N;
+      if(rj===r||cj===c||(Math.abs(rj-r)<=1&&Math.abs(cj-c)<=1)){att[i*NN+j]=1;L.push(j);} }
+    attList.push(L);
+    const n=[]; if(r>0)n.push(i-N); if(r<N-1)n.push(i+N); if(c>0)n.push(i-1); if(c<N-1)n.push(i+1); nb4.push(n);
+  }
+  return GEO[N]={N,NN,att,attList,rows,cols,nb4};
+}
+
+function randomPlacement(N,rng){
+  const cols=new Array(N), used=new Array(N).fill(false);
+  (function bt(r){
+    if(r===N) return true;
+    const order=shuffle([...Array(N).keys()],rng);
+    for(const c of order){
+      if(used[c]) continue; if(r>0&&Math.abs(cols[r-1]-c)<=1) continue;
+      used[c]=true; cols[r]=c; if(bt(r+1)) return true; used[c]=false;
+    }
+    return false;
+  })(0);
+  return cols;
+}
+
+function growRegions(N,cols,rng,t){
+  const G=geo(N), NN=G.NN, reg=new Int8Array(NN).fill(-1);
+  for(let r=0;r<N;r++) reg[r*N+cols[r]]=r;
+  let filled=N; const compact=0.85-0.7*t;
+  const fr=[];
+  while(filled<NN){
+    fr.length=0;
+    for(let i=0;i<NN;i++){ if(reg[i]>=0) continue; for(const j of G.nb4[i]) if(reg[j]>=0) fr.push(i,reg[j]); }
+    const cnt=fr.length/2; let pick;
+    if(rng()<compact){
+      let bs=-1; pick=0;
+      for(let k=0;k<cnt;k++){ const i=fr[2*k],g=fr[2*k+1]; let s=0; for(const j of G.nb4[i]) if(reg[j]===g) s++; s+=rng()*1.2; if(s>bs){bs=s;pick=k;} }
+    } else pick=Math.floor(rng()*cnt);
+    reg[fr[2*pick]]=fr[2*pick+1]; filled++;
+  }
+  return reg;
+}
+
+function countSolutions(N,reg,limit){
+  limit=limit||2; let count=0; const uc=new Uint8Array(N), ug=new Uint8Array(N);
+  (function bt(r,prev){
+    if(r===N){count++;return count>=limit;}
+    for(let c=0;c<N;c++){
+      if(uc[c]||Math.abs(c-prev)<=1) continue; const g=reg[r*N+c]; if(ug[g]) continue;
+      uc[c]=ug[g]=1; if(bt(r+1,c)) return true; uc[c]=ug[g]=0;
+    }
+    return false;
+  })(0,-9);
+  return count;
+}
+
+// 論理ソルバー（ヒントと難易度判定に使う）
+// lvl1: 置ける場所が1つだけ / lvl2: 置くと他のエリアが詰む / lvl3: 1つの囲い込み / lvl4: 2〜3個の囲い込み
+function logicSolve(N,reg,cats){
+  const G=geo(N), NN=G.NN;
+  const regs=[]; for(let g=0;g<N;g++) regs.push([]); for(let i=0;i<NN;i++) regs[reg[i]].push(i);
+  const units=[];
+  for(let r=0;r<N;r++) units.push({k:'row',n:r,cells:G.rows[r]});
+  for(let c=0;c<N;c++) units.push({k:'col',n:c,cells:G.cols[c]});
+  for(let g=0;g<N;g++) units.push({k:'reg',n:g,cells:regs[g]});
+  const st=new Uint8Array(NN); let catCount=0;
+  const isAtt=(i,j)=>G.att[i*NN+j]===1||reg[i]===reg[j];
+  function place(i){ st[i]=1; catCount++; for(const j of G.attList[i]) if(st[j]===0) st[j]=2; for(const j of regs[reg[i]]) if(j!==i&&st[j]===0) st[j]=2; }
+  for(const i of cats) if(st[i]===0) place(i);
+  const steps=[], lvCount=[0,0,0,0,0]; let maxLvl=0;
+  const rec=(s)=>{steps.push(s); if(s.lvl>maxLvl)maxLvl=s.lvl; lvCount[s.lvl]++;};
+  const hasCat=u=>u.cells.some(j=>st[j]===1);
+  const cands=u=>u.cells.filter(j=>st[j]===0);
+  const idxOf=(k,i)=>k==='row'?((i/N)|0):k==='col'?i%N:reg[i];
+  const cellsOf=(k,x)=>k==='row'?G.rows[x]:k==='col'?G.cols[x]:regs[x];
+  const PAIRS=[['reg','row'],['reg','col'],['row','reg'],['col','reg'],['row','col'],['col','row']];
+  function combos(arr,k,cb){ const cur=[]; (function rc(s){ if(cur.length===k) return cb(cur); for(let i=s;i<arr.length;i++){cur.push(arr[i]); if(rc(i+1)) return true; cur.pop();} return false; })(0); }
+  outer: while(catCount<N){
+    for(const u of units){
+      if(hasCat(u)) continue; const cs=cands(u);
+      if(cs.length===0) return {solved:false,contradiction:true,steps,maxLvl,lvCount};
+      if(cs.length===1){ place(cs[0]); rec({lvl:1,type:'cat',cells:[cs[0]],unit:u}); continue outer; }
+    }
+    for(let i=0;i<NN;i++){
+      if(st[i]!==0) continue;
+      for(const u of units){
+        if(hasCat(u)||u.cells.includes(i)) continue;
+        const cs=cands(u);
+        if(cs.every(j=>isAtt(i,j))){ st[i]=2; rec({lvl:2,type:'x',cells:[i],unit:u}); continue outer; }
+      }
+    }
+    for(let k=1;k<=3;k++){
+      const lvl=k===1?3:4;
+      for(const [sk,dk] of PAIRS){
+        const open=units.filter(u=>u.k===sk&&!hasCat(u));
+        if(open.length<=k) continue;
+        let found=null;
+        combos(open,k,(sel)=>{
+          const set=new Set(); const inSel=new Set();
+          for(const u of sel) for(const j of u.cells){ inSel.add(j); if(st[j]===0) set.add(idxOf(dk,j)); }
+          if(set.size!==k) return false;
+          const ex=[];
+          for(const x of set) for(const j of cellsOf(dk,x)) if(st[j]===0&&!inSel.has(j)) ex.push(j);
+          if(ex.length){ found={sel:sel.slice(),dk,dst:[...set],ex}; return true; }
+          return false;
+        });
+        if(found){ for(const j of found.ex) st[j]=2; rec({lvl,type:'x',cells:found.ex,src:found.sel,sk,dk:found.dk,dst:found.dst}); continue outer; }
+      }
+    }
+    break;
+  }
+  return {solved:catCount===N,steps,maxLvl,lvCount};
+}
+
+const PALETTE=['#F6B8C4','#FFCFA3','#FFE9A3','#D9EDA4','#B5E3B9','#A8E0D8','#B3D8F5','#BFC8F2','#D3BFF0','#EBC0E6','#F2C6B6','#DCD2C0'];
+function hexRgb(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function assignColors(N,reg,rng){
+  const G=geo(N), adj=new Set();
+  for(let i=0;i<G.NN;i++) for(const j of G.nb4[i]) if(reg[i]!==reg[j]) adj.add(Math.min(reg[i],reg[j])*16+Math.max(reg[i],reg[j]));
+  const rgb=PALETTE.map(hexRgb); let best=null,bs=-1;
+  for(let a=0;a<60;a++){
+    const p=shuffle([...Array(PALETTE.length).keys()],rng).slice(0,N);
+    let m=1e9; for(const k of adj){const x=rgb[p[(k/16)|0]],y=rgb[p[k%16]]; const d=Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]); if(d<m)m=d;}
+    if(m>bs){bs=m;best=p;}
+  }
+  return best.map(i=>PALETTE[i]);
+}
+
+function findOtherSolution(N,reg,sol){
+  const uc=new Uint8Array(N), ug=new Uint8Array(N), cur=new Array(N); let out=null, nodes=0;
+  (function bt(r,prev){
+    if(++nodes>200000) return true;
+    if(r===N){ for(let k=0;k<N;k++) if(cur[k]!==sol[k]){ out=cur.slice(); return true; } return false; }
+    for(let c=0;c<N;c++){
+      if(uc[c]||Math.abs(c-prev)<=1) continue; const g=reg[r*N+c]; if(ug[g]) continue;
+      uc[c]=ug[g]=1; cur[r]=c; if(bt(r+1,c)) return true; uc[c]=ug[g]=0;
+    }
+    return false;
+  })(0,-9);
+  return out;
+}
+function regionConnected(N,reg,g,seed){
+  const G=geo(N); let total=0; for(let i=0;i<G.NN;i++) if(reg[i]===g) total++;
+  const seen=new Uint8Array(G.NN), st=[seed]; seen[seed]=1; let n=0;
+  while(st.length){ const i=st.pop(); n++; for(const j of G.nb4[i]) if(!seen[j]&&reg[j]===g){seen[j]=1;st.push(j);} }
+  return n===total;
+}
+// 答えが2つ以上あるとき、別解のマスを隣のエリアに移して別解をつぶす
+function repairUnique(N,reg,cols,rng){
+  const G=geo(N), seedOf=cols.map((c,r)=>r*N+c), isSeed=new Uint8Array(G.NN);
+  for(const s of seedOf) isSeed[s]=1;
+  for(let it=0;it<60;it++){
+    const other=findOtherSolution(N,reg,cols);
+    if(!other) return true;
+    const cells=shuffle(other.map((c,r)=>r*N+c).filter(i=>!isSeed[i]),rng);
+    let moved=false;
+    for(const x of cells){
+      const g=reg[x]; const hs=shuffle(G.nb4[x].map(j=>reg[j]).filter(h=>h!==g),rng);
+      for(const h of hs){
+        reg[x]=h;
+        if(regionConnected(N,reg,g,seedOf[g])){moved=true;break;}
+        reg[x]=g;
+      }
+      if(moved) break;
+    }
+    if(!moved) return false;
+  }
+  return false;
+}
+
+function generatePuzzle(seedStr,N,t){
+  const rng=makeRng(seedStr);
+  const target=t<0.25?1:t<0.5?2:t<0.8?3:4;
+  const MAX=N<=6?60:N<=8?40:35;
+  let best=null,bestScore=1e9;
+  for(let a=0;a<MAX||!best;a++){
+    const cols=randomPlacement(N,rng);
+    const reg=growRegions(N,cols,rng,t);
+    if(!repairUnique(N,reg,cols,rng)) continue;
+    const res=logicSolve(N,reg,[]);
+    if(!res.solved) continue;
+    const hard=res.lvCount[2]*0.4+res.lvCount[3]+res.lvCount[4]*2;
+    let score=Math.abs(Math.min(res.maxLvl,4)-target)*10;
+    score+= target>=3 ? -Math.min(hard,6) : hard*0.3;
+    if(score<bestScore){bestScore=score;best={reg,cols,maxLvl:res.maxLvl,hard};}
+    if(res.maxLvl===target&&(target<3||hard>=3)) break;
+    if(a>MAX*10) break;
+  }
+  if(countSolutions(N,best.reg,2)!==1) throw new Error('not unique');
+  const sol=best.cols.map((c,r)=>r*N+c);
+  return {N,reg:Array.from(best.reg),sol,colors:assignColors(N,best.reg,rng),maxLvl:best.maxLvl,hard:best.hard};
+}
+// ===== GEN END =====
+// ===== セーブ（ゲーム置き場 共通の端末間同期の対象。rank.js の SYNC_PREFIX に 'neko-bakudan' を登録済み） =====
+const LS_KEY = 'neko-bakudan-save';
+const RK_LEVEL = 'neko';        // 通常ステージ：到達レベル（ランキング用）
+const RK_DAILY = 'neko_daily';  // デイリー：クリアタイム（ランキング用）
+const SEED_VER = 'nekobakudan-v1';
+
+// ===== 絵 =====
+const CAT_SVG=`<svg class="cat" viewBox="0 0 100 100"><path d="M17 46 L22 12 L46 30 Z" fill="#fffaf3" stroke="#6d5866" stroke-width="5" stroke-linejoin="round"/><path d="M83 46 L78 12 L54 30 Z" fill="#c9b2a2" stroke="#6d5866" stroke-width="5" stroke-linejoin="round"/><path d="M24 36 L26 21 L37 30 Z" fill="#f6b6c6"/><ellipse cx="50" cy="60" rx="38" ry="31" fill="#fffaf3" stroke="#6d5866" stroke-width="5"/><path d="M58 31 Q84 33 86 56 Q74 52 64 45 Q58 39 58 31 Z" fill="#c9b2a2"/><path d="M29 60 Q35 53 41 60 M59 60 Q65 53 71 60" stroke="#6d5866" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M46 66 L54 66 L50 70 Z" fill="#ef8fa7"/><path d="M50 70 Q47 76 42 73 M50 70 Q53 76 58 73" stroke="#6d5866" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="25" cy="70" rx="7" ry="4" fill="#f7a9bb" opacity=".6"/><ellipse cx="75" cy="70" rx="7" ry="4" fill="#f7a9bb" opacity=".6"/></svg>`;
+const BOMB_SVG=`<svg width="78" height="78" viewBox="0 0 100 100"><path d="M62 22 Q72 6 86 12" stroke="#a08a6a" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M86 4 L89 11 L96 12 L90 16 L92 23 L86 19 L80 23 L82 16 L76 12 L83 11 Z" fill="#ffd45a"/><rect x="50" y="20" width="22" height="14" rx="4" transform="rotate(30 61 27)" fill="#7a7697"/><circle cx="46" cy="60" r="34" fill="#6b6890"/><ellipse cx="34" cy="46" rx="10" ry="6" fill="#fff" opacity=".35" transform="rotate(-30 34 46)"/></svg>`;
+function logoHTML(){ return BOMB_SVG+`<div style="width:96px;height:96px;margin-left:-22px">${CAT_SVG.replace('class="cat"','width="96" height="96"')}</div>`; }
+
+// ===== 共通 =====
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const fmtTime=ms=>{const s=Math.floor(ms/1000);return pad(Math.floor(s/60))+':'+pad(s%60);};
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+const fxRng=makeRng('nekobakudan-fx');
+
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); $('#scr-'+id).classList.add('active'); }
+
+function modal(title,html,buttons){
+  return new Promise(res=>{
+    const card=$('#modal-card');
+    card.innerHTML=(title?`<h3>${title}</h3>`:'')+html+'<div class="btns"></div>';
+    const box=card.querySelector('.btns');
+    buttons.forEach((b,i)=>{ const el=document.createElement('button'); el.className='btn '+(b.cls||''); el.textContent=b.label; el.onclick=()=>{ $('#modal').classList.add('hidden'); res(i); }; box.appendChild(el); });
+    $('#modal').classList.remove('hidden');
+  });
+}
+
+// 桜
+(function(){ const box=$('#sakura'), r=makeRng('nekobakudan-petal'); for(let i=0;i<14;i++){ const p=document.createElement('div'); p.className='petal'; p.style.left=(r()*100)+'%'; p.style.animationDuration=(9+r()*9)+'s'; p.style.animationDelay=(-r()*18)+'s'; const s=0.6+r()*0.8; p.style.width=12*s+'px'; p.style.height=10*s+'px'; box.appendChild(p);} })();
+$('#logo-title').innerHTML=logoHTML();
+
+// ===== セーブ（プレーンな localStorage。端末間の同期は rank.js が自動でやる） =====
+let save=null;
+function loadLocal(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(e){ return null; } }
+function pruneDaily(d){ const keys=Object.keys(d).sort(); while(keys.length>90) delete d[keys.shift()]; return d; }
+function persist(){ if(!save) return; pruneDaily(save.daily); try{ localStorage.setItem(LS_KEY,JSON.stringify(save)); }catch(e){} }
+// 途中で閉じたデイリーは失敗にする
+function resolveAbandoned(){
+  if(!save) return; let changed=false;
+  for(const [d,v] of Object.entries(save.daily)){
+    if(v.status==='playing' && !(game&&game.mode==='daily'&&game.date===d&&!game.over)){
+      save.daily[d]={status:'fail',time:null}; changed=true;
+    }
+  }
+  if(changed) persist();
+}
+
+// ===== タイトル =====
+function gotoTitle(){
+  show('title');
+  const name=GAMES_ACC.name();
+  $('#player-name').innerHTML=name?('👤 '+name):'名前はトップ画面で決められるよ（<a href="../index.html" style="color:inherit">トップへ</a>）';
+  const rec=save.daily[todayStr()];
+  $('#title-stamp').innerHTML=rec&&rec.status==='clear'?'<div class="stamp mini">本日の<br>デイリー<br>クリア済</div>':'';
+  $('#daily-status').textContent=!rec?'本日のデイリー：未挑戦':rec.status==='clear'?'本日のデイリー：クリア '+fmtTime(rec.time):rec.status==='fail'?'本日のデイリー：失敗…また明日！':'';
+}
+$('#btn-stage').onclick=()=>{ renderMap(); show('map'); };
+$('#btn-daily').onclick=startDailyFlow;
+$('#btn-rank').onclick=()=>{ if(window.GAMES_RANK) GAMES_RANK.show(RK_DAILY); };
+$('#btn-rules').onclick=()=>modal('あそびかた',`<p style="text-align:left">・色のエリアごとに、ねこを1匹ずつ置こう<br>・ねこは同じ行・同じ列に2匹いてはダメ<br>・ねこ同士はとなり（ななめも）に置けない<br>・まちがったマスに置くと💥でハートが減るよ<br><br><b>操作</b><br>タップ：×（メモ）をつける／消す<br>ダブルタップ：ねこを置く<br>下のボタンで「×モード」「猫モード」にすると、1回タップでそれだけ置けるよ</p>`,[{label:'OK',cls:'pink'}]);
+
+// ===== マップ =====
+function renderMap(){
+  const c=save.cleared, next=c+1, from=Math.max(1,c-19), top=next+5;
+  $('#map-info').innerHTML=`クリア ${c}<br>次は ${sizeForLevel(next)}×${sizeForLevel(next)}`;
+  const list=$('#map-list'); list.innerHTML='';
+  const ROW=104, levels=[]; for(let lv=top;lv>=from;lv--) levels.push(lv);
+  const H=levels.length*ROW+60, W=Math.min(520,window.innerWidth);
+  list.style.height=H+'px';
+  const pts=[];
+  levels.forEach((lv,k)=>{
+    const x=W/2+Math.sin(lv*0.85)*Math.min(110,W*0.26), y=40+k*ROW+ROW/2;
+    pts.push([x,y]);
+    const b=document.createElement('button');
+    b.className='node '+(lv<=c?'done':lv===next?'next':'locked');
+    b.style.left=x+'px'; b.style.top=y+'px';
+    b.innerHTML=lv>next?`🔒<small>${lv}</small>`:`${lv}${lv===next?'<small>PLAY</small>':''}`;
+    if(lv===next) b.onclick=()=>startGame({mode:'level',level:lv});
+    list.appendChild(b);
+    const prevSize=sizeForLevel(lv-1);
+    if(lv>1&&sizeForLevel(lv)!==prevSize){
+      const chip=document.createElement('div'); chip.className='size-chip';
+      chip.textContent=`ここから ${sizeForLevel(lv)}×${sizeForLevel(lv)}`;
+      chip.style.left=x+'px'; chip.style.top=(y+48)+'px'; list.appendChild(chip);
+    }
+  });
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('id','map-path'); svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.style.left='0'; svg.style.right='auto';
+  svg.innerHTML=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#f1cbd6" stroke-width="8" stroke-dasharray="2 14" stroke-linecap="round"/>`;
+  list.insertBefore(svg,list.firstChild);
+  requestAnimationFrame(()=>{ const n=list.querySelector('.node.next'); if(n) $('#map-scroll').scrollTop=n.offsetTop-$('#map-scroll').clientHeight/2; });
+}
+$('#map-back').onclick=gotoTitle;
+
+// ===== ゲーム =====
+let game=null, timerId=null;
+const puzzleCache={};
+function getPuzzle(opts){
+  const key=opts.mode==='daily'?'d:'+opts.date:'l:'+opts.level;
+  if(puzzleCache[key]) return puzzleCache[key];
+  const p=opts.mode==='daily'
+    ? generatePuzzle(SEED_VER+'-daily-'+opts.date,7,0.6)
+    : generatePuzzle(SEED_VER+'-level-'+opts.level,sizeForLevel(opts.level),difficultyT(opts.level));
+  return puzzleCache[key]=p;
+}
+function startGame(opts){
+  $('#loading').classList.remove('hidden');
+  setTimeout(()=>{
+    let p;
+    try{ p=getPuzzle(opts); }catch(e){ $('#loading').classList.add('hidden'); modal('エラー','<p>パズルを作れませんでした。</p>',[{label:'OK'}]); return; }
+    $('#loading').classList.add('hidden');
+    const N=p.N;
+    game={...opts,p,N,marks:new Uint8Array(N*N),hearts:3,hints:3,start:performance.now(),over:false,lastTap:null,mode2:'normal',solSet:new Set(p.sol)};
+    $('#hud-lv').textContent=opts.mode==='daily'?'デイリー '+opts.date.slice(5).replace('-','/'):'レベル '+opts.level;
+    $('#hud-size').textContent=N+'×'+N;
+    setMode('normal'); buildBoard(); renderHearts(); updateHint(); setMsg(opts.mode==='daily'?'デイリーは1日1回。がんばって！':'');
+    show('play'); layoutBoard();
+    clearInterval(timerId); timerId=setInterval(tick,250); tick();
+  },30);
+}
+function tick(){ if(game&&!game.over) $('#hud-time').textContent=fmtTime(performance.now()-game.start); }
+function setMsg(t){ $('#msg').textContent=t; }
+function renderHearts(lostIdx){
+  let h=''; for(let i=0;i<3;i++) h+=`<span class="h ${i>=game.hearts?'lost':''}" ${i===lostIdx?'':'style="animation:none"'}>♥</span>`;
+  $('#hud-hearts').innerHTML=h;
+}
+function updateHint(){ const b=$('#btn-hint'); b.textContent='💡 '+game.hints; b.disabled=game.hints<=0||game.over; }
+function setMode(m){ if(game) game.mode2=m; document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m)); }
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{ setMode(b.dataset.m); if(game) game.lastTap=null; });
+
+function buildBoard(){
+  const {N,p}=game, board=$('#board'); board.innerHTML='';
+  board.style.gridTemplateColumns=`repeat(${N},1fr)`;
+  board.classList.remove('win');
+  const T='3px solid #6d5866', t='1px solid rgba(109,88,102,.2)';
+  for(let i=0;i<N*N;i++){
+    const r=(i/N)|0,c=i%N,g=p.reg[i], el=document.createElement('div');
+    el.className='cell'; el.dataset.i=i; el.style.background=p.colors[g];
+    el.style.borderTop=r>0&&p.reg[i-N]!==g?T:(r>0?t:'0');
+    el.style.borderLeft=c>0&&p.reg[i-1]!==g?T:(c>0?t:'0');
+    board.appendChild(el);
+  }
+}
+function layoutBoard(){
+  if(!game) return;
+  const a=$('#board-area'), s=Math.floor(Math.min(a.clientWidth,a.clientHeight,640)/game.N)*game.N;
+  const b=$('#board'); b.style.width=b.style.height=s+'px';
+  b.style.gridTemplateRows=`repeat(${game.N},1fr)`;
+  document.documentElement.style.setProperty('--cell',(s/game.N)+'px');
+}
+window.addEventListener('resize',()=>{ layoutBoard(); if($('#scr-map').classList.contains('active')) renderMap(); });
+
+function cellEl(i){ return $('#board').children[i]; }
+function drawCell(i){ const m=game.marks[i], el=cellEl(i); el.innerHTML=m===1?'<span class="x">✕</span>':m===2?CAT_SVG:''; }
+function clearHint(){ document.querySelectorAll('.cell.hint,.cell.hint-area').forEach(e=>e.classList.remove('hint','hint-area')); }
+
+$('#board').addEventListener('pointerdown',e=>{
+  const el=e.target.closest('.cell'); if(!el||!game||game.over) return;
+  e.preventDefault();
+  onTap(+el.dataset.i);
+});
+['dblclick','contextmenu','gesturestart'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
+
+function onTap(i){
+  clearHint();
+  const now=performance.now(), m=game.marks[i];
+  if(game.mode2==='x'){ if(m!==2){ game.marks[i]=m===1?0:1; drawCell(i);} return; }
+  if(game.mode2==='cat'){ if(m!==2) tryCat(i); return; }
+  const lt=game.lastTap;
+  if(lt&&lt.i===i&&now-lt.t<300){ game.lastTap=null; if(game.marks[i]!==2){ game.marks[i]=lt.prev; drawCell(i); tryCat(i);} return; }
+  game.lastTap={i,t:now,prev:m};
+  if(m!==2){ game.marks[i]=m===1?0:1; drawCell(i); }
+}
+function tryCat(i){
+  if(game.solSet.has(i)){
+    game.marks[i]=2; drawCell(i);
+    const cats=game.marks.reduce((a,v)=>a+(v===2?1:0),0);
+    if(cats===game.N) win();
+    return;
+  }
+  // ミス
+  game.hearts--; renderHearts(game.hearts); explode(i);
+  if(game.hearts<=0) lose(); else setMsg('💥 そこには置けないみたい…（残りハート '+game.hearts+'）');
+}
+function explode(i){
+  const r=cellEl(i).getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2, fx=$('#fx');
+  const bang=document.createElement('div'); bang.className='bang'; bang.textContent='💥'; bang.style.left=cx+'px'; bang.style.top=cy+'px'; fx.appendChild(bang);
+  const cols=['#ff9a9a','#ffcf6b','#f7b0c4','#fff'];
+  for(let k=0;k<14;k++){ const s=document.createElement('div'); s.className='spark'; const a=fxRng()*Math.PI*2, d=40+fxRng()*60;
+    s.style.left=(cx-5)+'px'; s.style.top=(cy-5)+'px'; s.style.background=cols[k%4]; s.style.setProperty('--dx',Math.cos(a)*d+'px'); s.style.setProperty('--dy',Math.sin(a)*d+'px'); fx.appendChild(s); }
+  const fl=document.createElement('div'); fl.className='flash'; document.body.appendChild(fl);
+  const el=cellEl(i); el.classList.remove('boom'); void el.offsetWidth; el.classList.add('boom');
+  const bb=$('#board-box'); bb.classList.remove('shake'); void bb.offsetWidth; bb.classList.add('shake');
+  if(navigator.vibrate) navigator.vibrate(120);
+  setTimeout(()=>{ bang.remove(); fl.remove(); fx.querySelectorAll('.spark').forEach(s=>s.remove()); },650);
+}
+function finishTime(){ return Math.round(performance.now()-game.start); }
+async function win(){
+  game.over=true; clearInterval(timerId); const time=finishTime(); $('#hud-time').textContent=fmtTime(time);
+  updateHint(); $('#board').classList.add('win'); setMsg('🎉 クリア！');
+  await new Promise(r=>setTimeout(r,900));
+  if(game.mode==='daily'){
+    save.daily[game.date]={status:'clear',time}; persist();
+    if(window.GAMES_RANK) GAMES_RANK.report(RK_DAILY,time/1000);
+    const i=await modal('デイリークリア！',`<div class="stamp" style="margin:6px auto 10px">本日の<br>デイリー<br>クリア済</div><div class="bigtime">${fmtTime(time)}</div><p>また明日も挑戦してね</p>`,[{label:'ランキングを見る',cls:'pink'},{label:'タイトルへ'}]);
+    if(i===0&&window.GAMES_RANK) GAMES_RANK.show(RK_DAILY);
+    gotoTitle();
+  }else{
+    const lv=game.level; save.cleared=Math.max(save.cleared,lv); persist();
+    if(window.GAMES_RANK) GAMES_RANK.report(RK_LEVEL,save.cleared);
+    const i=await modal('レベル '+lv+' クリア！',`<div style="width:90px;margin:0 auto">${CAT_SVG}</div><div class="bigtime">${fmtTime(time)}</div>`,[{label:'次のレベルへ',cls:'pink'},{label:'マップに戻る'}]);
+    if(i===0) startGame({mode:'level',level:lv+1}); else { renderMap(); show('map'); }
+  }
+}
+async function lose(){
+  game.over=true; clearInterval(timerId); updateHint(); setMsg('ハートがなくなった…');
+  await new Promise(r=>setTimeout(r,700));
+  if(game.mode==='daily'){
+    save.daily[game.date]={status:'fail',time:null}; persist();
+    await modal('ゲームオーバー','<p>今日のデイリーは失敗…<br>また明日挑戦してね！</p>',[{label:'タイトルへ',cls:'pink'}]);
+    gotoTitle();
+  }else{
+    const i=await modal('ゲームオーバー','<p>ハートがなくなっちゃった…</p>',[{label:'リトライ',cls:'pink'},{label:'マップに戻る'}]);
+    if(i===0) startGame({mode:'level',level:game.level}); else { renderMap(); show('map'); }
+  }
+}
+$('#play-back').onclick=async()=>{
+  if(!game) return;
+  if(game.over){ return game.mode==='daily'?gotoTitle():(renderMap(),show('map')); }
+  if(game.mode==='daily'){
+    const i=await modal('やめる？','<p>途中でやめると、今日のデイリーは<b>失敗</b>になります。</p>',[{label:'つづける',cls:'pink'},{label:'やめる（失敗）'}]);
+    if(i!==1) return;
+    game.over=true; clearInterval(timerId);
+    save.daily[game.date]={status:'fail',time:null}; persist(); gotoTitle();
+  }else{
+    const i=await modal('マップに戻る？','<p>このレベルは最初からになります。</p>',[{label:'つづける',cls:'pink'},{label:'マップに戻る'}]);
+    if(i!==1) return;
+    game.over=true; clearInterval(timerId); renderMap(); show('map');
+  }
+};
+
+// ===== ヒント =====
+const UNIT_NAME={row:'行',col:'列',reg:'色のエリア'};
+$('#btn-hint').onclick=()=>{
+  if(!game||game.over||game.hints<=0) return;
+  clearHint();
+  const {N,p,marks}=game, cats=[]; for(let i=0;i<N*N;i++) if(marks[i]===2) cats.push(i);
+  const res=logicSolve(N,p.reg,cats);
+  let pick=null;
+  for(const s of res.steps){
+    const targets=s.type==='cat'?s.cells:s.cells.filter(i=>marks[i]!==1);
+    if(targets.length){ pick={s,targets}; break; }
+  }
+  game.hints--; updateHint();
+  if(!pick){ const i=p.sol.find(j=>marks[j]!==2); cellEl(i).classList.add('hint'); setMsg('💡 ここに猫がいるよ'); return; }
+  const {s,targets}=pick;
+  targets.forEach(i=>cellEl(i).classList.add('hint'));
+  let text;
+  if(s.lvl===1){ s.unit.cells.forEach(i=>cellEl(i).classList.add('hint-area')); text=`💡 この${UNIT_NAME[s.unit.k]}で猫を置けるのはここだけ`; }
+  else if(s.lvl===2){ s.unit.cells.forEach(i=>cellEl(i).classList.add('hint-area')); text=`💡 ここに猫を置くと、光っている${UNIT_NAME[s.unit.k]}に猫を置ける場所がなくなる → ×`; }
+  else{
+    s.src.forEach(u=>u.cells.forEach(i=>cellEl(i).classList.add('hint-area')));
+    const k=s.src.length;
+    text=k===1?`💡 光っている${UNIT_NAME[s.sk]}の猫は、必ずこの${UNIT_NAME[s.dk]}に入る → 同じ${UNIT_NAME[s.dk]}の他のマスは×`
+              :`💡 光っている${k}つの${UNIT_NAME[s.sk]}の猫は、${k}つの${UNIT_NAME[s.dk]}に収まる → その${UNIT_NAME[s.dk]}の他のマスは×`;
+  }
+  setMsg(text);
+};
+
+// ===== デイリー =====
+async function startDailyFlow(){
+  const d=todayStr(); resolveAbandoned();
+  const rec=save.daily[d];
+  if(rec){
+    if(rec.status==='clear') await modal('本日のデイリー',`<div class="stamp" style="margin:6px auto 10px">本日の<br>デイリー<br>クリア済</div><div class="bigtime">${fmtTime(rec.time)}</div><p>また明日も挑戦してね</p>`,[{label:'OK',cls:'pink'}]);
+    else await modal('本日のデイリー','<p>今日の挑戦は終わりました（失敗）。<br>また明日！</p>',[{label:'OK',cls:'pink'}]);
+    return;
+  }
+  const i=await modal('デイリーパズル',`<p>${d} の問題（7×7）<br>挑戦できるのは<b>1日1回</b>だけ。<br>途中でやめたりページを閉じると失敗になるよ。</p>`,[{label:'挑戦する',cls:'pink'},{label:'やめる'}]);
+  if(i!==0) return;
+  save.daily[d]={status:'playing',ts:Date.now()}; persist();
+  startGame({mode:'daily',date:d});
+}
+
+// ===== ランキングボタン（🏆・ゲーム置き場 共通） =====
+if(window.GAMES_RANK) GAMES_RANK.mount(RK_LEVEL,{right:'max(10px, env(safe-area-inset-right))',bottom:'max(10px, env(safe-area-inset-bottom))'},()=>$('#scr-play').classList.contains('active'));
+
+// ===== 起動 =====
+save=loadLocal()||{cleared:0,daily:{}};
+resolveAbandoned();
+if(window.GAMES_RANK&&save.cleared) GAMES_RANK.report(RK_LEVEL,save.cleared,null,{old:true});
+gotoTitle();
+</script>
+</body></html>
