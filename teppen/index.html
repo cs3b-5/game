@@ -154,6 +154,12 @@ function newGame(){
 function diff(){return clamp(G.maxH/40000,0,1);}
 const insAt=(s,y)=>{const b=s.inset||0;if(s.ia==null||!s.ramp||y>=s.y0+s.ramp)return b;const t=clamp((y-s.y0)/s.ramp,0,1);return s.ia+(b-s.ia)*t;};
 const surf=(s,y)=>{const i=insAt(s,y);return s.side==='L'?WALL+i:W-WALL-i;};
+function safeSide(side,y0,y1){
+ y1=Math.min(y1,G.gen[side]);if(y1<=y0)return true;
+ let y=y0;const segs=G.segs.filter(s=>s.side===side&&!s.gone&&s.type!=='spike'&&s.type!=='crumble').sort((a,b)=>a.y0-b.y0);
+ for(const s of segs){if(s.y0<=y+1&&s.y1>=y)y=s.y1;if(y>=y1)return true;}
+ return y>=y1;
+}
 function genWorld(){
  const top=G.cam+H*2;
  for(const side of ['L','R']){
@@ -161,12 +167,13 @@ function genWorld(){
    const d=diff(),y=G.gen[side];
    const am=areaOf(toM(y)).wall;
    // すきま
-   if(y>900&&Math.random()<.22+d*.25){const gap=rnd(60,100+d*100);G.gen[side]+=gap;continue;}
+   const oth=side==='L'?'R':'L';
+   if(y>900&&Math.random()<.22+d*.25){const gap=rnd(60,100+d*100);if(safeSide(oth,y-40,y+gap+40)){G.gen[side]+=gap;continue;}}
    // 壁の形（でっぱり・へこみ）を変える
    const other=side==='L'?'R':'L';
    const ia=G.inset[side];
    // トゲ（形は変えない）
-   if(y>1200&&Math.random()<.16+d*.22){const len=rnd(40,70+d*40);G.segs.push({side,y0:y,y1:y+len,type:'spike',inset:ia,mat:am});G.gen[side]+=len;continue;}
+   if(y>1200&&Math.random()<.16+d*.22&&safeSide(oth,y-30,y+150)){const len=rnd(40,70+d*40);G.segs.push({side,y0:y,y1:y+len,type:'spike',inset:ia,mat:am});G.gen[side]+=len;continue;}
    // 壁の形はななめにゆっくり変える
    let ins=ia;
    if(y>500&&Math.random()<.7)ins=clamp(ins+[-50,-30,30,50,60][Math.floor(Math.random()*5)],0,90);
@@ -177,7 +184,7 @@ function genWorld(){
    let type='n';const r=Math.random();
    if(am==='ice'||am==='snow'){if(r<.5)type='ice';}
    else if(y>2500&&r<.12+d*.15)type='ice';
-   if(y>3500&&type==='n'&&Math.random()<.12+d*.18)type='crumble';
+   if(y>3500&&type==='n'&&Math.random()<.12+d*.18&&safeSide(oth,y,y+len))type='crumble';
    G.segs.push({side,y0:y,y1:y+len,type,mat:am,crack:0,inset:ins,ia,ramp});
    G.gen[side]+=len;
   }
@@ -186,7 +193,11 @@ function genWorld(){
  while(G.lastBlkY<top){
   G.lastBlkY+=rnd(260,520);
   const y=G.lastBlkY;
-  G.blocks.push({blk:true,x:W/2+rnd(-55,55),y,s:34,type:(y>4000&&Math.random()<.15+diff()*.2)?'spike':'n'});
+  const sl=segAt('L',y),sr=segAt('R',y);
+  const lx=sl?surf(sl,y):WALL,rx=sr?surf(sr,y):W-WALL;
+  if(rx-lx<220)continue;
+  const cx=(lx+rx)/2;
+  G.blocks.push({blk:true,x:cx+rnd(-1,1)*Math.min(40,(rx-lx-200)/2),y,s:34,type:(y>4000&&Math.random()<.15+diff()*.2)?'spike':'n'});
  }
  // コイン・アイテム
  while((G.lastCoinY||200)<top){
