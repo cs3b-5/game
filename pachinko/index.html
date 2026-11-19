@@ -191,7 +191,7 @@ button, a, [role=button] { touch-action: manipulation; -webkit-tap-highlight-col
     <h1>夜祭り<em>金魚</em></h1>
     <div class="en">HANABI RUSH × LUCKY TRIGGER</div>
     <p>夏祭りの夜、金魚すくいの屋台で一攫千金。玉を打ってヘソに入れると液晶の図柄が回る。<b>3つそろえば大当たり！</b></p>
-    <p class="small">・まずは<b>左打ち</b>（ハンドル35くらい）でヘソを狙う<br>・大当たり中と<b>RUSH・時短</b>中は<b>右打ち</b>（ハンドル75くらい）<br>・ヘソで当たると半分で<b>花火RUSH</b>（継続約80%）。だめでも時短100回で引き戻せばRUSH<br>・花火RUSH中の当たりの1/3で<b>ラッキートリガー</b>→上位の<b>大輪RUSH</b>（継続約90%）<br>・入った瞬間の「キュイン」、保留の色、擬似連、カットインが当たりのサイン<br>・⚙で台（ライトミドル／甘デジ）・告知モード・音量を変えられる<br>・本物のお金は使わない、遊び用のパチンコです</p>
+    <p class="small">・まずは<b>左打ち</b>（ハンドル35くらい）でヘソを狙う<br>・大当たり中と<b>RUSH・時短</b>中は<b>右打ち</b>（ハンドル75くらい）<br>・ヘソで当たると半分で<b>花火RUSH</b>（継続約80%）。だめでも時短100回で引き戻せばRUSH<br>・花火RUSH中の当たりの1/3で<b>ラッキートリガー</b>→上位の<b>大輪RUSH</b>（継続約90%）<br>・入った瞬間の「キュイン」、保留の色、擬似連、カットインが当たりのサイン<br>・⚙で台（ライトミドル／甘デジ）・告知モード・音量を変えられる<br>・発射ONのままタブを裏にしても打ち続ける（音は止まる。タブの名前に回転数やRUSHが出る）<br>・本物のお金は使わない、遊び用のパチンコです</p>
     <div class="row"><button class="big" id="startBtn">遊ぶ</button><a class="ghost" href="../index.html" style="text-decoration:none">← ゲーム一覧</a></div>
   </div>
 </div>
@@ -921,10 +921,17 @@ function draw(now) {
 // =============================================================
 //  ループ
 // =============================================================
-let last = performance.now();
+let last = performance.now(), lastFrameAt = performance.now(), simAt = performance.now();
+// ゲームの時間を now まで進める（表の描画ループと裏の時計の両方から呼ぶ。1回で進めるのは 1/30 秒ずつ）
+function advance(now, cap) {
+  let el = Math.min(cap, Math.max(0, (now - simAt) / 1000)); simAt = now;
+  if (started) while (el > 1e-4) { const d = Math.min(1 / 30, el); tick(d); el -= d; }
+}
 function frame(now) {
-  const dt = Math.min(.05, (now - last) / 1000); last = now;
-  if (started) tick(dt);
+  const pn = performance.now();
+  const gap = pn - lastFrameAt; lastFrameAt = pn; last = now;
+  advance(pn, gap > 300 ? 120 : 2);
+  if (away) welcomeBack();
   draw(now / 1000);
   requestAnimationFrame(frame);
 }
@@ -1081,7 +1088,7 @@ $('closeSet').addEventListener('click', () => { $('setSheet').hidden = true; });
 const lend = n => { S.balls += n; S.lent = (S.lent || 0) + n; S.refills++; save(); $('emptySheet').hidden = true; hud(); };
 $('refill').addEventListener('click', () => lend(250));
 $('refill2').addEventListener('click', () => lend(1000));
-$('startBtn').addEventListener('click', () => { Snd.init(); sndApply(); $('title').hidden = true; started = true; last = performance.now(); });
+$('startBtn').addEventListener('click', () => { Snd.init(); sndApply(); $('title').hidden = true; started = true; simAt = performance.now(); });
 function placeOverlays() {
   const r = cv.getBoundingClientRect(), w = $('wrap').getBoundingClientRect();
   const p = $('push');
@@ -1098,7 +1105,34 @@ document.fonts && document.fonts.ready.then(() => { resize(); drawGraph($('graph
 resize(); drawGraph($('graph')); hud();
 requestAnimationFrame(frame);
 addEventListener('pagehide', save);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); } else last = performance.now(); });
+// =============================================================
+//  バックグラウンド：タブが裏に回る・最小化すると requestAnimationFrame が止まるので、
+//  Worker の時計（裏でも間引かれにくい）で、たった時間ぶんゲームを進める。音は perf.js が止める
+// =============================================================
+let away = null;
+function stalled(now) { return document.hidden || now - lastFrameAt > 300; }
+function bgStep() {
+  const now = performance.now();
+  if (!started || !stalled(now)) return;
+  if (!away) { save(); away = { spins: S.stats.spins, hits: S.stats.hits, balls: S.balls }; }
+  advance(now, 120);
+  const t = bonus ? `🎆大当たり ${bonus.round}/${bonus.r.rounds}R` : S.mode === 'lt' ? `🏮大輪RUSH ${S.stats.chain}連` : S.mode === 'rush' ? `🎇花火RUSH ${S.stats.chain}連` : S.mode === 'jitan' ? `夜店チャンス 残${S.jitanLeft}` : `${S.stats.spinsSinceHit}回転`;
+  document.title = `${t}｜${S.balls.toLocaleString('ja-JP')}玉｜夜祭り金魚`;
+}
+// 表に戻った：裏で進んだぶんを液晶に出す
+function welcomeBack() {
+  document.title = '夜祭り金魚';
+  if (away && S.stats.spins - away.spins > 0) {
+    const n = S.stats.spins - away.spins, h = S.stats.hits - away.hits, d = S.balls - away.balls;
+    setBanner(`留守中 ${n}回転・当たり${h}回・${d >= 0 ? '+' : ''}${d}玉`, h ? '#ffcc4a' : '#9ad8ff', 3.2);
+  }
+  away = null;
+}
+try {
+  const wk = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(0)},100)'], { type: 'text/javascript' })));
+  wk.onmessage = bgStep;
+} catch (e) { setInterval(bgStep, 100); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 
 // テスト用の窓口：__pk.force({ hit: true, reach: 'spsp', giji: 3, ... })
 const HOLD0 = { hit: false, reach: 'none', giji: 1, step: 0, cutin: null, color: 'white', shown: 'white', saki: false, sakiKaku: false, freeze: false, revive: false, ato: false, lamp: false, gim: false, chochin: false };
