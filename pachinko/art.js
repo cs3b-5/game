@@ -97,6 +97,10 @@ function firework(c, x, y, r, col, p = 1, seed = 1, a = 1) {
 
 // ---------------- 釘（真鍮の頭と、盤面に落ちる影） ----------------
 function nail(c, x, y, NR) {
+  // 胴（盤面から立っている軸。少し右下に見える）
+  const sg = c.createLinearGradient(x - 1, y, x + 1.5, y);
+  sg.addColorStop(0, '#8a6418'); sg.addColorStop(.5, '#e8c46a'); sg.addColorStop(1, '#6a4a10');
+  c.strokeStyle = sg; c.lineWidth = 1.7; c.lineCap = 'round'; c.beginPath(); c.moveTo(x + .4, y + .6); c.lineTo(x + 2.2, y + 4.4); c.stroke();
   const sh = c.createRadialGradient(x + 1.8, y + 2.4, 0, x + 1.8, y + 2.4, NR + 2.4);
   sh.addColorStop(0, 'rgba(0,0,0,.55)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = sh; c.beginPath(); c.arc(x + 1.8, y + 2.4, NR + 2.4, 0, TAU); c.fill();
@@ -220,6 +224,14 @@ function drawStatic(c, B, BODY) {
   for (let y = 806; y < B.H; y += 9) { c.beginPath(); for (let x = 0; x <= B.W; x += 12) c.lineTo(x, y + Math.sin(x * .05 + y) * 1.6); c.stroke(); }
   for (let i = 0; i < 14; i++) { const x = 20 + i * 42, lg = c.createLinearGradient(0, 802, 0, 880); lg.addColorStop(0, 'rgba(255,170,90,.25)'); lg.addColorStop(1, 'rgba(255,170,90,0)'); c.fillStyle = lg; c.fillRect(x, 802, 3, 78); }
   fish(c, 118, 842, 1, { type: 'red', t: 1 }); fish(c, 430, 856, .85, { type: 'kohaku', dir: -1, t: 2 }); fish(c, 262, 870, .7, { type: 'black', t: 3 }); fish(c, 520, 836, .6, { type: 'red', dir: -1, t: 4 });
+  // 透明な樹脂の盤面（今の台は釘の場所に透明パーツ。裏のLEDで光る）
+  resin(c, [[100, 214], [100, 556], [44, 560], [18, 548], [18, 420], [26, 340], [50, 262], [82, 222]], '120,110,255', [[58, 300, 46], [60, 470, 40]]);
+  resin(c, [[40, 572], [124, 594], [262, 640], [292, 660], [292, 760], [180, 790], [40, 790]], '255,90,200', [[200, 640, 60], [90, 700, 50]]);
+  resin(c, [[322, 588], [488, 586], [488, 700], [400, 720], [322, 680]], '90,200,255', [[400, 620, 60]]);
+  resin(c, [[498, 404], [584, 404], [584, 770], [492, 770], [492, 562]], '255,120,220', [[540, 450, 46], [540, 690, 50]]);
+  // 風車のまわりの丸い台座（透明）
+  c.save(); c.strokeStyle = 'rgba(200,210,255,.5)'; c.lineWidth = 3; c.beginPath(); c.arc(B.P.wm.x, B.P.wm.y, 26, 0, TAU); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1; c.beginPath(); c.arc(B.P.wm.x, B.P.wm.y, 22, 0, TAU); c.stroke(); c.restore();
   // 外レール（クローム）
   const rail = () => { c.beginPath(); c.moveTo(B.LW - 6, B.H); c.lineTo(B.LW - 6, B.CY); c.arc(B.CX, B.CY, B.R + 6, Math.PI, 0); c.lineTo(B.RW + 6, B.H); };
   c.lineWidth = 14; c.strokeStyle = '#1a1c28'; rail(); c.stroke();
@@ -308,6 +320,18 @@ function drawStatic(c, B, BODY) {
   // まわりを少し暗く
   const vg = c.createRadialGradient(B.W / 2, B.H / 2, B.H * .35, B.W / 2, B.H / 2, B.H * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)');
   c.fillStyle = vg; c.fillRect(0, 0, B.W, B.H);
+}
+// 透明の樹脂板：うすい色＋メッシュ模様＋光るふち＋裏のLED
+function resin(c, pts, rgb, leds) {
+  const path = () => { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) c.lineTo(p[0], p[1]); c.closePath(); };
+  c.save(); path(); c.clip();
+  for (const [x, y, r] of leds) { const g = c.createRadialGradient(x, y, 0, x, y, r * 2.2); g.addColorStop(0, `rgba(${rgb},.42)`); g.addColorStop(.4, `rgba(${rgb},.14)`); g.addColorStop(1, `rgba(${rgb},0)`); c.fillStyle = g; c.fillRect(x - r * 2.2, y - r * 2.2, r * 4.4, r * 4.4); }
+  c.fillStyle = `rgba(${rgb},.08)`; c.fillRect(0, 0, 600, 900);
+  c.strokeStyle = 'rgba(255,255,255,.05)'; c.lineWidth = .6;
+  for (let k = -900; k < 900; k += 5) { c.beginPath(); c.moveTo(k, 0); c.lineTo(k + 900, 900); c.stroke(); c.beginPath(); c.moveTo(k + 900, 0); c.lineTo(k, 900); c.stroke(); }
+  c.restore();
+  c.save(); path(); c.shadowColor = `rgb(${rgb})`; c.shadowBlur = 10; c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 1.6; c.lineJoin = 'round'; c.stroke(); c.restore();
+  c.save(); c.translate(1.5, 1.5); path(); c.strokeStyle = `rgba(${rgb},.35)`; c.lineWidth = 1; c.stroke(); c.restore();
 }
 function label(c, t, x, y, col, size) {
   c.save(); c.font = `400 ${size + 3}px "Bebas Neue", sans-serif`; c.textAlign = 'center';

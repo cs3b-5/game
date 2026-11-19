@@ -42,7 +42,8 @@ seg(290, 552, 288, 578, 'frame'); seg(310, 552, 312, 578, 'frame');
 seg(130, 528, 180, 538, 'stage'); seg(180, 538, 240, 544, 'stage'); seg(240, 544, 290, 552, 'stage');
 seg(310, 552, 360, 544, 'stage'); seg(360, 544, 420, 538, 'stage'); seg(420, 538, 470, 528, 'stage');
 // 道釘：左から液晶の下を通ってヘソへ運ぶレール（見た目は釘の列）
-seg(216, 634, 262, 646, 'road');
+seg(50, 565, 122, 585, 'road');         // 道釘（前半）：レールとの間は開いていて、レールぞいの玉はアウトへ
+seg(146, 600, 262, 634, 'road');      // 道釘（後半）：こぼしのすき間のあと、命釘の上まで
 // 右打ちルート：仕切りとゲートへの漏斗
 seg(496, 512, 490, 560); seg(490, 560, 490, 770);
 seg(500, 352, 526, 378, 'guide'); seg(586, 344, 552, 378, 'guide');
@@ -67,46 +68,35 @@ const nail = (x, y, k) => NAILS.push({ x, y, k });
 nail(P.heso.x - 12.5, P.heso.y, 'post'); nail(P.heso.x + 12.5, P.heso.y, 'post');
 nail(P.pocketL.x - 11, P.pocketL.y, 'post'); nail(P.pocketL.x + 11, P.pocketL.y, 'post');
 // 命釘（ヘソの上のハの字）
-nail(282, 628, 'key'); nail(318, 628, 'key');
+nail(283, 620, 'key'); nail(317, 620, 'key');
 // 風車の軸
 nail(P.wm.x, P.wm.y, 'axis');
-// 電チューの両側
-
-// 道釘：左下から液晶の下を通ってヘソへ運ぶ（隙間が玉より小さい列）
-
-
-// 右ルートの釘（ゲートの下と電チューのまわり）
-for (const [x, y] of [[518, 432], [538, 448], [558, 432], [528, 478], [548, 478], [518, 524], [558, 524]]) nail(x, y, 'right');
+// 釘を線の上に並べる（step が玉より小さいと「壁」、大きいと「すき間」）
+function line(x1, y1, x2, y2, k, step = 9) { const l = Math.hypot(x2 - x1, y2 - y1), n = Math.max(1, Math.round(l / step)); for (let i = 0; i <= n; i++) nail(x1 + (x2 - x1) * i / n, y1 + (y2 - y1) * i / n, k); }
+// 右ルート：ゲートの下で2列の釘が電チューへしぼる
+line(499, 418, 524, 474, 'right'); line(583, 438, 552, 474, 'right');
 for (const [x, y] of [[520, 762], [552, 766]]) nail(x, y, 'right');
-// 規則正しく並んだ釘（壁や部品から「玉が通れる」距離だけ。はさまる隙間は作らない）
-function clearOK(x, y) {
-  const gaps = [x - LW - NR, RW - x - NR];
-  for (const s of SEG) {
-    const ex = s.x2 - s.x1, ey = s.y2 - s.y1, l2 = ex * ex + ey * ey;
-    let t = ((x - s.x1) * ex + (y - s.y1) * ey) / l2; t = Math.max(0, Math.min(1, t));
-    gaps.push(Math.hypot(x - s.x1 - ex * t, y - s.y1 - ey * t) - NR - 1.5);
-  }
-  if (y < CY) gaps.push(R - Math.hypot(x - CX, y - CY) - NR);
-  for (const n of NAILS) gaps.push(Math.hypot(x - n.x, y - n.y) - NR * 2);
-  return gaps.every(gp => gp > 16);
-}
-function near(x, y, p, r) { return Math.hypot(x - p.x, y - p.y) < r; }
-for (let row = 0; ; row++) {
-  const y = 70 + row * 26; if (y > 790) break;
-  for (let x = 30 + (row % 2) * 16; x <= 570; x += 32) {
-    if (y < CY && Math.hypot(x - CX, y - CY) > R - 34) continue;         // 上のレールの近くは玉の通り道
-    if (x > 92 && x < 508 && y < 540) continue;                           // 液晶
-    if (x > 482 && y > 330) continue;                                     // 右打ちルート（下）は決まった釘だけ
-    if (y > 590 && y < 660 && Math.abs(y - (598 + (x - 30) * .206)) < 18 && x > 108 && x < 230) continue; // 道釘のまわり
-    if (Math.abs(x - 300) < 30 && y > 540 && y < 690) continue;             // ステージの穴からヘソへの道
-    if (near(x, y, P.wm, 34) || near(x, y, P.warp, 26) || near(x, y, P.pocketL, 30)) continue;
-    if (y > 776) continue;
-    if (!clearOK(x, y)) continue;
-    nail(x, y, 'grid');
-  }
-}
-// ヘソの下の「こぼし」の釘
-for (const [x, y] of [[250, 700], [350, 700], [222, 730], [300, 724], [378, 730], [260, 756], [340, 756], [420, 690], [452, 730], [420, 770], [180, 712], [96, 730], [60, 760]]) if (clearOK(x, y)) nail(x, y, 'grid');
+// ---------------- ゲージ（今の台の釘の並び） ----------------
+// 上から：ブッコミ（液晶の枠から左へ落ちる玉の入口）→ 風車上の2本（左の釘と基準釘）→ 風車
+// → 寄り釘（ワープへ寄せる）→ ハカマ（左右から寄せる2列）→ ジャンプ釘 → 道釘（こぼしのすき間つき）→ 命釘
+// ※左上のレールぞい（中心から R-34 より外）は打ち出した玉の通り道なので釘を置かない
+line(99, 224, 78, 248, 'hakama');                   // ブッコミ：枠から落ちた玉を風車の上へ寄せる
+nail(62, 266, 'wmTop'); nail(84, 262, 'base');      // 風車上：左の釘と基準釘
+line(78, 330, 86, 346, 'yori', 8);                  // 寄り釘：風車の右からワープの方へ
+line(18, 432, 50, 474, 'hakama');                   // ハカマ（左）
+line(100, 456, 82, 478, 'hakama');                  // ハカマ（右）
+nail(66, 528, 'jump');                              // 道釘の手前のジャンプ釘
+line(18, 342, 34, 352, 'yose');                     // 寄せ釘：レールぞいの玉をワープの方へはじく
+// ステージの下：玉を左右に散らす釘の列（ステージからこぼれた玉用）
+for (let x = 336; x <= 468; x += 22) nail(x, 600, 'comb');
+for (let x = 347; x <= 457; x += 22) nail(x, 622, 'comb');
+line(474, 650, 410, 690, 'misc', 9);                // 右下：アウトへ流す列
+// 道釘の下：こぼれた玉の通り道（普通入賞口のハカマ）
+line(40, 700, 100, 740, 'misc', 9);
+// 液晶の左のレーン：風車のまわりのバラ釘を少しだけ
+   // 寄せ釘：レールぞいの玉をワープへ（途中に1か所こぼし）
+// ヘソの下（こぼし）
+for (const [x, y] of [[262, 700], [338, 700], [300, 730], [214, 724], [232, 764], [368, 760], [60, 778]]) nail(x, y, 'bara');
 
 // 釘をマス目で探せるように
 const CELL = 32, GW = Math.ceil(W / CELL), GH = Math.ceil(H / CELL);
@@ -193,7 +183,7 @@ function makeWorld(rng = Math.random) {
         if (s.k === 'denLid' && w.denOpen) continue;
         if (s.k === 'denWing' && !w.denOpen) continue;
         if (s.k === 'atkLid' && w.atkOpen) continue;
-        hitSeg(b, s, s.k === 'stage' ? .12 : .3, s.k === 'stage' ? .006 : .04);
+        hitSeg(b, s, s.k === 'stage' ? .12 : s.k === 'road' ? .2 : .3, s.k === 'stage' ? .006 : s.k === 'road' ? .0115 : .04, s.k === 'road' ? NR : 1.5);
       }
       // 入賞の判定
       if (b.vy > -30 && Math.abs(b.x - P.heso.x) < 9.5 && b.y > P.heso.y - 5 && b.y < P.heso.y + 12) { remove(b, 'heso'); continue; }
@@ -208,7 +198,7 @@ function makeWorld(rng = Math.random) {
       }
       if (!b.warp && b.x < P.warp.x && b.x > P.warp.x - BR - 2.5 && Math.abs(b.y - P.warp.y) < 7) {
         b.warp = true;
-        if (rng() < .55) {
+        if (rng() < .2) {             // ワープは入口に入っても8割は抜けて落ちる
           w.stats.warp++; w.events.push({ k: 'warp', x: b.x, y: b.y });
           b.x = 142; b.y = 524; b.vx = 40 + rng() * 170; b.vy = 0;
         }

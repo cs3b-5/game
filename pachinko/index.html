@@ -262,7 +262,7 @@ const SP = () => Rl.SPECS[S.set.spec] || Rl.SPECS.mid;
 //  セーブ
 // =============================================================
 const KEY = 'pachinko-yomatsuri-v1';
-const SET0 = { spec: 'mid', saki: 'normal', notify: 'normal', bgm: .6, se: .8, vib: true };
+const SET0 = { spec: 'mid', saki: 'normal', notify: 'normal', bgm: .6, se: .8, vib: true, gauge: false };
 const ST0 = () => ({ spins: 0, hits: 0, rush: 0, lt: 0, first: 0, nSpins: 0, maxChain: 0, chain: 0, in: 0, out: 0, spinsSinceHit: 0, hist: [] });
 let S = { balls: 1000, mode: 'normal', jitanLeft: 0, stLeft: 0, power: 35, mute: false, refills: 0, lent: 0, set: Object.assign({}, SET0), stats: ST0(), graph: [1000] };
 try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) S = Object.assign(S, d, { set: Object.assign({}, SET0, d.set || {}), stats: Object.assign(ST0(), d.stats || {}) }); } catch (e) {}
@@ -854,6 +854,21 @@ function drawCho(c, now) {
 // =============================================================
 //  1コマ分の描画
 // =============================================================
+// ゲージの名前（設定でON）
+const GAUGE = [['ブッコミ', 88, 234, 1], ['風車上・基準釘', 73, 262, 1], ['風車', 58, 300, -1], ['寄り釘', 82, 338, 1], ['寄せ釘', 26, 346, 1], ['ワープ', 100, 400, 1],
+  ['ハカマ', 60, 470, 1], ['ジャンプ釘', 66, 528, 1], ['道釘', 86, 575, 1], ['こぼし', 134, 592, 1], ['道釘', 204, 618, 1], ['命釘', 300, 614, 1], ['ヘソ', 300, 650, 1],
+  ['ステージ', 200, 540, 1], ['普通入賞口', 150, 770, 1], ['スルー', 538, 392, -1], ['しぼり', 538, 450, -1], ['電チュー', 538, 590, -1], ['アタッカー', 530, 714, -1]];
+function drawGaugeNames(c) {
+  c.save(); c.font = '900 11px "Noto Sans JP", sans-serif'; c.textBaseline = 'middle';
+  for (const [t, x, y, d] of GAUGE) {
+    const w = c.measureText(t).width + 10, lx = d > 0 ? x + 14 : x - 14 - w, ly = y - 12;
+    c.strokeStyle = '#ffe08a'; c.lineWidth = 1; c.beginPath(); c.moveTo(x, y); c.lineTo(d > 0 ? lx : lx + w, ly); c.stroke();
+    c.fillStyle = '#ffe08a'; c.beginPath(); c.arc(x, y, 2.4, 0, 7); c.fill();
+    c.fillStyle = 'rgba(10,6,20,.85)'; c.beginPath(); c.roundRect(lx, ly - 8, w, 16, 8); c.fill(); c.strokeStyle = '#ffe08a'; c.stroke();
+    c.fillStyle = '#fff6d0'; c.fillText(t, lx + 5, ly);
+  }
+  c.restore();
+}
 let sparks = [];
 function sparkAt(x, y, c, n = 10) { for (let i = 0; i < n; i++) { const a = rnd() * 7, v = 30 + rnd() * 90; sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, t: 0, life: .5 + rnd() * .4, c }); } }
 function draw(now) {
@@ -897,6 +912,7 @@ function draw(now) {
   g.globalCompositeOperation = 'lighter';
   for (const s of sparks) { g.globalAlpha = 1 - s.t / s.life; g.fillStyle = s.c; g.beginPath(); g.arc(s.x, s.y, 2.2, 0, 7); g.fill(); }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  if (S.set.gauge) drawGaugeNames(g);
   // ガラスの映りこみ
   g.setTransform(1, 0, 0, 1, 0, 0);
   if (glassCv) g.drawImage(glassCv, 0, 0);
@@ -1022,6 +1038,7 @@ $('dataBtn').addEventListener('click', () => {
     `<tr><td>花火RUSH</td><td>ST${sp.st}回・継続約${p(1 - Math.pow(1 - sp.probH, sp.st))}・当たりは${sp.rRush}R（${sp.rRush * 150}玉）</td></tr>` +
     `<tr><td>ラッキートリガー</td><td>花火RUSH中の当たりの${Math.round(sp.lt * 100)}%で大輪RUSHへ</td></tr>` +
     `<tr><td>大輪RUSH</td><td>ST${sp.stLT}回・継続約${p(1 - Math.pow(1 - sp.probH, sp.stLT))}・当たりは全部${sp.rLT}R（${sp.rLT * 150}玉）</td></tr>` +
+    `<tr><td>ゲージ</td><td>ブッコミ→風車上（左の釘と基準釘）→風車→ハカマ→ジャンプ釘→道釘→こぼし→命釘→ヘソ。レールぞいの玉は寄せ釘ではじかれてワープへ（ワープは入口に入っても8割は抜ける）。ハンドル30〜35がいちばん回る（約18回転／250玉）。⚙で釘の名前を表示できる</td></tr>` +
     `<tr><td>信頼度のめやす</td><td>ノーマルリーチ1%・SPリーチ1〜2割・全員集合4割・金カットイン8割・虹は確定・擬似連×4は7割</td></tr>`;
   $('dataSheet').hidden = false; drawGraph($('graph2'));
 });
@@ -1036,6 +1053,7 @@ const OPTS = [
   { k: 'spec', t: '台（スペック）', o: [['mid', 'ライトミドル 1/199.8'], ['ama', '甘デジ 1/99.9']], d: '通常時（RUSH・時短・大当たり中じゃないとき）だけ変えられる' },
   { k: 'saki', t: '先バレの頻度', o: [['off', 'なし'], ['normal', 'ふつう'], ['many', '多め']], d: 'ヘソに入った瞬間の「キュイン」。多めにするとハズレでも鳴りやすい' },
   { k: 'notify', t: '告知モード', o: [['normal', 'ふつう'], ['saki', '先告知'], ['ato', '後告知'], ['iwakan', '違和感']], d: '先告知：当たりは入った瞬間に教える／後告知：ハズレっぽく止まってから逆転／違和感：当たりのときだけ金の金魚の目の色がちょっと違う（それ以外の演出はハズレと同じ）' },
+  { k: 'gauge', t: '釘の名前を表示', o: [[true, 'ON'], [false, 'OFF']], d: '盤面にゲージ（釘の並び）の名前を出す。風車上・基準釘・寄せ釘・ハカマ・道釘・こぼし・ジャンプ釘・命釘など' },
   { k: 'vib', t: '振動', o: [[true, 'ON'], [false, 'OFF']], d: 'スマホが震える（Androidなど。iPhoneとPCは震えない）' },
 ];
 function buildSet() {
