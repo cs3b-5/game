@@ -142,7 +142,7 @@ const colorOf=id=>SHOP.color.find(c=>c[0]===id)[3];
 let G=null,state='title',last=0,press=false,pressT=0;
 function newGame(){
  G={p:{x:WALL+R,y:60,vx:0,vy:0,side:'L',st:'wall',jumps:0,dbl:0,shield:false,pose:0,wallT:0,lastKick:0},
-  cam:0,segs:[],blocks:[],lastBlkY:500,inset:{L:0,R:0},gen:{L:-200,R:-200},coins:[],items:[],rocks:[],birds:[],parts:[],trail:[],
+  cam:0,segs:[],blocks:[],lastBlkY:500,inset:{L:0,R:0},gen:{L:-200,R:-200},genY:700,coins:[],items:[],rocks:[],birds:[],parts:[],trail:[],
   maxH:60,coinsGot:0,combo:0,comboT:0,shake:0,mile:0,popup:null,popT:0,wind:0,windT:0,t:0,cause:''};
  // 最初は両側しっかり
  G.segs.push({side:'L',y0:-300,y1:700,type:'n',mat:'fence'},{side:'R',y0:-300,y1:700,type:'n',mat:'fence'});
@@ -154,50 +154,48 @@ function newGame(){
 function diff(){return clamp(G.maxH/40000,0,1);}
 const insAt=(s,y)=>{const b=s.inset||0;if(s.ia==null||!s.ramp||y>=s.y0+s.ramp)return b;const t=clamp((y-s.y0)/s.ramp,0,1);return s.ia+(b-s.ia)*t;};
 const surf=(s,y)=>{const i=insAt(s,y);return s.side==='L'?WALL+i:W-WALL-i;};
-function safeSide(side,y0,y1){
- y1=Math.min(y1,G.gen[side]);if(y1<=y0)return true;
- let y=y0;const segs=G.segs.filter(s=>s.side===side&&!s.gone&&s.type!=='spike'&&s.type!=='crumble').sort((a,b)=>a.y0-b.y0);
- for(const s of segs){if(s.y0<=y+1&&s.y1>=y)y=s.y1;if(y>=y1)return true;}
- return y>=y1;
-}
 function genWorld(){
  const top=G.cam+H*2;
- for(const side of ['L','R']){
-  while(G.gen[side]<top){
-   const d=diff(),y=G.gen[side];
-   const am=areaOf(toM(y)).wall;
-   // すきま
-   const oth=side==='L'?'R':'L';
-   if(y>900&&Math.random()<.22+d*.25){const gap=rnd(60,100+d*100);if(safeSide(oth,y-40,y+gap+40)){G.gen[side]+=gap;continue;}}
-   // 壁の形（でっぱり・へこみ）を変える
-   const other=side==='L'?'R':'L';
-   const ia=G.inset[side];
-   // トゲ（形は変えない）
-   if(y>1200&&Math.random()<.16+d*.22&&safeSide(oth,y-30,y+150)){const len=rnd(40,70+d*40);G.segs.push({side,y0:y,y1:y+len,type:'spike',inset:ia,mat:am});G.gen[side]+=len;continue;}
-   // 壁の形はななめにゆっくり変える
+ // 左右いっしょに「区画」ごとに作る。危ないもの（トゲ・すきま・崩れる壁）は1区画に片側1つだけ、
+ // まわりはふつうの壁にして、反対側はいつも安全 → かならずクリアできる道がある
+ while(G.genY<top){
+  const d=diff(),y=G.genY,am=areaOf(toM(y)).wall;
+  const CH=Math.round(rnd(320,440)-d*80);
+  const hz=y>900&&Math.random()<.45+d*.4;
+  const hs=Math.random()<.5?'L':'R';
+  let kind=null,a=0,len=0;
+  if(hz){const r=Math.random();
+   if(y>1200&&r<.45){kind='spike';len=rnd(40,60+d*30);}
+   else if(y>3500&&r<.6){kind='crumble';len=rnd(110,150);}
+   else{kind='gap';len=rnd(60,90+d*30);}
+   const amin=Math.max(130,(G.hzEnd||0)+340-y);
+   if(amin+len>CH-130)kind=null;else{a=rnd(amin,CH-130-len);G.hzEnd=y+a+len;(G.hzList=G.hzList||[]).push([y+a,y+a+len]);if(G.hzList.length>30)G.hzList.shift();}}
+  for(const side of ['L','R']){
+   const other=side==='L'?'R':'L',ia=G.inset[side];
    let ins=ia;
-   if(y>500&&Math.random()<.7)ins=clamp(ins+[-50,-30,30,50,60][Math.floor(Math.random()*5)],0,90);
-   ins=Math.max(0,Math.min(ins,130-G.inset[other]));
-   G.inset[side]=ins;
-   const len=rnd(160,400-d*150);
-   const ramp=ins===ia?0:Math.min(len*.7,60+Math.abs(ins-ia)*2.2);
-   let type='n';const r=Math.random();
-   if(am==='ice'||am==='snow'){if(r<.5)type='ice';}
-   else if(y>2500&&r<.12+d*.15)type='ice';
-   if(y>3500&&type==='n'&&Math.random()<.12+d*.18&&safeSide(oth,y,y+len))type='crumble';
-   G.segs.push({side,y0:y,y1:y+len,type,mat:am,crack:0,inset:ins,ia,ramp});
-   G.gen[side]+=len;
+   if(y>500&&Math.random()<.6)ins=clamp(ins+[-50,-30,30,50,60][Math.floor(Math.random()*5)],0,90);
+   ins=Math.max(0,Math.min(ins,130-G.inset[other]));G.inset[side]=ins;
+   const ramp=ins===ia?0:Math.min(110,60+Math.abs(ins-ia)*1.2);
+   const nt=()=>{const r=Math.random();if(am==='ice'||am==='snow')return r<.45?'ice':'n';return (y>2500&&r<.12+d*.12)?'ice':'n';};
+   const seg=(y0,y1,type,first)=>{if(y1-y0<1)return;G.segs.push({side,y0,y1,type,mat:am,crack:0,inset:ins,ia:first?ia:ins,ramp:first?ramp:0});};
+   if(kind&&side===hs){
+    seg(y,y+a,nt(),true);
+    if(kind!=='gap')seg(y+a,y+a+len,kind,false);
+    seg(y+a+len,y+CH,'n',false);
+   }else seg(y,y+CH,nt(),true);
   }
+  G.genY+=CH;
  }
  // 空中ブロック
- while(G.lastBlkY<top){
+ while(G.lastBlkY<G.genY-300){
   G.lastBlkY+=rnd(260,520);
   const y=G.lastBlkY;
   const sl=segAt('L',y),sr=segAt('R',y);
   const lx=sl?surf(sl,y):WALL,rx=sr?surf(sr,y):W-WALL;
   if(rx-lx<220)continue;
+  if((G.hzList||[]).some(h=>h[1]>y-260&&h[0]<y+260))continue; // 危ないもの（トゲ・すきま・崩れる壁）の近くには置かない
   const cx=(lx+rx)/2;
-  G.blocks.push({blk:true,x:cx+rnd(-1,1)*Math.min(40,(rx-lx-200)/2),y,s:34,type:(y>4000&&Math.random()<.15+diff()*.2)?'spike':'n'});
+  G.blocks.push({blk:true,x:cx+rnd(-1,1)*Math.min(40,(rx-lx-200)/2),y,s:34,type:'n'});
  }
  // コイン・アイテム
  while((G.lastCoinY||200)<top){
@@ -248,13 +246,15 @@ function update(dt){
  // 風（高いところほど）
  G.windT-=dt;if(G.windT<=0){G.windT=rnd(2,5);G.wind=m>3000?rnd(-1,1)*clamp(m/30000,.3,1)*260:0;}
  if(p.st==='wall'){
-  const o=p.on;
+  let o=p.on;
+  // 壁のつなぎ目ではそのまま下の壁に乗りかえる（すきまでなければ落ちない）
+  if(o&&!o.blk&&(o.gone||p.y<o.y0||p.y>o.y1)){const n=segAt(p.side,p.y);if(n&&!o.gone){o=p.on=n;}}
   const ok=o&&(o.blk?(p.y>o.y-o.s/2-R*.6&&p.y<o.y+o.s/2+R):(!o.gone&&p.y>=o.y0&&p.y<=o.y1));
   if(!ok){p.st='air';p.vx=0;p.vy=0;p.on=null;}
   else{
    if(o.type==='spike'&&!p.inv){die('トゲに当たった');}
    if(o.type==='crumble'){o.crack+=dt;if(o.crack>.7){o.gone=true;burst(p.x,p.y,'#a98',14);}}
-   const slide=o.type==='ice'?140:30+diff()*25;
+   const slide=o.type==='ice'?140:45+diff()*25;
    p.vy=-slide;p.y+=p.vy*dt;p.wallT+=dt;
    if(!o.blk)p.x=surf(o,p.y)+(p.side==='L'?R:-R);
    if(Math.random()<dt*10)G.parts.push({x:p.x+(p.side==='L'?-R:R),y:p.y-R,vx:0,vy:-20,l:.4,c:o.type==='ice'?'#cef':'#ccc',s:2});
