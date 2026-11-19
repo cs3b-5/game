@@ -340,7 +340,7 @@
   }
   // ================= セーブの同期（ほかの端末へ持っていく） =================
   // ゲームのセーブ（localStorage）のうち、下の名前で始まるものだけ。名前（games-account）は送らない
-  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'arashi-ken', 'tsuki-souji', 'shusha-dekinai', 'naraku', 'neko-bakudan', 'games-rank-best'];
+  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'arashi-ken', 'tsuki-souji', 'shusha-dekinai', 'naraku', 'neko-bakudan', 'teppenkick', 'games-rank-best'];
   const META_K = 'games-sync';
   const syncKeys = () => { const ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SYNC_PREFIX.some(p => k.startsWith(p))) ks.push(k); } } catch (e) {} return ks; };
   const raw = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
