@@ -91,6 +91,9 @@ h1{margin:0;font-size:46px;letter-spacing:.08em;color:var(--line);text-shadow:3p
 @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(5px)}30%,50%,70%{transform:translateX(-9px)}40%,60%{transform:translateX(9px)}}
 .win .cat{animation:hop .6s ease-in-out infinite alternate}
 @keyframes hop{to{transform:translateY(-12%)}}
+.guide{width:100%;flex:none;font-size:12px;color:var(--ink2);text-align:center;line-height:1.5;background:rgba(255,255,255,.55);border-radius:12px;padding:5px 8px}
+.guide b{color:var(--line)}
+.guide .rule{font-size:11px;opacity:.85}
 .msg{min-height:2.6em;font-size:13px;color:var(--ink2);text-align:center;flex:none;padding:0 8px;display:flex;align-items:center;justify-content:center;line-height:1.35}
 .bottom{width:100%;display:flex;gap:8px;flex:none;align-items:stretch}
 .modes{flex:1;display:flex;background:var(--card);border-radius:16px;padding:4px;gap:4px;box-shadow:0 2px 10px rgba(160,120,140,.12)}
@@ -169,6 +172,7 @@ h1{margin:0;font-size:46px;letter-spacing:.08em;color:var(--line);text-shadow:3p
       </div>
       <button class="hintbtn" id="btn-hint">💡 3</button>
     </div>
+    <div class="guide"><div id="guide-op"></div><div class="rule">ルール：色のエリアに猫を1匹ずつ ／ 同じ行・同じ列・となり（ななめも）には置けない</div></div>
   </div>
 </section>
 
@@ -518,7 +522,8 @@ function renderHearts(lostIdx){
   $('#hud-hearts').innerHTML=h;
 }
 function updateHint(){ const b=$('#btn-hint'); b.textContent='💡 '+game.hints; b.disabled=game.hints<=0||game.over; }
-function setMode(m){ if(game) game.mode2=m; document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m)); }
+const GUIDE={normal:'<b>タップ</b>：×（メモ）をつける／消す　<b>ダブルタップ</b>：猫を置く',x:'<b>×モード</b>：タップで×をつける／消す（猫は置かない）',cat:'<b>猫モード</b>：タップで猫を置く（まちがえるとハート−1）'};
+function setMode(m){ if(game) game.mode2=m; document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m)); $('#guide-op').innerHTML=GUIDE[m]; }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{ setMode(b.dataset.m); if(game) game.lastTap=null; });
 
 function buildBoard(){
