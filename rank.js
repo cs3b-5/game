@@ -27,6 +27,7 @@
     naraku: { t: '奈落の迷宮', unit: 'F', sub: '最深到達階' },
     shushae: { t: '出社できない', unit: 'm', sub: 'エンドレス出社の最高距離', dec: 1 },
     neko: { t: 'ねこ爆弾', unit: '', sub: '到達レベル' },
+    teppen: { t: 'テッペンキック', unit: 'm', sub: '最高到達高度' },
     neko_daily: { t: 'ねこ爆弾（デイリー）', unit: '', sub: 'デイリークリアタイム', order: 'asc', ms: true, daily: true },
   };
   const IN_CLAUDE = /(^|\.)claudeusercontent\.com$|(^|\.)claude\.ai$/.test(location.hostname);
