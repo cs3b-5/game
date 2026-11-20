@@ -28,6 +28,7 @@
     shushae: { t: '出社できない', unit: 'm', sub: 'エンドレス出社の最高距離', dec: 1 },
     neko: { t: 'ねこ爆弾', unit: '', sub: '到達レベル' },
     teppen: { t: 'テッペンキック', unit: 'm', sub: '最高到達高度' },
+    tier: { t: 'ティア読み', unit: '回', sub: '通算ピタリ数' },
     neko_daily: { t: 'ねこ爆弾（デイリー）', unit: '', sub: 'デイリークリアタイム', order: 'asc', ms: true, daily: true },
   };
   const IN_CLAUDE = /(^|\.)claudeusercontent\.com$|(^|\.)claude\.ai$/.test(location.hostname);
@@ -340,7 +341,7 @@
   }
   // ================= セーブの同期（ほかの端末へ持っていく） =================
   // ゲームのセーブ（localStorage）のうち、下の名前で始まるものだけ。名前（games-account）は送らない
-  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'upa-kart', 'arashi-ken', 'tsuki-souji', 'shusha-dekinai', 'naraku', 'neko-bakudan', 'teppenkick', 'games-rank-best'];
+  const SYNC_PREFIX = ['hottarakashi', 'pachinko-yomatsuri', 'core-digger', 'ad-hell', 'pack-opener', 'bukkenou', 'nazotoki', 'neko-td', 'potion-quest', 'screw-koubou', 'orbit-hop', 'uparupa-spirits', 'uparun', 'upa-kart', 'arashi-ken', 'tsuki-souji', 'shusha-dekinai', 'naraku', 'neko-bakudan', 'teppenkick', 'tier-yomi', 'games-rank-best'];
   const META_K = 'games-sync';
   const syncKeys = () => { const ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (SYNC_PREFIX.some(p => k.startsWith(p))) ks.push(k); } } catch (e) {} return ks; };
   const raw = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
