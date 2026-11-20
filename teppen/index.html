@@ -163,7 +163,7 @@ function newGame(){
  while(G.mile<MILES.length&&MILES[G.mile][0]<=0)G.mile++;
 }
 
-function diff(){return clamp(G.maxH/40000,0,1);}
+function diff(){return clamp(G.maxH/70000,0,1);}
 const insAt=(s,y)=>{const b=s.inset||0;if(s.ia==null||!s.ramp||y>=s.y0+s.ramp)return b;const t=clamp((y-s.y0)/s.ramp,0,1);return s.ia+(b-s.ia)*t;};
 const surf=(s,y)=>{const i=insAt(s,y);return s.side==='L'?WALL+i:W-WALL-i;};
 function genWorld(){
@@ -173,7 +173,7 @@ function genWorld(){
  while(G.genY<top){
   const d=diff(),y=G.genY,am=areaOf(toM(y)).wall;
   const CH=Math.round(rnd(320,440)-d*80);
-  const hz=y>900&&Math.random()<.45+d*.4;
+  const hz=y>1500&&Math.random()<.34+d*.4;
   const hs=Math.random()<.5?'L':'R';
   let kind=null,a=0,len=0;
   if(hz){const r=Math.random();
@@ -213,7 +213,7 @@ function genWorld(){
  while((G.lastCoinY||200)<top){
   G.lastCoinY=(G.lastCoinY||200)+rnd(110,220);
   const y=G.lastCoinY;
-  if(Math.random()<.06)G.items.push({x:W/2+rnd(-60,60),y,kind:Math.random()<.5?'dbl':'shield'});
+  if(Math.random()<.1)G.items.push({x:W/2+rnd(-60,60),y,kind:Math.random()<.5?'dbl':'shield'});
   else{const n=Math.random()<.4?3:1;for(let i=0;i<n;i++)G.coins.push({x:W/2+rnd(-90,90),y:y+i*26});}
  }
  G.segs=G.segs.filter(s=>s.y1>G.cam-200);G.blocks=G.blocks.filter(b=>b.y>G.cam-100);
@@ -240,6 +240,8 @@ function kick(){
  SE.kick();burst(p.x,p.y,'#fff',10);G.shake=3;
 }
 function attach(o,side,x){const p=G.p;
+ if(o.type==='spike'&&!o.blk){ // トゲのはしっこギリギリならセーフ（となりの壁に乗る）
+  for(const dy of [-12,12]){const n=segAt(side,p.y+dy);if(n&&n.type!=='spike'){o=n;p.y=dy<0?o.y1-1:o.y0+1;break;}}}
  if(o.type==='spike'&&!p.inv){die('トゲに当たった');return;}
  p.st='wall';p.on=o;p.side=side;p.x=x;p.vx=0;p.lastLand=G.t;p.wallT=0;SE.land();burst(p.x+(side==='L'?-R:R),p.y,'#fff',5);}
 
@@ -256,7 +258,7 @@ function update(dt){
  if(p.inv)p.inv=Math.max(0,p.inv-dt);
  const m=toM(G.maxH);
  // 風（高いところほど）
- G.windT-=dt;if(G.windT<=0){G.windT=rnd(2,5);G.wind=m>3000?rnd(-1,1)*clamp(m/30000,.3,1)*260:0;}
+ G.windT-=dt;if(G.windT<=0){G.windT=rnd(2,5);G.wind=m>8000?rnd(-1,1)*clamp(m/60000,.3,1)*150:0;}
  if(p.st==='wall'){
   let o=p.on;
   // 壁のつなぎ目ではそのまま下の壁に乗りかえる（すきまでなければ落ちない）
@@ -266,7 +268,7 @@ function update(dt){
   else{
    if(o.type==='spike'&&!p.inv){die('トゲに当たった');}
    if(o.type==='crumble'){o.crack+=dt;if(o.crack>.7){o.gone=true;burst(p.x,p.y,'#a98',14);}}
-   const slide=o.type==='ice'?140:45+diff()*25;
+   const slide=o.type==='ice'?110:38+diff()*15;
    p.vy=-slide;p.y+=p.vy*dt;p.wallT+=dt;
    if(!o.blk)p.x=surf(o,p.y)+(p.side==='L'?R:-R);
    if(Math.random()<dt*10)G.parts.push({x:p.x+(p.side==='L'?-R:R),y:p.y-R,vx:0,vy:-20,l:.4,c:o.type==='ice'?'#cef':'#ccc',s:2});
@@ -316,9 +318,9 @@ function update(dt){
  const d=diff();
 
  // 鳥・飛行機
- if(G.maxH>2500&&Math.random()<dt*(.15+d*.5)){const fromL=Math.random()<.5;const plane=curM>=9000&&curM<50000;const sat=curM>=50000;
+ if(G.maxH>5000&&Math.random()<dt*(.07+d*.25)){const fromL=Math.random()<.5;const plane=curM>=9000&&curM<50000;const sat=curM>=50000;
   G.birds.push({x:fromL?-40:W+40,y:G.cam+rnd(H*.45,H*.95),vx:(fromL?1:-1)*rnd(90,150+d*80)*(plane?1.4:1),kind:sat?'sat':plane?'plane':'bird',t:0});}
- for(const b of G.birds){b.x+=b.vx*dt;b.t+=dt;const hr=b.kind==='plane'?22:13;if(p.st!=='dead'&&!p.inv&&Math.abs(b.x-p.x)<hr&&Math.abs(b.y-p.y)<(b.kind==='plane'?10:12)+R)die(b.kind==='bird'?'鳥にぶつかった':b.kind==='plane'?'飛行機にぶつかった':'人工衛星にぶつかった');}
+ for(const b of G.birds){b.x+=b.vx*dt;b.t+=dt;const hr=b.kind==='plane'?18:9;if(p.st!=='dead'&&!p.inv&&Math.abs(b.x-p.x)<hr&&Math.abs(b.y-p.y)<(b.kind==='plane'?10:12)+R)die(b.kind==='bird'?'鳥にぶつかった':b.kind==='plane'?'飛行機にぶつかった':'人工衛星にぶつかった');}
  G.birds=G.birds.filter(b=>b.x>-80&&b.x<W+80&&b.y>G.cam-60);
  // パーティクル・軌跡
  for(const q of G.parts){q.l-=dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy-=300*dt;}
