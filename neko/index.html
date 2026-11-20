@@ -455,7 +455,7 @@ function gotoTitle(){
 $('#btn-stage').onclick=()=>{ renderMap(); show('map'); };
 $('#btn-daily').onclick=startDailyFlow;
 $('#btn-rank').onclick=()=>{ if(window.GAMES_RANK) GAMES_RANK.show(RK_DAILY); };
-$('#btn-rules').onclick=()=>modal('あそびかた',`<p style="text-align:left">・色のエリアごとに、ねこを1匹ずつ置こう<br>・ねこは同じ行・同じ列に2匹いてはダメ<br>・ねこ同士はとなり（ななめも）に置けない<br>・まちがったマスに置くと💥でハートが減るよ<br><br><b>操作</b><br>タップ：×（メモ）をつける／消す<br>ダブルタップ：ねこを置く<br>下のボタンで「×モード」「猫モード」にすると、1回タップでそれだけ置けるよ</p>`,[{label:'OK',cls:'pink'}]);
+$('#btn-rules').onclick=()=>modal('あそびかた',`<p style="text-align:left">・色のエリアごとに、ねこを1匹ずつ置こう<br>・ねこは同じ行・同じ列に2匹いてはダメ<br>・ねこ同士はとなり（ななめも）に置けない<br>・まちがったマスに置くと💥でハートが減るよ<br><br><b>操作</b><br>タップ：×（メモ）をつける／消す<br>タップしたままなぞる：×をまとめてつける／消す<br>ダブルタップ：ねこを置く<br>下のボタンで「×モード」「猫モード」にすると、1回タップでそれだけ置けるよ</p>`,[{label:'OK',cls:'pink'}]);
 
 // ===== マップ =====
 function renderMap(){
@@ -524,7 +524,7 @@ function renderHearts(lostIdx){
   $('#hud-hearts').innerHTML=h;
 }
 function updateHint(){ const b=$('#btn-hint'); b.textContent='💡 '+game.hints; b.disabled=game.hints<=0||game.over; }
-const GUIDE={normal:'<b>タップ</b>：×（メモ）をつける／消す　<b>ダブルタップ</b>：猫を置く',x:'<b>×モード</b>：タップで×をつける／消す（猫は置かない）',cat:'<b>猫モード</b>：タップで猫を置く（まちがえるとハート−1）'};
+const GUIDE={normal:'<b>タップ</b>：×をつける／消す（<b>なぞる</b>とまとめて）　<b>ダブルタップ</b>：猫を置く',x:'<b>×モード</b>：タップで×をつける／消す（なぞるとまとめて・猫は置かない）',cat:'<b>猫モード</b>：タップで猫を置く（まちがえるとハート−1）'};
 function setMode(m){ if(game) game.mode2=m; document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===m)); $('#guide-op').innerHTML=GUIDE[m]; }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{ setMode(b.dataset.m); if(game) game.lastTap=null; });
 
@@ -554,11 +554,25 @@ function cellEl(i){ return $('#board').children[i]; }
 function drawCell(i){ const m=game.marks[i], el=cellEl(i); el.innerHTML=m===1?'<span class="x">✕</span>':m===2?CAT_SVG:''; }
 function clearHint(){ document.querySelectorAll('.cell.hint,.cell.hint-area').forEach(e=>e.classList.remove('hint','hint-area')); }
 
+// タップ＋スライド：最初のマスと同じ操作（×をつける／消す）を、なぞったマスにも続けてする
+let drag=null;
 $('#board').addEventListener('pointerdown',e=>{
   const el=e.target.closest('.cell'); if(!el||!game||game.over) return;
   e.preventDefault();
-  onTap(+el.dataset.i);
+  const i=+el.dataset.i;
+  onTap(i);
+  drag=null;
+  if(game.mode2!=='cat'&&!game.over&&game.marks[i]!==2) drag={paint:game.marks[i],last:i,id:e.pointerId};
 });
+window.addEventListener('pointermove',e=>{
+  if(!drag||!game||game.over||e.pointerId!==drag.id) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY), c=el&&el.closest&&el.closest('#board .cell');
+  if(!c) return;
+  const i=+c.dataset.i; if(i===drag.last) return;
+  drag.last=i; game.lastTap=null; clearHint();
+  if(game.marks[i]!==2&&game.marks[i]!==drag.paint){ game.marks[i]=drag.paint; drawCell(i); }
+},{passive:true});
+['pointerup','pointercancel'].forEach(ev=>window.addEventListener(ev,()=>{ drag=null; }));
 ['dblclick','contextmenu','gesturestart'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 
 function onTap(i){
