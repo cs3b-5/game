@@ -34,6 +34,8 @@ td:last-child{text-align:right;font-weight:bold}
 .ach{text-align:left;font-size:14px;padding:6px;border-bottom:1px solid #dde}
 .ach.no{opacity:.35}
 a.home{position:absolute;top:10px;left:12px;color:#fff;font-weight:bold;font-size:14px;text-decoration:none;text-shadow:0 2px 0 #123;background:rgba(18,34,51,.35);padding:5px 10px;border-radius:10px}
+#bPause{position:absolute;top:8px;right:8px;width:40px;height:40px;border:none;border-radius:12px;background:rgba(18,34,51,.45);color:#fff;font-size:20px;cursor:pointer;display:none;z-index:5}
+#bPause.show{display:block}
 #coinsTop{position:absolute;top:10px;right:12px;color:#fff;font-weight:bold;text-shadow:0 2px 0 #123}
 </style>
 </head>
@@ -58,6 +60,14 @@ a.home{position:absolute;top:10px;left:12px;color:#fff;font-weight:bold;font-siz
   <a href="../index.html" class="home">← ゲーム一覧へ</a>
 </div>
 
+<button id="bPause" aria-label="一時停止">⏸</button>
+<div id="pause" class="ov" style="background:rgba(10,20,40,.55)">
+  <div class="panel"><div style="font-size:26px;font-weight:bold">⏸ 一時停止中</div><div id="pH" style="margin-top:6px;font-size:14px"></div></div>
+  <button class="btn" id="bResume">つづける</button>
+  <button class="btn s" id="bRestart">さいしょから</button>
+  <button class="btn s" id="bQuit">タイトルへ</button>
+  <button class="btn s" id="bPSnd">音：ON</button>
+</div>
 <div id="over" class="ov">
   <div class="panel">
     <div id="oCause" style="font-size:14px;color:#c33;font-weight:bold"></div>
@@ -242,7 +252,9 @@ function down(e){if(e)e.preventDefault();if(state!=='play')return;
  if(p.st==='air'&&p.dbl>0){p.dbl--;p.vy=KY*.85;const dir=p.vx>0?-1:p.vx<0?1:(p.x<W/2?1:-1);p.vx=dir*KV;p.side=dir>0?'R':'L';SE.kick();burst(p.x,p.y,'#fff',8);}}
 function up(e){}
 cv.addEventListener('pointerdown',down);addEventListener('pointerup',up);addEventListener('pointercancel',up);
-addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat){if(state==='play')down(e);else if(state==='over'){e.preventDefault();start();}}});
+addEventListener('keydown',e=>{if((e.code==='Escape'||e.code==='KeyP')&&!e.repeat){if(state==='play')pause();else if(state==='pause')resume();return;}
+ if(e.code==='Space'&&!e.repeat&&state==='pause'){e.preventDefault();resume();return;}
+ if(e.code==='Space'&&!e.repeat){if(state==='play')down(e);else if(state==='over'){e.preventDefault();start();}}});
 addEventListener('keyup',e=>{if(e.code==='Space')up(e);});
 
 function kick(){
@@ -549,7 +561,7 @@ function drawHUD(){
  const m=toM(G.maxH);
  txt(fmtM(m),W/2,34,30);
  txt(areaOf(m).name,W/2,60,13);
- txt('● '+G.coinsGot,W-WALL-8,20,14,'right','#ffd23f');
+ txt('● '+G.coinsGot,W-WALL-8,64,14,'right','#ffd23f');
  const nx=MILES[G.mile];if(nx)txt('つぎ：'+nx[1].replace('！','')+' '+fmtM(nx[0]),WALL+8,20,11,'left');
  let iy=H-20;if(G.p.dbl){txt('⇈×'+G.p.dbl,WALL+8,iy,14,'left','#7bd389');iy-=20;}
  if(G.combo>=3&&G.comboT>0)txt(G.combo+' COMBO',W/2,110,22+Math.min(G.combo,20)*.4,'center','#ffd23f');
@@ -572,14 +584,26 @@ function drawTitleBG(){const k=cv.width/W;ctx.setTransform(k,0,0,k,0,0);
 // ---------- ループ ----------
 function loop(ts){requestAnimationFrame(loop);const dt=Math.min(.033,(ts-last)/1000||0);last=ts;
  try{if(state==='play'||state==='dying'){update(dt);draw();}
+ else if(state==='pause')draw();
  else if(state==='title')drawTitleBG();}catch(e){console.error(e);}}
 
 // ---------- 画面 ----------
-const ovs=['title','over','shop','achs'];
+const ovs=['title','over','shop','achs','pause'];
 function show(id){ovs.forEach(o=>$(o).classList.toggle('show',o===id));}
 function refreshTitle(){$('bestT').textContent='じこベスト '+fmtM(S.best)+'　/　ごうけい '+fmtM(S.total);$('coinsTop').textContent='● '+S.coins;$('bSnd').textContent='音：'+(S.snd?'ON':'OFF');}
-function start(){newGame();state='play';show(null);press=false;}
+function start(){newGame();state='play';show(null);press=false;$('bPause').classList.add('show');}
+function pause(){if(state!=='play'||G.p.st==='dead')return;state='pause';$('pH').textContent='いまの高さ '+fmtM(toM(G.maxH));$('bPSnd').textContent='音：'+(S.snd?'ON':'OFF');show('pause');$('bPause').classList.remove('show');}
+function resume(){if(state!=='pause')return;state='play';show(null);$('bPause').classList.add('show');last=performance.now();}
+$('bPause').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();pause();});
+$('bResume').onclick=resume;
+$('bRestart').onclick=()=>start();
+$('bQuit').onclick=()=>{state='title';$('bPause').classList.remove('show');refreshTitle();show('title');};
+$('bPSnd').onclick=()=>{S.snd=!S.snd;save();$('bPSnd').textContent='音：'+(S.snd?'ON':'OFF');};
+// ほかのタブ・アプリに切りかえたら自動で一時停止
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+addEventListener('blur',()=>pause());
 function gameOver(){
+ $('bPause').classList.remove('show');
  state='over';const m=toM(G.maxH),newBest=m>S.best;
  S.total+=m;S.coins+=G.coinsGot;if(newBest)S.best=m;
  S.hist.push(Math.floor(m));S.hist.sort((a,b)=>b-a);S.hist=S.hist.slice(0,10);save();
