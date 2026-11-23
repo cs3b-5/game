@@ -87,6 +87,8 @@ input[type=range] { flex: 1; accent-color: var(--accent); }
 .pop { position: fixed; pointer-events: none; font-weight: 900; font-size: 1.5rem; text-shadow: 0 2px 6px #000, 0 0 2px #000; transform: translate(-50%, -50%); animation: pop 1.4s ease-out forwards; white-space: nowrap; z-index: 15; }
 .pop small { display: block; font-size: .8rem; text-align: center; }
 @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -160%) scale(1); } }
+#tip { position: fixed; transform: translate(-50%, -100%); padding: 4px 10px; border-radius: 8px; background: rgba(0,0,0,.72); font-size: .8rem; font-weight: 800; pointer-events: none; white-space: nowrap; z-index: 14; }
+#tip i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.5); }
 #count { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--brush); font-size: 8rem; pointer-events: none; text-shadow: 0 4px 20px #000; z-index: 12; }
 .list { width: 100%; border-collapse: collapse; }
 .list td { padding: 6px 4px; border-bottom: 1px solid var(--line); }
@@ -147,21 +149,21 @@ input[type=range] { flex: 1; accent-color: var(--accent); }
   <div id="tools" class="panel"></div>
 </div>
 <div id="toast" style="opacity:0"></div>
+<div id="tip" hidden></div>
 <div id="count" hidden></div>
 
 <!-- 焼き方 -->
 <div class="modal" id="mHow" hidden><div class="panel">
   <h2>焼き方</h2>
   <ol class="steps">
-    <li><b>油</b>：ハケで鉄板をなでて油をひく（ひかないと、くっついて返せない）</li>
     <li><b>生地</b>：押しっぱなしで流す。<b>穴からあふれるくらい</b>たっぷり。あふれた分を最後にたくしこんで丸くする</li>
-    <li><b>たこ</b>：穴をタップして1つずつ。<b>天かす・ねぎ・紅しょうが</b>はなぞってパラパラ</li>
+    <li><b>たこ・天かす・ねぎ・紅しょうが</b>：タップかなぞると、通った穴にパッと入る</li>
     <li><b>切れ目</b>：ピックで穴と穴のあいだの線をなぞって、まわりの生地を切る</li>
     <li><b>返す</b>：下が固まったら（輪が<span style="color:var(--green)">緑</span>）ピックでタップ＝手前に90°、なでた方向にも返せる。2〜3回返すと丸くなる</li>
     <li><b>転がす</b>：丸くなったら、白いところが下になるように転がして全体をきつね色に。輪が<span style="color:var(--red)">赤</span>は焦げそう</li>
     <li><b>舟皿へ</b>：輪が<span style="color:#ffd84a">金</span>になったら完成。ピックで引っぱって舟皿へ。ソース・マヨ・青のり・かつお節は舟皿をタップ</li>
   </ol>
-  <p class="note">火力は上の −／＋。真ん中の穴ほど火が強い。焼けたはみ出しはピックでタップするとはがせる。<br>PC：1〜9・0 で道具の持ちかえ、[ ] で火力。</p>
+  <p class="note">火力は上の −／＋。真ん中の穴ほど火が強い。焼けたはみ出しはピックでタップするとはがせる。<br>PC：1〜9・0 で道具の持ちかえ（1 ピック・2 生地・3 たこ…）、[ ] で火力。</p>
   <div class="row" style="justify-content:flex-end"><button class="btn main" data-close>OK</button></div>
 </div></div>
 

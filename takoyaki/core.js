@@ -6,11 +6,11 @@
   const ROWS = 4, COLS = 5, N = ROWS * COLS;
   const PITCH = 1;            // 穴と穴の間かく（3Dの単位）
   const HOLE_R = 0.41;        // 穴の半径＝たこ焼きの半径
-  const COOK_K = 0.17;        // 面の焼ける速さ
-  const CORE_K = 0.036;       // 中が固まる速さ
-  const SPILL_K = 0.10;       // はみ出た生地の焼ける速さ
+  const COOK_K = 0.25;        // 面の焼ける速さ
+  const CORE_K = 0.055;       // 中が固まる速さ
+  const SPILL_K = 0.18;       // はみ出た生地の焼ける速さ
   const TURN_OK = 0.33;       // これより下の面が焼けていれば返せる
-  const POUR_RATE = 2.6;      // 生地を流す速さ（穴1杯＝1）
+  const POUR_RATE = 4.5;      // 生地を流す速さ（穴1杯＝1）
   const IDEAL_LO = 0.85, IDEAL_HI = 1.35, BURNT = 1.78;
 
   // 面の向き：{-1,0,1}^3 から 0 を除いた26方向
@@ -54,7 +54,7 @@
   function newBall() {
     return { q: [0, 0, 0, 1], cook: new Array(NP).fill(0), core: 1, shape: 0, mass: 0, tako: 0, ten: 0, negi: 0, beni: 0, lump: 0, stuck: 0, turns: 0, age: 0 };
   }
-  function newHole() { return { oil: 0, temp: 0.49, fill: 0, spill: 0, spillCook: 0, cut: 0, ball: null }; }
+  function newHole() { return { oil: 1, temp: 0.49, fill: 0, spill: 0, spillCook: 0, cut: 0, ball: null }; }
   function newState(fire) {
     const s = { fire: fire || 3, t: 0, holes: [] };
     for (let i = 0; i < N; i++) { const h = newHole(); h.temp = target(s, i); s.holes.push(h); }
@@ -106,7 +106,7 @@
     h.temp -= amt * 0.05;
     let into = 0;
     if (!h.ball || h.ball.shape < 0.12) {
-      if (!h.ball) { h.ball = newBall(); h.ball.stuck = h.oil < 0.25 ? 1 : 0; h.oil = Math.max(0, h.oil - 0.5); h.spillCook = Math.min(h.spillCook, 0.05); }
+      if (!h.ball) { h.ball = newBall(); h.spillCook = Math.min(h.spillCook, 0.05); }
       into = Math.max(0, Math.min(amt, 1.05 - h.ball.mass)); h.ball.mass += into; h.fill = h.ball.mass;
       // まだ液体の上に流すと、表面がまた生にもどる
       if (h.ball.shape < 0.12) for (let p = 0; p < NP; p++) if (PD[p][1] > -0.1) h.ball.cook[p] = Math.min(h.ball.cook[p], 0.05);
@@ -119,10 +119,10 @@
     }
     return amt;
   }
-  function addTako(s, i) { const b = s.holes[i] && s.holes[i].ball; if (!b || b.tako || b.shape > 0.35) return false; b.tako = 1; return true; }
+  function addTako(s, i) { const b = s.holes[i] && s.holes[i].ball; if (!b || b.tako || b.shape > 0.5) return false; b.tako = 1; return true; }
   function sprinkle(s, i, kind, amt) {
     const h = s.holes[i]; if (!h) return false; const b = h.ball;
-    if (b && b.shape < 0.5) { b[kind] = Math.min(1, b[kind] + amt); return true; }
+    if (b && b.shape < 0.6 && b[kind] < 1) { b[kind] = Math.min(1, b[kind] + amt); return true; }
     return false;
   }
   // まわりの生地に切れ目を入れる（edge: 0上 1右 2下 3左）
@@ -166,7 +166,7 @@
   function take(s, i) {
     const h = s.holes[i], b = h && h.ball; if (!b) return null;
     if (b.shape < 0.4) return null;
-    h.ball = null; h.fill = 0; h.oil = Math.max(0, h.oil - 0.2);
+    h.ball = null; h.fill = 0;
     return b;
   }
   function scrape(s, i) { const h = s.holes[i]; if (!h || h.spill <= 0) return false; h.spill = 0; h.spillCook = 0; h.cut = 0; return true; }
@@ -247,12 +247,11 @@
       const h = s.holes[i], b = h.ball;
       if (!b) {
         if (h.spill > 0.05 && h.spillCook > 0.4) return { a: 'scrape', i };
-        if (h.oil < 0.6) return { a: 'oil', i };
-        if (!mem.noPour) return { a: 'pour', i, amt: 0.35 };
+        if (!mem.noPour) return { a: 'pour', i, amt: 1.0 };
         continue;
       }
-      if (b.shape < 0.1 && b.mass < 1.0) return { a: 'pour', i, amt: 0.35 };
-      if (b.shape < 0.1 && h.spill < 0.75 && !mem.noPour) return { a: 'pour', i, amt: 0.35 };
+      if (b.shape < 0.1 && b.mass < 1.0) return { a: 'pour', i, amt: 1.0 };
+      if (b.shape < 0.1 && h.spill < 0.75 && !mem.noPour) return { a: 'pour', i, amt: 1.0 };
       if (!b.tako && b.shape < 0.3) return { a: 'tako', i };
       if (b.ten < 0.5 && b.shape < 0.4) return { a: 'ten', i };
       if (b.negi < 0.5 && b.shape < 0.4) return { a: 'negi', i };
@@ -305,7 +304,7 @@
     rnd = rnd || Math.random;
     const cnt = [4, 6, 6, 8, 8, 10][Math.floor(rnd() * 6)];
     const pat = [['sauce', 'mayo', 'aonori', 'katsuo'], ['sauce', 'mayo', 'aonori', 'katsuo'], ['sauce', 'aonori', 'katsuo'], ['sauce', 'mayo'], ['sauce', 'katsuo'], ['mayo', 'aonori'], [], ['sauce', 'mayo', 'katsuo']][Math.floor(rnd() * 8)];
-    return { id: n, who: CUSTOMERS[Math.floor(rnd() * CUSTOMERS.length)], cnt, tops: pat, wait: 60 + cnt * 9 };
+    return { id: n, who: CUSTOMERS[Math.floor(rnd() * CUSTOMERS.length)], cnt, tops: pat, wait: 40 + cnt * 6 };
   }
   // 注文の採点
   function scoreOrder(o, balls, tops, waited) {

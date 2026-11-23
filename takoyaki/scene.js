@@ -7,7 +7,8 @@ const R = T.HOLE_R * 0.985;
 const PW = T.COLS * T.PITCH + 1.3, PH = T.ROWS * T.PITCH + 1.3; // 鉄板の大きさ
 
 // ---------- 色 ----------
-const RAMP = [[0, [0.86, 0.78, 0.56]], [0.3, [0.92, 0.8, 0.5]], [0.65, [0.93, 0.68, 0.32]], [1.0, [0.8, 0.48, 0.17]], [1.35, [0.58, 0.3, 0.1]], [1.8, [0.24, 0.13, 0.06]], [2.4, [0.07, 0.05, 0.04]]];
+// 生（白っぽいクリーム）→ 固まる（うす黄色）→ きつね色 → こげ茶 → 黒。段階ごとに色がはっきり変わるようにしてある
+const RAMP = [[0, [0.9, 0.88, 0.8]], [0.3, [0.96, 0.9, 0.6]], [0.65, [0.98, 0.76, 0.32]], [1.0, [0.88, 0.5, 0.16]], [1.35, [0.56, 0.27, 0.08]], [1.8, [0.2, 0.1, 0.05]], [2.4, [0.04, 0.035, 0.03]]];
 function rampSRGB(c, out) {
   if (c <= 0) { out[0] = RAMP[0][1][0]; out[1] = RAMP[0][1][1]; out[2] = RAMP[0][1][2]; return out; }
   for (let k = 1; k < RAMP.length; k++) {
@@ -81,8 +82,12 @@ export function createScene(canvas, opt) {
   const PR_MAX = Math.min(window.devicePixelRatio || 1, q === 2 ? 1.5 : q === 1 ? 1.25 : 1);
   let pr = PR_MAX; renderer.setPixelRatio(pr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-  renderer.shadowMap.enabled = q > 0; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
+  renderer.shadowMap.enabled = false; // 影は重いので、置き物の下に丸いうその影を敷く
+  let gpuName = '';
+  try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); gpuName = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) {}
+  const softGL = /swiftshader|software|llvmpipe|basic render|microsoft basic/i.test(gpuName);
+  if (softGL) { pr = Math.min(pr, 0.6); renderer.setPixelRatio(pr); }
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0d0805); scene.fog = new THREE.Fog(0x0d0805, 16, 34);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 80);
 
@@ -95,7 +100,7 @@ export function createScene(canvas, opt) {
     scene.environment = pm.fromScene(env, 0.03).texture; scene.environmentIntensity = 0.55; pm.dispose();
   }
   // ライト：上からのスポット（動画みたいに真ん中だけ明るい）
-  const spot = new THREE.SpotLight(0xffe4c4, 260, 40, 0.62, 0.65, 1.6);
+  const spot = new THREE.SpotLight(0xfff2e2, 250, 40, 0.62, 0.65, 1.6);
   spot.position.set(0.6, 13, 2.2); spot.target.position.set(0, 0, 0.6);
   spot.castShadow = q > 0; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.02; spot.shadow.radius = 4;
   scene.add(spot, spot.target);
@@ -109,6 +114,10 @@ export function createScene(canvas, opt) {
   const table = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.62, metalness: 0, bumpMap: woodTex, bumpScale: 0.6 }));
   table.rotation.x = -Math.PI / 2; table.position.y = -1.05; table.receiveShadow = true; scene.add(table);
   const TY = -1.05; // テーブルの高さ
+  const blobTex = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c; })());
+  const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+  function blob(parent, w, d, y) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), blobMat); m.rotation.x = -Math.PI / 2; m.position.y = y ?? 0.004; parent.add(m); return m; }
+  { const b = blob(scene, PW + 1.6, PH + 1.4, TY + 0.003); b.position.z = 0.15; }
 
   // ---------- コンロ（台＋火） ----------
   const steel = new THREE.MeshStandardMaterial({ color: 0x8b8b8b, metalness: 0.85, roughness: 0.38 });
@@ -261,7 +270,7 @@ export function createScene(canvas, opt) {
       const x = p.getX(v) / R, y = p.getY(v) / R, z = p.getZ(v) / R; vDir[v * 3] = x; vDir[v * 3 + 1] = y; vDir[v * 3 + 2] = z;
       const ws = T.PD.map((d, k) => [Math.pow(Math.max(0, d[0] * x + d[1] * y + d[2] * z - 0.6), 2), k]).sort((a, b) => b[0] - a[0]).slice(0, 4);
       const sum = ws.reduce((a, w) => a + w[0], 0) || 1; ws.forEach((w, k) => { vW[v * 4 + k] = w[0] / sum; vI[v * 4 + k] = w[1]; });
-      vJ[v] = (r() - 0.5) * 0.16 + (Math.sin(x * 9 + y * 7) * Math.cos(z * 8)) * 0.07;
+      vJ[v] = (r() - 0.5) * 0.1 + (Math.sin(x * 9 + y * 7) * Math.cos(z * 8)) * 0.05;
     }
   }
   // たこ
@@ -309,7 +318,7 @@ export function createScene(canvas, opt) {
       opts = opts || {};
       const g = this.group; g.visible = true; g.position.set(x, y, z);
       _tq.set(b.q[0], b.q[1], b.q[2], b.q[3]);
-      if (!this.qInit) { this.dq.copy(_tq); this.qInit = true; } else if (this.dq.angleTo(_tq) > 0.001) this.dq.slerp(_tq, 1 - Math.exp(-dt * 14)); else this.dq.copy(_tq);
+      if (!this.qInit) { this.dq.copy(_tq); this.qInit = true; } else if (this.dq.angleTo(_tq) > 0.001) this.dq.slerp(_tq, 1 - Math.exp(-dt * 24)); else this.dq.copy(_tq);
       this.mesh.quaternion.copy(this.dq);
       // 液面の高さ
       _inv.copy(this.dq).invert(); _up.set(0, 1, 0).applyQuaternion(_inv); const up = _up;
@@ -371,6 +380,7 @@ export function createScene(canvas, opt) {
       const f = new THREE.Mesh(new THREE.CircleGeometry(r * 0.86, 32), fillMat); f.rotation.x = -Math.PI / 2; f.position.y = r * 0.36; g.add(f);
       if (fillKind) scatter(g, bitGeo[fillKind] || bitGeo.ten, bitMat[fillKind] || fillMat, 30, Math.round(x * 100 + z), rr => { const a = rr() * 7, d = rr() * r * 0.75; return [Math.cos(a) * d, r * 0.38 + rr() * 0.04, Math.sin(a) * d, 1.6]; });
     }
+    blob(g, r * 3, r * 3);
     g.position.set(x, TY, z); g.userData.tool = tool; scene.add(g); props.push(g); return g;
   }
   // 生地のピッチャー
@@ -385,7 +395,7 @@ export function createScene(canvas, opt) {
     const sp = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 12, 1, true), glass); sp.rotation.z = Math.PI / 2; sp.position.set(-0.47, 0.95, 0); g.add(sp);
     g.traverse(o => { o.castShadow = true; }); return g;
   }
-  const pitcherProp = pitcher(); pitcherProp.position.set(-4.5, TY, 2.75); pitcherProp.userData.tool = 'pour'; scene.add(pitcherProp); props.push(pitcherProp);
+  const pitcherProp = pitcher(); blob(pitcherProp, 1.4, 1.4); pitcherProp.position.set(-4.5, TY, 2.75); pitcherProp.userData.tool = 'pour'; scene.add(pitcherProp); props.push(pitcherProp);
   // 油（小さい器＋ハケ）
   function brushModel() {
     const g = new THREE.Group();
@@ -407,7 +417,7 @@ export function createScene(canvas, opt) {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, h, 20), new THREE.MeshStandardMaterial({ color: col, roughness: 0.25 })); b.position.y = h / 2; g.add(b);
     const s = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.3, 20), new THREE.MeshStandardMaterial({ color: cap, roughness: 0.4 })); s.position.y = h + 0.15; g.add(s);
     const n = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.12, 8), new THREE.MeshStandardMaterial({ color: cap })); n.position.y = h + 0.34; g.add(n);
-    g.traverse(o => o.castShadow = true); g.position.set(x, TY, z); g.userData.tool = tool; scene.add(g); props.push(g); return g;
+    blob(g, 0.9, 0.9); g.position.set(x, TY, z); g.userData.tool = tool; scene.add(g); props.push(g); return g;
   }
   bottle(4.4, 2.6, 0x3b1a0c, 0xd23a20, 'sauce', 0.9);
   bottle(5.0, 3.05, 0xf6ecd0, 0xd8202a, 'mayo', 0.78);
@@ -436,7 +446,7 @@ export function createScene(canvas, opt) {
     constructor() {
       this.g = new THREE.Group();
       const rim = new THREE.Mesh(bg.rim, dishMat), fl = new THREE.Mesh(bg.floor, dishMat); rim.castShadow = fl.receiveShadow = rim.receiveShadow = true; this.g.add(rim, fl);
-      this.g.position.y = TY + 0.004; scene.add(this.g);
+      this.g.position.y = TY + 0.004; scene.add(this.g); blob(this.g, 5.0, 2.4, 0.001);
       this.views = []; this.tops = {}; this.mayo = null; this.nori = null; this.katsuo = null; this.label = null; this.highlight = 0;
       this.glow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.1), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false })); this.glow.rotation.x = -Math.PI / 2; this.glow.position.y = 0.005; this.g.add(this.glow);
     }
@@ -680,11 +690,11 @@ export function createScene(canvas, opt) {
     if (fpsAcc >= 1.5) { const fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; lastFps = fps;
       // ほかのウィンドウを触っているとき（perf.js が30fpsにしている）は判定しない
       const active = !document.hidden && (!document.hasFocus || document.hasFocus());
-      let np = pr; if (!active) np = pr; else if (fps < 40) np = Math.max(0.7, pr - 0.15); else if (fps > 56 && pr < PR_MAX) np = Math.min(PR_MAX, pr + 0.1);
+      let np = pr; if (!active) np = pr; else if (fps < 40) np = Math.max(0.5, pr - (fps < 25 ? 0.25 : 0.15)); else if (fps > 56 && pr < PR_MAX) np = Math.min(PR_MAX, pr + 0.1);
       if (Math.abs(np - pr) > 0.01) { pr = np; renderer.setPixelRatio(pr); layout(); } }
     const tJ = performance.now(); renderer.render(scene, camera); prof.js = prof.js * 0.9 + (tJ - tU0) * 0.1; prof.gl = prof.gl * 0.9 + (performance.now() - tJ) * 0.1;
   }
   function setSeat(s) { seat = s; }
   addEventListener('resize', layout);
-  return { prof, get fps() { return lastFps; }, get pr() { return pr; }, update, pickAt, project, dishScreen, setDishes, setSeat, screenDirToWorld, emit, layout, renderer, get seat() { return seat; }, TY, R, css };
+  return { softGL, gpuName, prof, get fps() { return lastFps; }, get pr() { return pr; }, update, pickAt, project, dishScreen, setDishes, setSeat, screenDirToWorld, emit, layout, renderer, get seat() { return seat; }, TY, R, css };
 }

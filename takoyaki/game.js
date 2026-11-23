@@ -44,12 +44,12 @@ const ICON = {
   aonori: '<rect x="10" y="11" width="12" height="17" rx="3" fill="#2f6b2a"/><rect x="10" y="7" width="12" height="5" rx="2" fill="#e9e3d0"/>',
   katsuo: '<g fill="#d7a682"><path d="M7 17q5-6 9 0q-4 4-9 0z"/><path d="M15 12q5-5 9 1q-5 3-9-1z"/><path d="M14 22q5-4 10 1q-5 3-10-1z"/></g>',
 };
-const TOOLS = [['pick', 'ピック', '1'], ['oil', '油', '2'], ['pour', '生地', '3'], ['tako', 'たこ', '4'], ['ten', '天かす', '5'], ['negi', 'ねぎ', '6'], ['beni', '紅しょうが', '7'], null, ['sauce', 'ソース', '8'], ['mayo', 'マヨ', '9'], ['aonori', '青のり', '0'], ['katsuo', 'かつお節', '-']];
+const TOOLS = [['pick', 'ピック', '1'], ['pour', '生地', '2'], ['tako', 'たこ', '3'], ['ten', '天かす', '4'], ['negi', 'ねぎ', '5'], ['beni', '紅しょうが', '6'], null, ['sauce', 'ソース', '7'], ['mayo', 'マヨ', '8'], ['aonori', '青のり', '9'], ['katsuo', 'かつお節', '0']];
 const TOPPING = ['sauce', 'mayo', 'aonori', 'katsuo'];
 const HINT = {
   pick: '下が固まったらタップで返す・なでた方向に返す／線をなぞって切れ目／引っぱって舟皿へ',
-  oil: '鉄板をなでて油をひく', pour: '押しっぱなしで流す。あふれるくらいがちょうどいい', tako: '穴をタップしてたこを入れる',
-  ten: 'なぞってパラパラ', negi: 'なぞってパラパラ', beni: 'なぞってパラパラ',
+  pour: '押しっぱなしで流す。あふれるくらいがちょうどいい', tako: 'タップかなぞる → 通った穴にパッと入る',
+  ten: 'タップかなぞる → 通った穴にパッと入る', negi: 'タップかなぞる → 通った穴にパッと入る', beni: 'タップかなぞる → 通った穴にパッと入る',
   sauce: '舟皿をタップ', mayo: '舟皿をタップ', aonori: '舟皿をタップ', katsuo: '舟皿をタップ',
 };
 function buildTools() {
@@ -124,8 +124,7 @@ function handleEv(e) {
     case 'tako': SND.plop(); break;
     case 'scrape': SND.clink(0.08); SND.brush(); break;
     case 'turn':
-      if (e.stuck) { SND.squish(); if (me) toast('くっついた！油をひいてから焼こう'); }
-      else if (e.broke) { SND.squish(); if (me) toast('早すぎてくずれた！下が固まるまで待とう'); }
+      if (e.broke) { SND.squish(); if (me) toast('早すぎてくずれた！下が固まるまで待とう'); }
       else { SND.roll(true); if (me && e.torn) toast('切れ目が足りなくて生地がちぎれた'); }
       break;
     case 'nope': if (me) toast('まだ液体！丸くなってから'); break;
@@ -185,7 +184,7 @@ cv.addEventListener('pointerdown', e => {
   if (!playing) return;
   try { cv.setPointerCapture(e.pointerId); } catch (x) {}
   const p = SC.pickAt(e.clientX, e.clientY); cur.x = p.x; cur.z = p.z; cur.on = true;
-  if (p.prop && !(mode === 'online' && TOPPING.includes(p.prop))) { setTool(p.prop); return; }
+  if (p.prop && p.prop !== 'oil' && !(mode === 'online' && TOPPING.includes(p.prop))) { setTool(p.prop); return; }
   ptr = { down: true, id: e.pointerId, sx: e.clientX, sy: e.clientY, x: p.x, z: p.z, lx: p.x, lz: p.z, t0: performance.now(), kind: null, moved: 0 };
   if (tool === 'pick') {
     const i = T.holeAt(p.x, p.z, 0.47);
@@ -193,8 +192,12 @@ cv.addEventListener('pointerdown', e => {
     else if (inPlate(p.x, p.z)) { ptr.kind = 'cut'; ptr.tapI = nearestHole(p.x, p.z, 0.6); checkCut(p.x, p.z); SND.tick(); }
   } else if (tool === 'oil') { ptr.kind = 'oil'; }
   else if (tool === 'pour') { ptr.kind = 'pour'; SND.pourOn(true); }
-  else if (tool === 'tako') { const i = nearestHole(p.x, p.z, 0.55); if (i >= 0) { if (!S.holes[i].ball) toast('先に生地を流そう'); else if (S.holes[i].ball.tako) toast('もう入ってる'); else if (S.holes[i].ball.shape > 0.35) toast('もう固まってて入らない'); else doAct({ t: 'tako', i }); } }
-  else if (['ten', 'negi', 'beni'].includes(tool)) { ptr.kind = 'spr'; }
+  else if (tool === 'tako' || ['ten', 'negi', 'beni'].includes(tool)) {
+    ptr.kind = 'gu'; ptr.done = new Set();
+    const i = nearestHole(p.x, p.z, 0.6); if (i >= 0 && !S.holes[i].ball) toast('先に生地を流そう');
+    else if (i >= 0 && tool === 'tako' && S.holes[i].ball.shape > 0.5) toast('もう固まってて入らない');
+    putGu(p.x, p.z);
+  }
   else if (TOPPING.includes(tool)) {
     if (p.dish >= 0) topDish(tool); else toast('舟皿をタップしてね');
   }
@@ -215,8 +218,7 @@ cv.addEventListener('pointermove', e => {
       else if (!ptr.warned) { ptr.warned = true; toast('まだ液体！丸くなってから'); }
     }
   }
-  if (ptr.kind === 'oil' && Math.hypot(p.x - ptr.lx, p.z - ptr.lz) > 0.05) SND.brush();
-  if (ptr.kind === 'spr' && Math.hypot(p.x - ptr.lx, p.z - ptr.lz) > 0.05) SND.sprinkle();
+  if (ptr.kind === 'gu') { const n = Math.ceil(Math.hypot(p.x - ptr.lx, p.z - ptr.lz) / 0.15); for (let k = 1; k <= n; k++) putGu(ptr.lx + (p.x - ptr.lx) * k / n, ptr.lz + (p.z - ptr.lz) * k / n); }
   ptr.lx = p.x; ptr.lz = p.z; ptr.x = p.x; ptr.z = p.z;
 });
 function endPtr(e) {
@@ -245,11 +247,15 @@ function continuous(dt) {
   const { x, z } = ptr;
   if (ptr.kind === 'pour') {
     const i = nearestHole(x, z, 0.75); if (i >= 0) doAct({ t: 'pour', i, amt: T.POUR_RATE * dt });
-  } else if (ptr.kind === 'oil') {
-    for (const i of holesNear(x, z, 0.62)) doAct({ t: 'oil', i, amt: 3 * dt });
-  } else if (ptr.kind === 'spr') {
-    for (const i of holesNear(x, z, 0.58)) doAct({ t: 'spr', i, k: tool, amt: 1.6 * dt });
-    if (Math.random() < dt * 6) SND.sprinkle();
+    for (const j of holesNear(x, z, 0.95)) if (j !== i) doAct({ t: 'pour', i: j, amt: T.POUR_RATE * dt * 0.35 });
+  }
+}
+// 具材：ピックやスプーンが通った穴にそのまま入る（1つの穴に1回だけ）
+function putGu(x, z) {
+  for (const i of holesNear(x, z, 0.5)) {
+    if (ptr.done && ptr.done.has(i)) continue; const b = S.holes[i].ball; if (!b) continue;
+    if (tool === 'tako') { if (!b.tako && b.shape <= 0.5) { doAct({ t: 'tako', i }); ptr.done && ptr.done.add(i); } }
+    else if (b[tool] < 0.99 && b.shape < 0.6) { doAct({ t: 'spr', i, k: tool, amt: 1 }); SND.sprinkle(); ptr.done && ptr.done.add(i); }
   }
 }
 function topDish(k) {
@@ -285,7 +291,7 @@ function startFree() {
 function startChallenge() {
   SND.init(); resetPlate(3); dishes = [{ balls: [], tops: {} }]; mySeat = 0;
   SC.setSeat(0); SC.setDishes([Object.assign(SEAT_POS(0), { label: 'お渡し' })]);
-  G = { mode: 'challenge', left: 240, total: 240, score: 0, n: 0, done: 0, sum: 0, cnt: 0, left2: 0, log: [] };
+  G = { mode: 'challenge', left: 180, total: 180, score: 0, n: 0, done: 0, sum: 0, cnt: 0, left2: 0, log: [] };
   newOrder(); enterPlay('challenge'); countdown(() => { G.go = true; });
   if (!SV.seenHow) { SV.seenHow = 1; save(); showModal('mHow', true); }
 }
@@ -418,19 +424,34 @@ function guideColorsRaw() {
     return null;
   });
 }
-const STEPS = ['油をひく', '生地をあふれるくらい流す', 'たこ・天かす・ねぎを入れる', 'まわりの生地に切れ目', '下が固まったら返す（2〜3回）', '転がして全体をきつね色に', '金の輪になったら舟皿へ'];
+const STEPS = ['生地をあふれるくらい流す', 'たこ・天かす・ねぎを入れる', 'まわりの生地に切れ目', '下が固まったら返す（2〜3回）', '転がして全体をきつね色に', '金の輪になったら舟皿へ'];
 let guideT = 0;
 function drawGuideBox(dt) {
   if (mode === 'online' || !playing) return; guideT -= dt; if (guideT > 0) return; guideT = 0.4;
   const hs = S.holes, balls = hs.filter(h => h.ball).map(h => h.ball);
   let st = 0;
-  if (!balls.length) st = hs.some(h => h.oil > 0.4) ? 1 : 0;
-  else if (balls.some(b => b.shape < 0.1 && b.mass < 0.95)) st = 1;
-  else if (balls.some(b => !b.tako && b.shape < 0.3)) st = 2;
-  else if (hs.some((h, i) => h.ball && h.spill > 0.1 && T.cutFrac(S, i) < 1 && h.ball.shape < 0.9)) st = 3;
-  else if (balls.some(b => b.shape < 0.9)) st = 4;
-  else st = guideColors() && guideColors().some(c => c === '#ffd84a') ? 6 : 5;
+  if (!balls.length || balls.some(b => b.shape < 0.1 && b.mass < 0.95)) st = 0;
+  else if (balls.some(b => !b.tako && b.shape < 0.3)) st = 1;
+  else if (hs.some((h, i) => h.ball && h.spill > 0.1 && T.cutFrac(S, i) < 1 && h.ball.shape < 0.9)) st = 2;
+  else if (balls.some(b => b.shape < 0.9)) st = 3;
+  else st = guideColors() && guideColors().some(c => c === '#ffd84a') ? 5 : 4;
   setHTML('guideBox', `<b>焼き方</b><ol>${STEPS.map((s, k) => `<li class="${k === st ? 'now' : ''}">${s}</li>`).join('')}</ol>`);
+}
+
+// ピックを向けたたこ焼きの「下の面」の焼け具合を出す（下は見えないので）
+const BOTTOM = [[T.TURN_OK, '生（まだ返せない）'], [0.85, '固まった（返せる）'], [1.35, 'きつね色'], [1.75, 'こげ茶'], [99, '焦げてる！']];
+function drawTip() {
+  const el = $('tip');
+  const i = playing && tool === 'pick' && cur.on && !(ptr.down && ptr.lift) ? T.holeAt(cur.x, cur.z, 0.47) : -1;
+  const b = i >= 0 && S.holes[i].ball;
+  if (!b) { if (!el.hidden) el.hidden = true; return; }
+  const bc = T.bottomCook(b), lab = BOTTOM.find(x => bc < x[0])[1];
+  let ok = 0; for (const c of b.cook) if (c >= T.IDEAL_LO && c <= T.IDEAL_HI) ok++;
+  const pct = Math.round(ok / b.cook.length * 100);
+  const html = `<i style="background:${SC.css(bc)}"></i>下：${lab}${b.shape > 0.9 ? `・きつね色 ${pct}%` : b.shape < 0.4 ? '・まだ液体' : ''}${b.core > 0.35 && b.shape > 0.9 ? '・中はまだトロトロ' : ''}`;
+  setHTML('tip', html);
+  const hp = T.holePos(i), p = SC.project(hp[0], 0.55, hp[1]);
+  el.style.left = Math.round(p[0]) + 'px'; el.style.top = Math.round(p[1]) + 'px'; el.hidden = false;
 }
 
 // ================= 設定 =================
@@ -621,7 +642,7 @@ function botAct() {
   if (mode === 'challenge' && G.cur && dishes[0].balls.length >= G.cur.cnt) { for (const t of G.cur.tops) dishes[0].tops[t] = true; handOver(); return; }
   if (mode === 'free' && dishes[0].balls.length >= 8) { dishes[0] = { balls: [], tops: {} }; }
   const p = T.autoPlan(S, botMem); if (!p) return;
-  const map = { oil: () => apply({ t: 'oil', i: p.i, amt: 1 }), pour: () => apply({ t: 'pour', i: p.i, amt: p.amt }), tako: () => apply({ t: 'tako', i: p.i }), ten: () => apply({ t: 'spr', i: p.i, k: 'ten', amt: 0.6 }), negi: () => apply({ t: 'spr', i: p.i, k: 'negi', amt: 0.6 }), cut: () => apply({ t: 'cut', i: p.i, e: p.e }), scrape: () => apply({ t: 'scrape', i: p.i }), turn: () => apply({ t: 'turn', i: p.i, ax: p.ax, ang: p.ang }, 0), take: () => apply({ t: 'serve', i: p.i, d: 0 }, 0) };
+  const map = { pour: () => apply({ t: 'pour', i: p.i, amt: p.amt }), tako: () => apply({ t: 'tako', i: p.i }), ten: () => apply({ t: 'spr', i: p.i, k: 'ten', amt: 1 }), negi: () => apply({ t: 'spr', i: p.i, k: 'negi', amt: 1 }), cut: () => apply({ t: 'cut', i: p.i, e: p.e }), scrape: () => apply({ t: 'scrape', i: p.i }), turn: () => apply({ t: 'turn', i: p.i, ax: p.ax, ang: p.ang }, 0), take: () => apply({ t: 'serve', i: p.i, d: 0 }, 0) };
   map[p.a] && map[p.a]();
 }
 
@@ -684,12 +705,14 @@ function draw(rdt) {
     view.dishes = dishes.map(d => ({ balls: d.balls, tops: d.tops }));
   }
   if (!NORENDER) SC.update(S, rdt, view);
+  drawTip();
   if (SHOWFPS) setText('err', `${Math.round(SC.fps)}fps ×${SC.pr.toFixed(2)}`);
 }
 function THREE_COL(hex) { return parseInt(hex.slice(1), 16); }
 
 // ================= はじめ =================
 applyVol();
+if (SC.softGL) setTimeout(() => toast('グラフィックの「ハードウェアアクセラレーション」がオフかも。Edgeの設定→システム でオンにすると軽くなる', 7000), 1200);
 if (window.GAMES_RANK) GAMES_RANK.mount('takoyaki');
 toTitle();
 requestAnimationFrame(frame);
