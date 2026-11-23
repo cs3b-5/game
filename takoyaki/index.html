@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<script src="../perf.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>たこ焼きシミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap">
+<style>
+:root { --ink: #f6ede0; --dim: rgba(246,237,224,.6); --panel: rgba(18,11,6,.78); --line: rgba(255,220,170,.22); --accent: #ffb347; --red: #ff5a4e; --green: #6fe08a;
+  --font: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif; --brush: "Yuji Syuku", "Dela Gothic One", serif; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0805; color: var(--ink); font-family: var(--font); user-select: none; -webkit-user-select: none; touch-action: none; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%); }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+.btn { background: rgba(30,18,10,.82); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 18px; font-weight: 800; letter-spacing: .04em; transition: background .15s, transform .08s; color: var(--ink); }
+.btn:hover { background: rgba(70,40,18,.9); } .btn:active { transform: scale(.97); }
+.btn.main { background: linear-gradient(#e2832e, #b8571a); border-color: #ffcf8a; color: #fff; }
+.btn.small { padding: 6px 12px; font-size: .85rem; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+/* タイトル */
+#title { position: fixed; inset: 0; display: flex; align-items: center; padding: 0 6vw; background: linear-gradient(90deg, rgba(8,4,2,.85) 0%, rgba(8,4,2,.55) 40%, rgba(8,4,2,0) 70%); }
+#title .box { max-width: 420px; }
+.logo { font-family: var(--brush); line-height: .9; }
+.logo .jp { font-size: clamp(1.2rem, 4.2vw, 2rem); letter-spacing: .08em; white-space: nowrap; }
+.logo .en { font-size: clamp(3.2rem, 13vw, 6.4rem); color: #fff; text-shadow: 0 4px 18px rgba(0,0,0,.6); }
+.logo .sm { font-size: clamp(1.2rem, 4vw, 2rem); text-align: right; letter-spacing: .14em; margin-top: -2px; color: #ffcf8a; }
+#menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 26px; }
+#menu .wide { grid-column: span 2; }
+.hello { margin-top: 14px; color: var(--dim); font-size: .85rem; }
+a.back { color: var(--dim); font-size: .85rem; text-decoration: none; display: inline-block; margin-top: 16px; }
+@media (max-aspect-ratio: 9/10) {
+  #title { align-items: flex-end; padding: 0 5vw 6vh; background: linear-gradient(0deg, rgba(8,4,2,.92) 0%, rgba(8,4,2,.6) 55%, rgba(8,4,2,0) 80%); }
+  #title .box { max-width: none; width: 100%; }
+}
+/* 画面中央のパネル */
+.modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); z-index: 20; padding: 16px; }
+.modal .panel { width: min(520px, 100%); max-height: 90vh; overflow: auto; padding: 20px 22px; }
+.modal h2 { font-family: var(--brush); font-weight: 400; font-size: 1.8rem; margin: 0 0 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+input[type=text], textarea { font: inherit; background: rgba(0,0,0,.35); color: var(--ink); border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+input[type=range] { flex: 1; accent-color: var(--accent); }
+.steps { margin: 0; padding-left: 1.3em; line-height: 1.75; font-size: .93rem; }
+.steps b { color: var(--accent); }
+.note { color: var(--dim); font-size: .82rem; line-height: 1.6; }
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+#topL { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 12px; display: flex; align-items: center; gap: 10px; }
+#tlabel { font-size: .8rem; font-weight: 800; }
+#tbar { width: min(260px, 32vw); height: 12px; background: rgba(255,255,255,.12); border-radius: 6px; overflow: hidden; }
+#tbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ffe3b0, #fff); transition: width .3s linear; }
+#ttext { font-weight: 900; font-variant-numeric: tabular-nums; min-width: 3.2em; }
+#fireC { position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px 8px; }
+#fireC button { width: 34px; height: 34px; border-radius: 8px; background: rgba(255,255,255,.08); font-size: 1.2rem; font-weight: 900; }
+#fireV { width: 34px; text-align: center; font-size: 1.4rem; font-weight: 900; color: var(--red); font-variant-numeric: tabular-nums; }
+#fireIc { width: 22px; height: 22px; }
+#topR { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; display: flex; gap: 8px; align-items: center; }
+#score { font-size: 1.5rem; font-weight: 900; font-variant-numeric: tabular-nums; text-shadow: 0 2px 6px #000; }
+#players { position: fixed; top: 54px; right: 12px; display: flex; flex-direction: column; gap: 4px; font-size: .85rem; }
+#players div { padding: 3px 10px; border-radius: 8px; background: rgba(0,0,0,.45); display: flex; gap: 10px; justify-content: space-between; min-width: 140px; }
+#tools { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(10px, env(safe-area-inset-bottom)); display: flex; gap: 6px; padding: 6px; max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none; }
+#tools::-webkit-scrollbar { display: none; }
+#tools button { flex: 0 0 auto; min-width: 58px; padding: 6px 6px 5px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1.5px solid transparent; font-size: .74rem; font-weight: 800; display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.1; }
+#tools button .ic { width: 28px; height: 28px; }
+#tools button.on { border-color: var(--accent); background: rgba(255,179,71,.18); }
+#tools button kbd { font-size: .6rem; opacity: .5; font-family: inherit; }
+#tools .sep { width: 1px; background: var(--line); margin: 4px 2px; flex: 0 0 auto; }
+#hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 74px); font-size: .82rem; color: var(--dim); text-shadow: 0 1px 4px #000; white-space: nowrap; pointer-events: none; }
+#toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); padding: 8px 18px; font-weight: 800; border-radius: 999px; background: rgba(0,0,0,.65); pointer-events: none; transition: opacity .3s; white-space: nowrap; }
+#order { position: fixed; left: 12px; top: 60px; width: 210px; padding: 10px 12px; font-size: .88rem; }
+#order .who { font-weight: 900; }
+#order .cnt { font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+#order .tops { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+#order .tops span { padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.1); font-size: .78rem; }
+#order .tops span.ok { background: rgba(111,224,138,.3); }
+#order .pat { height: 6px; background: rgba(255,255,255,.12); border-radius: 3px; overflow: hidden; }
+#order .pat i { display: block; height: 100%; background: var(--green); }
+#order .next { margin-top: 8px; font-size: .75rem; color: var(--dim); }
+#dishBtns { position: fixed; display: flex; gap: 6px; transform: translate(-50%, 0); }
+#guideBox { position: fixed; left: 12px; bottom: 96px; width: 250px; padding: 10px 12px; font-size: .8rem; }
+#guideBox ol { margin: 4px 0 0; padding-left: 1.2em; line-height: 1.55; }
+#guideBox li.now { color: var(--accent); font-weight: 900; }
+.pop { position: fixed; pointer-events: none; font-weight: 900; font-size: 1.5rem; text-shadow: 0 2px 6px #000, 0 0 2px #000; transform: translate(-50%, -50%); animation: pop 1.4s ease-out forwards; white-space: nowrap; z-index: 15; }
+.pop small { display: block; font-size: .8rem; text-align: center; }
+@keyframes pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -160%) scale(1); } }
+#count { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--brush); font-size: 8rem; pointer-events: none; text-shadow: 0 4px 20px #000; z-index: 12; }
+.list { width: 100%; border-collapse: collapse; }
+.list td { padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.list td:last-child { text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; }
+.list tr.me td { color: var(--accent); }
+.big { font-size: 2.6rem; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
+.grades { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin: 10px 0; }
+.grades div { background: rgba(255,255,255,.06); border-radius: 8px; padding: 6px; text-align: center; font-size: .8rem; }
+.grades b { display: block; font-size: 1.1rem; }
+.code { font-size: 2.4rem; font-weight: 900; letter-spacing: .3em; text-align: center; font-variant-numeric: tabular-nums; }
+#err { position: fixed; left: 8px; bottom: 8px; font-size: .75rem; color: #f88; z-index: 50; }
+@media (max-width: 700px) {
+  #order { top: auto; bottom: 150px; width: 170px; font-size: .8rem; padding: 8px 10px; }
+  #order .cnt { font-size: 1.2rem; }
+  #guideBox { display: none; }
+  #fireC { top: 44px; }
+  #fireC button { width: 30px; height: 30px; }
+  #players { top: 92px; }
+  #tbar { width: 26vw; }
+  #tools { left: 62px; transform: none; max-width: calc(100vw - 70px); }
+  #hint { white-space: normal; width: 94vw; text-align: center; font-size: .72rem; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 70px); }
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="vig"></div>
+
+<!-- タイトル -->
+<div id="title">
+  <div class="box">
+    <div class="logo"><div class="jp">たこ焼きシミュレーター</div><div class="en">TAKOYAKI</div><div class="sm">SIMULATOR</div></div>
+    <div id="menu">
+      <button class="btn main" data-go="challenge">チャレンジ</button>
+      <button class="btn main" data-go="online">オンライン対戦</button>
+      <button class="btn" data-go="free">フリーモード</button>
+      <button class="btn" data-go="howto">焼き方</button>
+      <button class="btn wide" data-go="settings">設定</button>
+    </div>
+    <div class="hello" id="hello"></div>
+    <a class="back" href="../index.html">← ゲーム一覧へ</a>
+  </div>
+</div>
+
+<!-- プレイ中 -->
+<div id="hud" hidden>
+  <div id="topL"><span id="tlabel">残り時間</span><div id="tbar"><i></i></div><span id="ttext"></span></div>
+  <div id="fireC" class="panel">
+    <svg id="fireIc" viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5 1-8z" fill="#ff7a3a"/><path d="M12 12c1 2 3 3 3 5a3 3 0 0 1-6 0c0-1.5 1-2.5 1.5-3.5.3 1 .8 1.5 1.5 1.5 0-1.5-.5-2 0-3z" fill="#ffd27a"/></svg>
+    <button id="fireDn" aria-label="火を弱く">−</button><span id="fireV">3</span><button id="fireUp" aria-label="火を強く">＋</button>
+  </div>
+  <div id="topR"><span id="score">0</span><button class="btn small" id="quit">やめる</button></div>
+  <div id="players"></div>
+  <div id="order" class="panel" hidden></div>
+  <div id="guideBox" class="panel"></div>
+  <div id="dishBtns"></div>
+  <div id="hint"></div>
+  <div id="tools" class="panel"></div>
+</div>
+<div id="toast" style="opacity:0"></div>
+<div id="count" hidden></div>
+
+<!-- 焼き方 -->
+<div class="modal" id="mHow" hidden><div class="panel">
+  <h2>焼き方</h2>
+  <ol class="steps">
+    <li><b>油</b>：ハケで鉄板をなでて油をひく（ひかないと、くっついて返せない）</li>
+    <li><b>生地</b>：押しっぱなしで流す。<b>穴からあふれるくらい</b>たっぷり。あふれた分を最後にたくしこんで丸くする</li>
+    <li><b>たこ</b>：穴をタップして1つずつ。<b>天かす・ねぎ・紅しょうが</b>はなぞってパラパラ</li>
+    <li><b>切れ目</b>：ピックで穴と穴のあいだの線をなぞって、まわりの生地を切る</li>
+    <li><b>返す</b>：下が固まったら（輪が<span style="color:var(--green)">緑</span>）ピックでタップ＝手前に90°、なでた方向にも返せる。2〜3回返すと丸くなる</li>
+    <li><b>転がす</b>：丸くなったら、白いところが下になるように転がして全体をきつね色に。輪が<span style="color:var(--red)">赤</span>は焦げそう</li>
+    <li><b>舟皿へ</b>：輪が<span style="color:#ffd84a">金</span>になったら完成。ピックで引っぱって舟皿へ。ソース・マヨ・青のり・かつお節は舟皿をタップ</li>
+  </ol>
+  <p class="note">火力は上の −／＋。真ん中の穴ほど火が強い。焼けたはみ出しはピックでタップするとはがせる。<br>PC：1〜9・0 で道具の持ちかえ、[ ] で火力。</p>
+  <div class="row" style="justify-content:flex-end"><button class="btn main" data-close>OK</button></div>
+</div></div>
+
+<!-- 設定 -->
+<div class="modal" id="mSet" hidden><div class="panel">
+  <h2>設定</h2>
+  <div class="row"><span style="width:7em">全体の音量</span><input type="range" id="vMaster" min="0" max="1" step="0.05"></div>
+  <div class="row"><span style="width:7em">焼く音・効果音</span><input type="range" id="vSfx" min="0" max="1" step="0.05"></div>
+  <div class="row"><span style="width:7em">店の音・火の音</span><input type="range" id="vAmb" min="0" max="1" step="0.05"></div>
+  <div class="row"><label><input type="checkbox" id="cGuide"> 焼き加減ガイド（穴のまわりの輪）</label></div>
+  <div class="row"><span style="width:7em">画質</span><select id="sQ" class="btn small"><option value="2">高い</option><option value="1">ふつう</option><option value="0">軽い</option></select><span class="note">画質は次に開いたときから</span></div>
+  <div class="row"><span style="width:7em">セーブデータ</span><button class="btn small" id="exp">書き出し</button><button class="btn small" id="imp">読み込み</button></div>
+  <textarea id="saveTxt" rows="3" style="width:100%" hidden placeholder="ここにセーブデータを貼りつけて「読み込み」"></textarea>
+  <p class="note" id="statTxt"></p>
+  <div class="row" style="justify-content:flex-end"><button class="btn main" data-close>とじる</button></div>
+</div></div>
+
+<!-- オンライン -->
+<div class="modal" id="mOn" hidden><div class="panel">
+  <h2>オンライン対戦</h2>
+  <div id="onHome">
+    <p class="note">2〜4人で1枚の鉄板をかこんで焼く。自分の舟皿にのせると食べて点数（うまいほど高い、焦げ・生焼けはマイナス）。<b>焦げたのは人の舟皿に押し付けろ。</b>制限時間は3分。</p>
+    <div class="row"><span>名前</span><input type="text" id="onName" maxlength="10" style="flex:1"></div>
+    <div class="row"><button class="btn main" id="mk" style="flex:1">部屋をつくる</button></div>
+    <div class="row"><input type="text" id="onCode" inputmode="numeric" maxlength="4" placeholder="部屋番号（4けた）" style="flex:1"><button class="btn" id="jn">入る</button></div>
+  </div>
+  <div id="onLobby" hidden>
+    <div class="note" style="text-align:center">部屋番号</div>
+    <div class="code" id="lbCode">----</div>
+    <table class="list" id="lbList"></table>
+    <p class="note" id="lbNote"></p>
+    <div class="row" style="justify-content:space-between"><button class="btn" id="lbLeave">ぬける</button><button class="btn main" id="lbStart">はじめる</button></div>
+  </div>
+  <p class="note" id="onMsg" style="color:var(--accent)"></p>
+  <div class="row" style="justify-content:flex-end" id="onClose"><button class="btn" data-close>もどる</button></div>
+</div></div>
+
+<!-- 結果 -->
+<div class="modal" id="mRes" hidden><div class="panel" id="resBody"></div></div>
+
+<div id="err"></div>
+<script>
+  addEventListener('error', function (e) { var x = document.getElementById('err'); if (x) x.textContent = '読みこみエラー：' + (e.message || (e.target && e.target.src) || ''); }, true);
+</script>
+<script src="core.js"></script>
+<script src="sound.js"></script>
+<script src="../account.js"></script>
+<script src="../rank.js"></script>
+<script type="importmap">{ "imports": { "three": "../upa/vendor/three.module.min.js" } }</script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
