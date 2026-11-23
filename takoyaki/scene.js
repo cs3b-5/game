@@ -78,10 +78,11 @@ export function createScene(canvas, opt) {
   opt = opt || {};
   const q = opt.quality ?? 2;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: q > 0, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q === 2 ? 2 : q === 1 ? 1.5 : 1));
+  const PR_MAX = Math.min(window.devicePixelRatio || 1, q === 2 ? 1.5 : q === 1 ? 1.25 : 1);
+  let pr = PR_MAX; renderer.setPixelRatio(pr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-  renderer.shadowMap.enabled = q > 0; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = q > 0; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0d0805); scene.fog = new THREE.Fog(0x0d0805, 16, 34);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 80);
 
@@ -96,7 +97,7 @@ export function createScene(canvas, opt) {
   // ライト：上からのスポット（動画みたいに真ん中だけ明るい）
   const spot = new THREE.SpotLight(0xffe4c4, 260, 40, 0.62, 0.65, 1.6);
   spot.position.set(0.6, 13, 2.2); spot.target.position.set(0, 0, 0.6);
-  spot.castShadow = q > 0; spot.shadow.mapSize.set(q === 2 ? 2048 : 1024, q === 2 ? 2048 : 1024); spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.02; spot.shadow.radius = 4;
+  spot.castShadow = q > 0; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.02; spot.shadow.radius = 4;
   scene.add(spot, spot.target);
   scene.add(new THREE.HemisphereLight(0x8a6a50, 0x140a04, 0.45));
   const fill = new THREE.DirectionalLight(0xffc89a, 0.35); fill.position.set(-6, 5, 8); scene.add(fill);
@@ -120,18 +121,28 @@ export function createScene(canvas, opt) {
   }
   // 火（青い炎のスプライト）
   const flameTex = new THREE.CanvasTexture(spriteCanvas('flame'));
-  const flames = [];
-  for (let k = 0; k < 26; k++) {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.9 }));
-    const side = k % 2, along = Math.floor(k / 2) / 12;
-    sp.position.set(-PW / 2 + 0.3 + along * (PW - 0.6), -0.66, side ? PH / 2 - 0.12 : -PH / 2 + 0.12);
-    sp.userData.ph = Math.random() * 10; scene.add(sp); flames.push(sp);
+  // 粒（炎・湯気・煙）はまとめて1回で描く
+  function pointsMat(tex, additive) {
+    return new THREE.ShaderMaterial({
+      uniforms: { map: { value: tex }, scale: { value: 400 } }, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+      vertexShader: 'attribute float size; attribute float alpha; attribute vec3 tint; varying float vA; varying vec3 vC; uniform float scale; void main(){ vA = alpha; vC = tint; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = size * scale / -mv.z; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform sampler2D map; varying float vA; varying vec3 vC; void main(){ vec4 t = texture2D(map, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y)); gl_FragColor = vec4(vC * t.rgb, t.a * vA); if (gl_FragColor.a < 0.01) discard; }',
+    });
   }
+  function pointsGeo(n) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setAttribute('size', new THREE.BufferAttribute(new Float32Array(n), 1));
+    g.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(n), 1)); g.setAttribute('tint', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+    return g;
+  }
+  const NF = 26, flameGeo = pointsGeo(NF), flamePh = [];
+  for (let k = 0; k < NF; k++) { const side = k % 2, along = Math.floor(k / 2) / 12; flameGeo.attributes.position.setXYZ(k, -PW / 2 + 0.3 + along * (PW - 0.6), -0.64, side ? PH / 2 - 0.12 : -PH / 2 + 0.12); flamePh.push(Math.random() * 10); }
+  const flamePts = new THREE.Points(flameGeo, pointsMat(flameTex, true)); flamePts.frustumCulled = false; scene.add(flamePts);
 
   // ---------- 鉄板 ----------
   const holeCenters = []; for (let i = 0; i < T.N; i++) holeCenters.push(T.holePos(i));
   const HR = T.HOLE_R + 0.025; // 見た目の穴の半径
-  const plateGeo = new THREE.PlaneGeometry(PW, PH, q === 0 ? 150 : 230, q === 0 ? 126 : 194); plateGeo.rotateX(-Math.PI / 2);
+  const plateGeo = new THREE.PlaneGeometry(PW, PH, q === 0 ? 120 : 170, q === 0 ? 100 : 143); plateGeo.rotateX(-Math.PI / 2);
   {
     const pos = plateGeo.attributes.position;
     for (let v = 0; v < pos.count; v++) {
@@ -190,7 +201,7 @@ export function createScene(canvas, opt) {
   }
 
   // ---------- はみ出した生地（シート） ----------
-  const SW = 640, SH = Math.round(640 * PH / PW);
+  const SW = 448, SH = Math.round(448 * PH / PW);
   const sheetCan = document.createElement('canvas'); sheetCan.width = SW; sheetCan.height = SH;
   const sheetTex = new THREE.CanvasTexture(sheetCan); sheetTex.colorSpace = THREE.SRGBColorSpace;
   const batterNoise = noiseCanvas(128, 21, [[300, 4, 0.35], [60, 12, 0.25]], '#808080');
@@ -256,12 +267,18 @@ export function createScene(canvas, opt) {
   // たこ
   const takoMat = new THREE.MeshStandardMaterial({ color: 0x9a1f2c, roughness: 0.42, metalness: 0 });
   const takoInMat = new THREE.MeshStandardMaterial({ color: 0xf1dfd0, roughness: 0.5 });
+  const takoGeoA = new THREE.TorusGeometry(0.12, 0.06, 8, 14, Math.PI * 1.1); takoGeoA.rotateX(Math.PI / 2);
+  const takoGeoB = new THREE.BoxGeometry(0.18, 0.08, 0.1); takoGeoB.translate(0.02, -0.01, 0.05);
   function makeTako() {
     const g = new THREE.Group();
-    const a = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.06, 10, 18, Math.PI * 1.1), takoMat); a.rotation.x = Math.PI / 2; g.add(a);
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.1), takoInMat); b.position.set(0.02, -0.01, 0.05); g.add(b);
-    for (let k = 0; k < 4; k++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), takoInMat); s.position.set(Math.cos(k * 0.8) * 0.12, -0.03, Math.sin(k * 0.8) * 0.12); g.add(s); }
+    g.add(new THREE.Mesh(takoGeoA, takoMat), new THREE.Mesh(takoGeoB, takoInMat));
     g.scale.setScalar(0.85); return g;
+  }
+  // 同じ形をたくさん置く（器の中身）
+  function scatter(parent, geo, mat, n, seed, place) {
+    const im = new THREE.InstancedMesh(geo, mat, n), m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), pp = new THREE.Vector3(), sc = new THREE.Vector3(), rr = rng(seed);
+    for (let k = 0; k < n; k++) { const o = place(rr); pp.set(o[0], o[1], o[2]); e.set(rr() * 6, rr() * 6, rr() * 6); q.setFromEuler(e); sc.setScalar(o[3] || 1); m.compose(pp, q, sc); im.setMatrixAt(k, m); }
+    parent.add(im); return im;
   }
   // トッピングのつぶ（天かす・ねぎ・紅しょうが）をまとめて描く
   const bitGeo = { ten: new THREE.DodecahedronGeometry(0.035, 0), negi: new THREE.TorusGeometry(0.03, 0.012, 5, 10), beni: new THREE.BoxGeometry(0.07, 0.012, 0.018) };
@@ -277,49 +294,54 @@ export function createScene(canvas, opt) {
   const katsuoMat = new THREE.MeshStandardMaterial({ color: 0xd7a682, roughness: 0.75, side: THREE.DoubleSide, bumpMap: crustTex, bumpScale: 1.5 });
   const sauceGeo = new THREE.SphereGeometry(R * 1.035, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42);
 
+  const _up = new THREE.Vector3(), _inv = new THREE.Quaternion(), _tq = new THREE.Quaternion(), _c3 = [0, 0, 0];
+  let colStagger = 0;
   class BallView {
     constructor() {
       this.geo = tmpl.clone(); this.geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NV * 3), 3));
       this.mesh = new THREE.Mesh(this.geo, ballMat); this.mesh.castShadow = true; this.mesh.receiveShadow = true;
       this.group = new THREE.Group(); this.group.add(this.mesh); scene.add(this.group);
       this.tako = makeTako(); this.mesh.add(this.tako);
-      this.dq = new THREE.Quaternion(); this.qInit = false; this.colT = 0; this.cap = 9;
-      this.sauce = null;
+      this.dq = new THREE.Quaternion(); this.qInit = false; this.colT = (colStagger++ % 6) * 0.04; this.cap = 9;
+      this.lastQ = new THREE.Quaternion(2, 0, 0, 0); this.lastCap = -99; this.lastCook = -1; this.sauce = null;
     }
     set(b, x, y, z, dt, opts) {
       opts = opts || {};
       const g = this.group; g.visible = true; g.position.set(x, y, z);
-      const tq = new THREE.Quaternion(b.q[0], b.q[1], b.q[2], b.q[3]);
-      if (!this.qInit) { this.dq.copy(tq); this.qInit = true; } else this.dq.slerp(tq, 1 - Math.exp(-dt * 14));
+      _tq.set(b.q[0], b.q[1], b.q[2], b.q[3]);
+      if (!this.qInit) { this.dq.copy(_tq); this.qInit = true; } else if (this.dq.angleTo(_tq) > 0.001) this.dq.slerp(_tq, 1 - Math.exp(-dt * 14)); else this.dq.copy(_tq);
       this.mesh.quaternion.copy(this.dq);
       // 液面の高さ
-      const inv = this.dq.clone().invert(), up = new THREE.Vector3(0, 1, 0).applyQuaternion(inv);
+      _inv.copy(this.dq).invert(); _up.set(0, 1, 0).applyQuaternion(_inv); const up = _up;
       let cap = b.shape > 0.03 ? T.capLevel(b) : -1 + Math.min(1, b.mass) * 0.98;
-      if (opts.round) cap = 9;
-      cap = Math.min(cap, 9);
-      const pos = this.geo.attributes.position, col = this.geo.attributes.color, base = tmpl.attributes.position;
+      if (opts.round || cap >= 1) cap = 9;
       const capR = cap * R;
-      const nrm = this.geo.attributes.normal;
-      for (let v = 0; v < NV; v++) {
-        const bx = base.getX(v), by = base.getY(v), bz = base.getZ(v), d = bx * up.x + by * up.y + bz * up.z;
-        if (d > capR) { const k = d - capR; pos.setXYZ(v, bx - up.x * k, by - up.y * k, bz - up.z * k); nrm.setXYZ(v, up.x, up.y, up.z); }
-        else { pos.setXYZ(v, bx, by, bz); nrm.setXYZ(v, bx / R, by / R, bz / R); }
+      const moved = Math.abs(cap - this.lastCap) > 0.004 || (cap < 9 && this.dq.angleTo(this.lastQ) > 0.002);
+      if (moved) {
+        const pos = this.geo.attributes.position, base = tmpl.attributes.position, nrm = this.geo.attributes.normal;
+        const P = pos.array, B = base.array, Nn = nrm.array, iR = 1 / R;
+        for (let v = 0, o = 0; v < NV; v++, o += 3) {
+          const bx = B[o], by = B[o + 1], bz = B[o + 2], d = bx * up.x + by * up.y + bz * up.z;
+          if (d > capR) { const k = d - capR; P[o] = bx - up.x * k; P[o + 1] = by - up.y * k; P[o + 2] = bz - up.z * k; Nn[o] = up.x; Nn[o + 1] = up.y; Nn[o + 2] = up.z; }
+          else { P[o] = bx; P[o + 1] = by; P[o + 2] = bz; Nn[o] = bx * iR; Nn[o + 1] = by * iR; Nn[o + 2] = bz * iR; }
+        }
+        pos.needsUpdate = true; nrm.needsUpdate = true; this.lastCap = cap; this.lastQ.copy(this.dq);
       }
-      pos.needsUpdate = true; nrm.needsUpdate = true;
       this.colT -= dt;
-      if (this.colT <= 0 || opts.force) {
-        this.colT = 0.08;
-        const c3 = [0, 0, 0];
+      let ck = 0; for (let p = 0; p < b.cook.length; p++) ck += b.cook[p] * (p + 1);
+      if ((this.colT <= 0 && (Math.abs(ck - this.lastCook) > 0.05 || moved)) || opts.force || this.lastCook < 0) {
+        this.colT = 0.24; this.lastCook = ck;
+        const C = this.geo.attributes.color.array;
         for (let v = 0; v < NV; v++) {
           const o = v * 4; let c = 0; for (let k = 0; k < 4; k++) c += b.cook[vI[o + k]] * vW[o + k];
           const d = vDir[v * 3] * up.x + vDir[v * 3 + 1] * up.y + vDir[v * 3 + 2] * up.z;
           const liquid = d * R > capR - 0.01;
           c = liquid ? Math.min(c, 0.04) : c + vJ[v] * Math.min(1, c * 1.5);
-          rampSRGB(c, c3);
-          if (liquid) { c3[0] *= 1.0; c3[1] *= 0.99; c3[2] *= 0.95; }
-          col.setXYZ(v, lin(c3[0]), lin(c3[1]), lin(c3[2]));
+          rampSRGB(c, _c3);
+          if (liquid) { _c3[1] *= 0.99; _c3[2] *= 0.95; }
+          C[v * 3] = _c3[0] * _c3[0]; C[v * 3 + 1] = _c3[1] * _c3[1]; C[v * 3 + 2] = _c3[2] * _c3[2];
         }
-        col.needsUpdate = true;
+        this.geo.attributes.color.needsUpdate = true;
       }
       this.cap = cap;
       // たこ：液面の真ん中あたり（丸くなったら中に入って見えない）
@@ -347,7 +369,7 @@ export function createScene(canvas, opt) {
     outer.castShadow = true; outer.receiveShadow = true; g.add(outer);
     if (fillMat) {
       const f = new THREE.Mesh(new THREE.CircleGeometry(r * 0.86, 32), fillMat); f.rotation.x = -Math.PI / 2; f.position.y = r * 0.36; g.add(f);
-      if (fillKind) { const rr = rng(x * 100 + z); for (let k = 0; k < 26; k++) { const m = new THREE.Mesh(bitGeo[fillKind] || bitGeo.ten, bitMat[fillKind] || fillMat); const a = rr() * 7, d = rr() * r * 0.75; m.position.set(Math.cos(a) * d, r * 0.38 + rr() * 0.04, Math.sin(a) * d); m.rotation.set(rr() * 6, rr() * 6, rr() * 6); m.scale.setScalar(1.6); g.add(m); } }
+      if (fillKind) scatter(g, bitGeo[fillKind] || bitGeo.ten, bitMat[fillKind] || fillMat, 30, Math.round(x * 100 + z), rr => { const a = rr() * 7, d = rr() * r * 0.75; return [Math.cos(a) * d, r * 0.38 + rr() * 0.04, Math.sin(a) * d, 1.6]; });
     }
     g.position.set(x, TY, z); g.userData.tool = tool; scene.add(g); props.push(g); return g;
   }
@@ -375,7 +397,7 @@ export function createScene(canvas, opt) {
   const oilCup = bowl(-5.45, 2.0, 0.36, 0xd9d4ca, 'oil', new THREE.MeshStandardMaterial({ color: 0xd9a531, roughness: 0.05, transparent: true, opacity: 0.85 }));
   { const b = brushModel(); b.position.set(0.05, 0.2, 0); b.rotation.z = 0.5; oilCup.add(b); }
   const takoBowl = bowl(-4.6, -2.55, 0.5, 0x3b4c6c, 'tako', new THREE.MeshStandardMaterial({ color: 0x5c1520, roughness: 0.5 }));
-  { const rr = rng(5); for (let k = 0; k < 9; k++) { const t = makeTako(); t.position.set((rr() - 0.5) * 0.5, 0.25, (rr() - 0.5) * 0.5); t.rotation.set(rr(), rr() * 6, rr()); takoBowl.add(t); } }
+  scatter(takoBowl, takoGeoA, takoMat, 10, 5, rr => [(rr() - 0.5) * 0.5, 0.25, (rr() - 0.5) * 0.5, 0.85]);
   bowl(4.5, -2.6, 0.46, 0xe9e2d4, 'ten', new THREE.MeshStandardMaterial({ color: 0xe6c47c, roughness: 0.9 }), 'ten');
   bowl(5.5, -2.0, 0.4, 0x29343e, 'negi', new THREE.MeshStandardMaterial({ color: 0x3f7f26, roughness: 0.6 }), 'negi');
   bowl(3.6, -3.25, 0.32, 0xf3eee4, 'beni', new THREE.MeshStandardMaterial({ color: 0xc81d3e, roughness: 0.5 }), 'beni');
@@ -392,7 +414,7 @@ export function createScene(canvas, opt) {
   { const g = bottle(3.75, 3.25, 0x2f6b2a, 0xe9e3d0, 'aonori', 0.55); g.scale.set(1.1, 0.9, 1.1); }
   const katsuoBox = bowl(5.55, 2.2, 0.38, 0x7b5a3b, 'katsuo', katsuoMat);
   {
-    const rr = rng(77); for (let k = 0; k < 30; k++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.08), katsuoMat); m.position.set((rr() - 0.5) * 0.5, 0.25 + rr() * 0.1, (rr() - 0.5) * 0.5); m.rotation.set(rr() * 6, rr() * 6, rr() * 6); katsuoBox.add(m); }
+    scatter(katsuoBox, new THREE.PlaneGeometry(0.11, 0.08), katsuoMat, 30, 77, rr => [(rr() - 0.5) * 0.5, 0.25 + rr() * 0.1, (rr() - 0.5) * 0.5, 1]);
   }
 
   // ---------- 舟皿 ----------
@@ -409,6 +431,7 @@ export function createScene(canvas, opt) {
   const bg = boatGeo();
   const SLOTS = []; for (let k = 0; k < 10; k++) SLOTS.push([(k % 5 - 2) * 0.74, k < 5 ? -0.39 : 0.39]);
   const SR = R * 0.92; // 舟皿の上の大きさ
+  const _ke = new THREE.Euler(), _kq = new THREE.Quaternion(), _km = new THREE.Matrix4(), _ks = new THREE.Vector3(1, 1, 1);
   class Dish {
     constructor() {
       this.g = new THREE.Group();
@@ -454,14 +477,15 @@ export function createScene(canvas, opt) {
       // かつお節（踊る）
       if (tops.katsuo && n && (!this.katsuo || this.katsuo.userData.n !== n)) {
         if (this.katsuo) this.g.remove(this.katsuo);
-        const grp = new THREE.Group(), rr = rng(n * 7 + 1), geo = new THREE.PlaneGeometry(0.16, 0.11, 3, 1);
+        const rr = rng(n * 7 + 1), geo = new THREE.PlaneGeometry(0.16, 0.11, 3, 1);
         { const p = geo.attributes.position; for (let v = 0; v < p.count; v++) p.setZ(v, Math.sin(p.getX(v) * 18) * 0.015); geo.computeVertexNormals(); }
-        for (let k = 0; k < n; k++) for (let j = 0; j < 7; j++) { const f = new THREE.Mesh(geo, katsuoMat); const th = rr() * 7, ph = rr() * 0.8; f.position.set(SLOTS[k][0] + Math.sin(ph) * Math.cos(th) * SR, 0.035 + SR + Math.cos(ph) * SR + 0.03, SLOTS[k][1] + Math.sin(ph) * Math.sin(th) * SR); f.userData.r = [rr() * 6, rr() * 6, rr() * 6, rr() * 10, 0.6 + rr()]; grp.add(f); }
-        grp.userData.n = n; this.katsuo = grp; this.g.add(grp);
+        const im = new THREE.InstancedMesh(geo, katsuoMat, n * 7); im.userData.f = [];
+        for (let k = 0; k < n; k++) for (let j = 0; j < 7; j++) { const th = rr() * 7, ph = rr() * 0.8; im.userData.f.push({ p: new THREE.Vector3(SLOTS[k][0] + Math.sin(ph) * Math.cos(th) * SR, 0.035 + SR + Math.cos(ph) * SR + 0.03, SLOTS[k][1] + Math.sin(ph) * Math.sin(th) * SR), r: [rr() * 6, rr() * 6, rr() * 6, rr() * 10, 0.6 + rr()] }); }
+        im.userData.n = n; this.katsuo = im; this.g.add(im);
       }
       if (this.katsuo) {
         this.katsuo.visible = !!tops.katsuo && n > 0;
-        if (this.katsuo.visible) for (const f of this.katsuo.children) { const r = f.userData.r, w = Math.sin(time * 5 * r[4] + r[3]); f.rotation.set(r[0] + w * 0.35, r[1] + Math.sin(time * 3 + r[3]) * 0.3, r[2] + w * 0.5); }
+        if (this.katsuo.visible) { this.katsuo.userData.f.forEach((f, k) => { const r = f.r, w = Math.sin(time * 5 * r[4] + r[3]); _ke.set(r[0] + w * 0.35, r[1] + Math.sin(time * 3 + r[3]) * 0.3, r[2] + w * 0.5); _kq.setFromEuler(_ke); _km.compose(f.p, _kq, _ks); this.katsuo.setMatrixAt(k, _km); }); this.katsuo.instanceMatrix.needsUpdate = true; }
       }
       this.highlight += ((this.hl ? 1 : 0) - this.highlight) * Math.min(1, dt * 10);
       this.glow.material.opacity = this.highlight * 0.22;
@@ -498,14 +522,16 @@ export function createScene(canvas, opt) {
 
   // ---------- 湯気・煙 ----------
   const puffTex = new THREE.CanvasTexture(spriteCanvas('puff'));
-  const P_MAX = 160, parts = [];
-  for (let k = 0; k < P_MAX; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0, color: 0xffffff })); s.visible = false; scene.add(s); parts.push({ s, life: 0 }); }
+  const P_MAX = 160, parts = [], partGeo = pointsGeo(P_MAX);
+  const partPts = new THREE.Points(partGeo, pointsMat(puffTex, false)); partPts.frustumCulled = false; partPts.renderOrder = 5; scene.add(partPts);
+  for (let k = 0; k < P_MAX; k++) parts.push({ life: 0, x: 0, y: -50, z: 0 });
   let pIdx = 0;
+  const PCOL = { smoke: [0.33, 0.31, 0.29], splash: [0.96, 0.9, 0.75], steam: [1, 1, 1] };
   function emit(x, y, z, kind, k) {
-    const p = parts[pIdx++ % P_MAX]; p.s.visible = true; p.life = p.max = kind === 'smoke' ? 2.6 : 1.6 + Math.random() * 0.8;
-    p.kind = kind; p.s.position.set(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3);
+    const i = pIdx++ % P_MAX, p = parts[i]; p.life = p.max = kind === 'smoke' ? 2.6 : 1.6 + Math.random() * 0.8;
+    p.kind = kind; p.x = x + (Math.random() - 0.5) * 0.3; p.y = y; p.z = z + (Math.random() - 0.5) * 0.3;
     p.v = [(Math.random() - 0.5) * 0.15, 0.55 + Math.random() * 0.4, (Math.random() - 0.5) * 0.15]; p.size = (kind === 'splash' ? 0.25 : 0.45) * (k || 1);
-    p.s.material.color.set(kind === 'smoke' ? 0x555049 : kind === 'splash' ? 0xf5e7c0 : 0xffffff);
+    const c = PCOL[kind] || PCOL.steam; partGeo.attributes.tint.setXYZ(i, c[0], c[1], c[2]); partGeo.attributes.tint.needsUpdate = true;
   }
 
   // ---------- カメラ ----------
@@ -523,6 +549,7 @@ export function createScene(canvas, opt) {
     const needW2 = portrait ? 8.4 : 9.6, needH2 = portrait ? 12.2 : 11.6;
     camera.userData.dist2 = Math.max(needW2 / 2 / Math.tan(hf / 2), needH2 / 2 / Math.tan(vf / 2));
     camera.userData.dist = dist; camera.updateProjectionMatrix();
+    const ps = H * renderer.getPixelRatio() / (2 * Math.tan(vf / 2)); flamePts.material.uniforms.scale.value = ps; partPts.material.uniforms.scale.value = ps;
   }
   function placeCam(dt) {
     const target = seat * Math.PI / 2; let d = target - camAng; d = Math.atan2(Math.sin(d), Math.cos(d)); camAng += d * Math.min(1, dt * 4);
@@ -560,18 +587,20 @@ export function createScene(canvas, opt) {
   }
 
   // ---------- 毎フレーム ----------
-  let time = 0, sheetT = 0, roughT = 0, steamAcc = 0;
-  const mtx = new THREE.Matrix4(), eul = new THREE.Euler(), qv = new THREE.Quaternion(), vv = new THREE.Vector3(), sc = new THREE.Vector3();
-  const prof = { js: 0, gl: 0 };
+  let time = 0, sheetT = 0, roughT = 0, steamAcc = 0, sheetHash = -1, roughHash = -1, frameN = 0;
+  const _bup = new THREE.Vector3(), mtx = new THREE.Matrix4(), eul = new THREE.Euler(), qv = new THREE.Quaternion(), vv = new THREE.Vector3(), sc = new THREE.Vector3();
+  const prof = { js: 0, gl: 0 }; let fpsAcc = 0, fpsN = 0, lastFps = 60, lastF = 0;
   function update(state, dt, view) {
     const tU0 = performance.now(); time += dt; placeCam(dt);
     // 火
     const fire = state.fire;
-    flames.forEach(f => { const k = 0.55 + fire * 0.13, w = 1 + Math.sin(time * 23 + f.userData.ph) * 0.12 + Math.sin(time * 41 + f.userData.ph * 2) * 0.08; f.scale.set(0.22 * k, 0.3 * k * w, 1); f.material.opacity = 0.5 + fire * 0.1; });
+    { const SA = flameGeo.attributes.size.array, AA = flameGeo.attributes.alpha.array, k = 0.55 + fire * 0.13;
+      for (let i = 0; i < NF; i++) { const w = 1 + Math.sin(time * 23 + flamePh[i]) * 0.12 + Math.sin(time * 41 + flamePh[i] * 2) * 0.08; SA[i] = 0.32 * k * w; AA[i] = 0.5 + fire * 0.1; }
+      flameGeo.attributes.size.needsUpdate = true; flameGeo.attributes.alpha.needsUpdate = true; }
     flameLight.intensity = (0.4 + fire * 0.35) * (1 + Math.sin(time * 30) * 0.08);
     // 鉄板・シート
-    sheetT -= dt; if (sheetT <= 0) { sheetT = 0.12; drawSheet(state); }
-    roughT -= dt; if (roughT <= 0) { roughT = 0.3; drawRough(state); }
+    sheetT -= dt; if (sheetT <= 0) { sheetT = 0.15; let h = 0; state.holes.forEach((o, i) => { h = (h * 31 + Math.round(o.spill * 20) * 7 + Math.round(o.spillCook * 25) * 3 + o.cut * 11 + (o.ball ? 1 : 0)) % 1e9; }); if (h !== sheetHash) { sheetHash = h; drawSheet(state); } }
+    roughT -= dt; if (roughT <= 0) { roughT = 0.3; let h = 0; state.holes.forEach(o => { h = (h * 17 + Math.round(o.oil * 10)) % 1e9; }); if (h !== roughHash) { roughHash = h; drawRough(state); } }
     // たこ焼き
     const counts = { ten: 0, negi: 0, beni: 0 };
     for (let i = 0; i < T.N; i++) {
@@ -582,22 +611,24 @@ export function createScene(canvas, opt) {
       v.group.scale.setScalar(1); v.set(b, x + wob, 0, z, dt);
       // つぶ
       v.mesh.updateMatrixWorld();
+      _inv.copy(v.dq).invert(); _bup.set(0, 1, 0).applyQuaternion(_inv); const capRb = v.cap * R;
       for (const kind of ['ten', 'negi', 'beni']) {
         const n = Math.round(b[kind] * 5); const im = bits[kind];
         for (let k = 0; k < n && counts[kind] < MAXBIT; k++) {
           const d = BIT_DIRS[(k * 3 + (kind === 'negi' ? 1 : kind === 'beni' ? 2 : 0) + i) % BIT_DIRS.length];
           vv.set(d[0], d[1], d[2]).multiplyScalar(R * 1.01);
-          const capR = v.cap * R, inv = v.dq.clone().invert(), up = new THREE.Vector3(0, 1, 0).applyQuaternion(inv), dd = vv.dot(up);
-          if (dd > capR) vv.addScaledVector(up, capR - dd + 0.01);
+          const dd = vv.dot(_bup);
+          if (dd > capRb) vv.addScaledVector(_bup, capRb - dd + 0.01);
           vv.applyMatrix4(v.mesh.matrixWorld);
           eul.set(d[3], d[3] * 2, d[3] * 0.5); qv.setFromEuler(eul); mtx.compose(vv, qv, sc.set(1, 1, 1)); im.setMatrixAt(counts[kind]++, mtx);
         }
       }
       // 湯気
       const T0 = h.temp;
-      if (Math.random() < dt * (T0 * 3.2 * (0.3 + b.core) + (b.cook.some(c => c > 1.75) ? 1.5 : 0))) emit(x, 0.25, z, b.cook.filter(c => c > 1.75).length > 4 ? 'smoke' : 'steam');
+      let nb = 0; for (let p = 0; p < b.cook.length; p++) if (b.cook[p] > 1.75) nb++;
+      if (Math.random() < dt * (T0 * 3.2 * (0.3 + b.core) + (nb ? 1.5 : 0))) emit(x, 0.25, z, nb > 4 ? 'smoke' : 'steam');
     }
-    guides.forEach((g, i) => { const c = view.guide && view.guide[i]; const target = c ? 0.75 + Math.sin(time * 6) * 0.2 : 0; g.material.opacity += (target - g.material.opacity) * Math.min(1, dt * 8); if (c) g.material.color.set(c); });
+    guides.forEach((g, i) => { const c = view.guide && view.guide[i]; const target = c ? 0.75 + Math.sin(time * 6) * 0.2 : 0; g.material.opacity += (target - g.material.opacity) * Math.min(1, dt * 8); g.visible = g.material.opacity > 0.01; if (c) g.material.color.set(c); });
     for (const k of ['ten', 'negi', 'beni']) { bits[k].count = counts[k]; bits[k].instanceMatrix.needsUpdate = true; }
     for (let i = 0; i < T.N; i++) { const h = state.holes[i]; if (h.spill > 0.1 && Math.random() < dt * (h.temp * 1.2 + (h.spillCook > 1.8 ? 2 : 0))) emit(holeCenters[i][0] + 0.3, 0.1, holeCenters[i][1] + 0.3, h.spillCook > 1.8 ? 'smoke' : 'steam', 0.8); }
     // 持ち上げているたこ焼き
@@ -632,15 +663,28 @@ export function createScene(canvas, opt) {
     if (!(view.cursors || []).some(c => c.on && c.tool === 'pour' && c.down)) stream.visible = false;
     for (let k = (view.cursors || []).length; k < cursors.length; k++) if (cursors[k]) for (const m of Object.values(cursors[k].models)) m.visible = false;
     // 粒子
-    for (const p of parts) {
-      if (p.life <= 0) continue; p.life -= dt; if (p.life <= 0) { p.s.visible = false; continue; }
-      const a = p.life / p.max; p.s.position.x += p.v[0] * dt; p.s.position.y += p.v[1] * dt * (p.kind === 'splash' ? -0.2 : 1); p.s.position.z += p.v[2] * dt;
-      const s = p.size * (1.6 - a); p.s.scale.set(s, s, 1);
-      p.s.material.opacity = (p.kind === 'smoke' ? 0.35 : p.kind === 'splash' ? 0.6 : 0.16) * Math.sin(a * Math.PI);
+    {
+      const PA = partGeo.attributes.position.array, SA = partGeo.attributes.size.array, AA = partGeo.attributes.alpha.array;
+      for (let i = 0; i < P_MAX; i++) {
+        const p = parts[i]; if (p.life <= 0) { AA[i] = 0; continue; }
+        p.life -= dt; if (p.life <= 0) { AA[i] = 0; continue; }
+        const a = p.life / p.max; p.x += p.v[0] * dt; p.y += p.v[1] * dt * (p.kind === 'splash' ? -0.2 : 1); p.z += p.v[2] * dt;
+        PA[i * 3] = p.x; PA[i * 3 + 1] = p.y; PA[i * 3 + 2] = p.z; SA[i] = p.size * (1.6 - a);
+        AA[i] = (p.kind === 'smoke' ? 0.35 : p.kind === 'splash' ? 0.6 : 0.16) * Math.sin(a * Math.PI);
+      }
+      partGeo.attributes.position.needsUpdate = true; partGeo.attributes.size.needsUpdate = true; partGeo.attributes.alpha.needsUpdate = true;
     }
+    frameN++; if (renderer.shadowMap.enabled && (frameN % 2 === 0)) renderer.shadowMap.needsUpdate = true;
+    // 自動画質：重いときは描く解像度を下げる（軽くなったら戻す）
+    const nowF = performance.now(); fpsAcc += Math.min(0.5, (nowF - (lastF || nowF)) / 1000); lastF = nowF; fpsN++;
+    if (fpsAcc >= 1.5) { const fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; lastFps = fps;
+      // ほかのウィンドウを触っているとき（perf.js が30fpsにしている）は判定しない
+      const active = !document.hidden && (!document.hasFocus || document.hasFocus());
+      let np = pr; if (!active) np = pr; else if (fps < 40) np = Math.max(0.7, pr - 0.15); else if (fps > 56 && pr < PR_MAX) np = Math.min(PR_MAX, pr + 0.1);
+      if (Math.abs(np - pr) > 0.01) { pr = np; renderer.setPixelRatio(pr); layout(); } }
     const tJ = performance.now(); renderer.render(scene, camera); prof.js = prof.js * 0.9 + (tJ - tU0) * 0.1; prof.gl = prof.gl * 0.9 + (performance.now() - tJ) * 0.1;
   }
   function setSeat(s) { seat = s; }
   addEventListener('resize', layout);
-  return { prof, update, pickAt, project, dishScreen, setDishes, setSeat, screenDirToWorld, emit, layout, renderer, get seat() { return seat; }, TY, R, css };
+  return { prof, get fps() { return lastFps; }, get pr() { return pr; }, update, pickAt, project, dishScreen, setDishes, setSeat, screenDirToWorld, emit, layout, renderer, get seat() { return seat; }, TY, R, css };
 }

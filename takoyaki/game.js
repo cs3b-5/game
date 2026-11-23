@@ -4,7 +4,7 @@ const T = window.TakoCore, SND = window.TakoSound;
 const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search), qp = k => qs.get(k);
 const clamp = T.clamp;
-const FAST = Math.max(0.1, +qp('fast') || 1), BOT = qp('bot') === '1', NORENDER = qp('norender') === '1';
+const FAST = Math.max(0.1, +qp('fast') || 1), BOT = qp('bot') === '1', NORENDER = qp('norender') === '1', SHOWFPS = qp('fps') === '1';
 
 // ================= セーブ =================
 const SAVE = 'takoyaki-sim-v1';
@@ -78,6 +78,11 @@ function popWorld(x, y, z, html, color) { const p = SC.project(x, y, z); popAt(p
 const fmtT = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const GCOL = { '極上': '#ffd84a', '上出来': '#7be08a', 'ふつう': '#ffffff', 'いまいち': '#cfc3b0', 'いびつ': '#cfc3b0', '生焼け': '#ff9b7a', '焦げ': '#ff5a4e' };
+// DOM は変わったときだけさわる（毎フレーム書くと重い）
+const _dom = new Map();
+function setText(id, v) { v = String(v); if (_dom.get(id) === v) return; _dom.set(id, v); $(id).textContent = v; }
+function setHTML(id, v) { if (_dom.get(id + '#h') === v) return; _dom.set(id + '#h', v); $(id).innerHTML = v; }
+function setBar(pct) { const v = Math.round(pct * 2) / 2; if (_dom.get('bar') === v) return; _dom.set('bar', v); $('tbar').firstElementChild.style.width = v + '%'; }
 function showModal(id, on) { $(id).hidden = !on; }
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { SND.ui(); b.closest('.modal').hidden = true; if (b.closest('#mOn')) netLeave(); });
 
@@ -287,10 +292,10 @@ function startChallenge() {
 function newOrder() { G.n++; G.cur = T.makeOrder(Math.random, G.n); G.cur.t0 = G.total - G.left; G.cur.leftW = G.cur.wait; if (G.n > 1) SND.bell(); drawOrder(); }
 function drawOrder() {
   const o = G.cur, d = dishes[0];
-  $('order').innerHTML = `<div class="who">${esc(o.who)}の注文</div><div class="cnt">${o.cnt}個 <small style="font-size:.8rem;color:var(--dim)">（いま ${d.balls.length}個）</small></div>
+  setHTML('order', `<div class="who">${esc(o.who)}の注文</div><div class="cnt">${o.cnt}個 <small style="font-size:.8rem;color:var(--dim)">（いま ${d.balls.length}個）</small></div>
     <div class="tops">${o.tops.length ? o.tops.map(t => `<span class="${d.tops[t] ? 'ok' : ''}">${T.TOP_NAME[t]}</span>`).join('') : '<span>なにもかけない</span>'}</div>
     <div class="pat"><i style="width:${clamp(o.leftW / o.wait * 100, 0, 100)}%;background:${o.leftW / o.wait < 0.3 ? 'var(--red)' : 'var(--green)'}"></i></div>
-    <div class="next">おわたし ${G.done}件・平均 ${G.done ? Math.round(G.sum / G.cnt) : '-'}点</div>`;
+    <div class="next">おわたし ${G.done}件・平均 ${G.done ? Math.round(G.sum / G.cnt) : '-'}点</div>`);
 }
 function handOver() {
   const d = dishes[0], o = G.cur; if (!d.balls.length) return toast('舟皿にのせてから');
@@ -391,13 +396,17 @@ function drawDishBtns() {
   }
   const sp = SEAT_POS(0), wide = innerWidth / innerHeight > 0.9;
   const p = wide ? SC.project(sp.x + 2.3, TY + 0.2, sp.z) : SC.project(sp.x, TY, sp.z + 1.25);
-  dishBtns.style.flexDirection = wide ? 'column' : 'row';
-  dishBtns.style.transform = wide ? 'translate(0,-50%)' : 'translate(-50%,0)';
-  dishBtns.style.left = p[0] + 'px'; dishBtns.style.top = Math.min(innerHeight - 130, p[1]) + 'px';
+  const fd = wide ? 'column' : 'row'; if (dishBtns.style.flexDirection !== fd) { dishBtns.style.flexDirection = fd; dishBtns.style.transform = wide ? 'translate(0,-50%)' : 'translate(-50%,0)'; }
+  const L = Math.round(p[0]) + 'px', Tp = Math.round(Math.min(innerHeight - 130, p[1])) + 'px';
+  if (dishBtns.style.left !== L) dishBtns.style.left = L; if (dishBtns.style.top !== Tp) dishBtns.style.top = Tp;
 }
 
 // ================= ガイド =================
+let _gc = null, _gcT = 0;
 function guideColors() {
+  const now = performance.now(); if (now - _gcT < 100 && _gc !== undefined) return _gc; _gcT = now; _gc = guideColorsRaw(); return _gc;
+}
+function guideColorsRaw() {
   if (!SV.set.guide) return null;
   return S.holes.map(h => {
     const b = h.ball; if (!b) return null;
@@ -421,7 +430,7 @@ function drawGuideBox(dt) {
   else if (hs.some((h, i) => h.ball && h.spill > 0.1 && T.cutFrac(S, i) < 1 && h.ball.shape < 0.9)) st = 3;
   else if (balls.some(b => b.shape < 0.9)) st = 4;
   else st = guideColors() && guideColors().some(c => c === '#ffd84a') ? 6 : 5;
-  $('guideBox').innerHTML = `<b>焼き方</b><ol>${STEPS.map((s, k) => `<li class="${k === st ? 'now' : ''}">${s}</li>`).join('')}</ol>`;
+  setHTML('guideBox', `<b>焼き方</b><ol>${STEPS.map((s, k) => `<li class="${k === st ? 'now' : ''}">${s}</li>`).join('')}</ol>`);
 }
 
 // ================= 設定 =================
@@ -598,7 +607,7 @@ $('lbLeave').onclick = () => { netLeave(); $('onHome').hidden = false; $('onLobb
 $('lbStart').onclick = () => { if (!NET || !NET.host) return; NET.ph = 'count'; NET.tl = BATTLE_TIME; bcT = 0; broadcast(1); beginBattle(); };
 function drawPlayers() {
   if (mode !== 'online' || !NET) return;
-  $('players').innerHTML = NET.players.map((p, k) => `<div style="${k === mySeat ? 'outline:1.5px solid ' + SEAT_COL[k] : ''}"><span><span style="color:${SEAT_COL[k]}">●</span> ${esc(p.name)}${p.on === false ? '（切断）' : ''}</span><b>${p.sc}</b></div>`).join('');
+  setHTML('players', NET.players.map((p, k) => `<div style="${k === mySeat ? 'outline:1.5px solid ' + SEAT_COL[k] : ''}"><span><span style="color:${SEAT_COL[k]}">●</span> ${esc(p.name)}${p.on === false ? '（切断）' : ''}</span><b>${p.sc}</b></div>`).join(''));
 }
 
 // ================= ボット（テスト用） =================
@@ -652,9 +661,9 @@ function logic(rdt) {
 }
 function draw(rdt) {
   // 表示
-  $('fireV').textContent = S.fire;
-  if (mode === 'challenge' && G) { $('ttext').textContent = fmtT(G.left); $('tbar').firstElementChild.style.width = (G.left / G.total * 100) + '%'; $('score').textContent = G.score; }
-  if (mode === 'online' && NET) { $('ttext').textContent = fmtT(NET.tl); $('tbar').firstElementChild.style.width = (NET.tl / BATTLE_TIME * 100) + '%'; const me = NET.players[mySeat]; $('score').textContent = me ? me.sc : 0; drawPlayers(); }
+  setText('fireV', S.fire);
+  if (mode === 'challenge' && G) { setText('ttext', fmtT(G.left)); setBar(G.left / G.total * 100); setText('score', G.score); }
+  if (mode === 'online' && NET) { setText('ttext', fmtT(NET.tl)); setBar(NET.tl / BATTLE_TIME * 100); const me = NET.players[mySeat]; setText('score', me ? me.sc : 0); drawPlayers(); }
   drawDishBtns(); drawGuideBox(rdt);
   // 3Dに渡すもの
   const view = { guide: playing ? guideColors() : null, cursors: [], dishes: [] };
@@ -675,6 +684,7 @@ function draw(rdt) {
     view.dishes = dishes.map(d => ({ balls: d.balls, tops: d.tops }));
   }
   if (!NORENDER) SC.update(S, rdt, view);
+  if (SHOWFPS) setText('err', `${Math.round(SC.fps)}fps ×${SC.pr.toFixed(2)}`);
 }
 function THREE_COL(hex) { return parseInt(hex.slice(1), 16); }
 
