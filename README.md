@@ -196,11 +196,13 @@ cd bukken-ou/incremental/tools && node curve.js core.js auto
 
 ## 彫刻工房（ダウンロード版）— PC専用
 
-実家のガレージで木を彫りはじめて、商店街の工房へ大きくしていく一人称インクリメンタル（Unity 6 製・Windows）。
+実家のガレージで木を彫りはじめて、商店街の工房、町工場へと大きくしていく一人称インクリメンタル（Unity 6 製・Windows）。
 ダウンロード：[Chokoku_Win64.zip](https://github.com/cs3b-5/game/releases/download/chokoku-v1.0/Chokoku_Win64.zip)（GitHub Releases `chokoku-v1.0`。zip を展開して `Chokoku.exe`）
 
-- 作業台で E → 彫刻モード。ボクセルのブロックを小ノミ・大ノミ・やすり・ドリルで本当に削る（Marching Cubes でなめらかに表示）
+- 作業台で E → 彫刻モード。ボクセルのブロックを小ノミ・大ノミ・やすり・ドリル（町工場から電動グラインダー）で本当に削る（Marching Cubes でなめらかに表示）
+- お手本のゴーストが透けて見え、はみ出した所（削る所）は赤い縞で光る。お手本の内側は削れにくい（削りすぎ防止）
 - お手本5種類（ネコ・魚・ウサギ・フクロウ・胸像）との一致率で出来栄えが決まる。自由作品は大きさ・細かさ・左右対称・なめらかさで評価
 - 店頭の棚に並べると通りがかりの人が買っていく。商店街に引越すと注文ボードと職人（2人まで）
+- 町工場（2回目の引越し）：作業台8つ・職人7人まで、オークション（1日1回、出来栄えが高いほど高く売れる）、素材の自動搬入（職人のブロックが安い）、翡翠と金
 - ランキングは総売上（`chokoku`、`money: true`）。名前＋合言葉でセーブ同期（rank.js と同じ Firebase）
 - 素材はすべて CC0（Poly Haven・ambientCG・Kenney）と Noto Sans JP（OFL）（Unity のプロジェクトはこのリポジトリには入れていない）
