@@ -193,3 +193,14 @@ cd bukken-ou/incremental/tools && node curve.js core.js auto
 - ファイル：ルール `core.js`（画面なし）、3D `scene.js`、音 `sound.js`、操作とモード `game.js`。`node takoyaki/tools/check.js 火力 操作回数` でボットが焼いて点数を確認。テスト用：`?bot=1&fast=4&mode=free|challenge`、`?demo=1`（焼き具合の見本）
 - 軽くする工夫：粒（炎・湯気）は1回で描く、器の中身や舟皿のかつお節はインスタンス描画、たこ焼きの形は回ったときだけ・色は0.24秒ごとに計算、生地シートは変わったときだけ描きなおす、影はリアルタイムでなく置き物の下の丸い影。重いと描く解像度を自動で下げる（`?fps=1` で左下にFPSを表示）。ハードウェアアクセラレーションがオフ（ソフト描画）だと知らせる
 - セーブは `takoyaki-sim-v1`（端末間の同期対象）
+
+## 彫刻工房（ダウンロード版）— PC専用
+
+実家のガレージで木を彫りはじめて、商店街の工房へ大きくしていく一人称インクリメンタル（Unity 6 製・Windows）。
+ダウンロード：[Chokoku_Win64.zip](https://github.com/cs3b-5/game/releases/download/chokoku-v1.0/Chokoku_Win64.zip)（GitHub Releases `chokoku-v1.0`。zip を展開して `Chokoku.exe`）
+
+- 作業台で E → 彫刻モード。ボクセルのブロックを小ノミ・大ノミ・やすり・ドリルで本当に削る（Marching Cubes でなめらかに表示）
+- お手本5種類（ネコ・魚・ウサギ・フクロウ・胸像）との一致率で出来栄えが決まる。自由作品は大きさ・細かさ・左右対称・なめらかさで評価
+- 店頭の棚に並べると通りがかりの人が買っていく。商店街に引越すと注文ボードと職人（2人まで）
+- ランキングは総売上（`chokoku`、`money: true`）。名前＋合言葉でセーブ同期（rank.js と同じ Firebase）
+- 素材はすべて CC0（Poly Haven・ambientCG・Kenney）と Noto Sans JP（OFL）（Unity のプロジェクトはこのリポジトリには入れていない）
