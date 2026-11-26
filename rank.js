@@ -32,6 +32,7 @@
     takoyaki: { t: 'たこ焼きシミュレーター', unit: '点', sub: 'チャレンジの最高スコア' },
     neko_daily: { t: 'ねこ爆弾（デイリー）', unit: '', sub: 'デイリークリアタイム', order: 'asc', ms: true, daily: true },
     chokoku: { t: '彫刻工房', unit: '', sub: '総売上', money: true },
+    chokoku_ta: { t: '彫刻工房 タイムアタック', unit: '', sub: '100%までの時間', order: 'asc', time: true },
   };
   const IN_CLAUDE = /(^|\.)claudeusercontent\.com$|(^|\.)claude\.ai$/.test(location.hostname);
   const FB_CONFIG = {
